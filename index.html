@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>try{var t=localStorage.getItem("samudbaan-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <style>
 :root{
   --bg:#EDF3EF; --surface:#FFFFFF; --surface-2:#F4F8F5; --ink:#0F2621; --muted:#5E716B; --line:#DDE6E1;
@@ -21,7 +22,7 @@
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){
-  :root{
+  :root:not([data-theme="light"]){
     --bg:#091412; --surface:#111F1C; --surface-2:#172824; --ink:#E4EFEA; --muted:#93A8A0; --line:#22372F;
     --brand:#6CD2B2; --on-brand:#06120F; --brand-soft:#173A31;
     --hero-1:#1C5E4D; --hero-2:#0B2B24; --hero-ink:#EAF8F1;
@@ -31,6 +32,16 @@
     --shadow:none;
     color-scheme:dark;
   }
+}
+:root[data-theme="dark"]{
+    --bg:#091412; --surface:#111F1C; --surface-2:#172824; --ink:#E4EFEA; --muted:#93A8A0; --line:#22372F;
+    --brand:#6CD2B2; --on-brand:#06120F; --brand-soft:#173A31;
+    --hero-1:#1C5E4D; --hero-2:#0B2B24; --hero-ink:#EAF8F1;
+    --income:#5DD39A; --expense:#FF8995; --shared:#F0BB4A; --bill:#74AEE8;
+    --st-work:#4CC594; --st-off:#73827D; --st-sick:#62A9E6; --st-personal:#B08BEA; --st-vacation:#F0B04E; --st-unpaid:#FF8995;
+    --shift:#F2B54A; --grid:#1E312B;
+    --shadow:none;
+    color-scheme:dark;
 }
 *{box-sizing:border-box}
 :root{padding-top:env(safe-area-inset-top,0px)}
@@ -307,6 +318,50 @@ section{margin-top:22px}
 .kv span{color:var(--muted)}
 .kv .minus{color:var(--expense)} .kv .plus{color:var(--income)}
 .type-tag{font-size:11.5px;padding:2px 8px;border-radius:99px;background:var(--brand-soft);color:var(--ink);font-weight:600;margin-left:6px;white-space:nowrap}
+img.av-img{object-fit:cover;padding:0;background:var(--surface-2)}
+.avatar-lg{width:64px;height:64px;font-size:24px}
+.prof{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.prof .field{margin:0;flex:1}
+.prof-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.set-block{margin-bottom:14px}
+.set-block h3{font-size:15px;margin:0 0 10px}
+.seg3{grid-template-columns:repeat(3,1fr)}
+.wf-meter{height:16px;border-radius:99px;overflow:hidden;display:flex;background:var(--surface-2);gap:2px;margin:10px 0 6px}
+.wf-meter i{display:block;height:100%}
+.wf-head{display:flex;justify-content:space-between;font-size:14px;color:var(--muted)}
+.wf-head b{color:var(--ink)}
+.wf-list{display:grid;gap:12px;margin-top:14px}
+.wf-row{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+.wf-n{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-size:13px;font-weight:700;background:var(--surface-2);color:var(--muted)}
+.wf-full .wf-n{background:color-mix(in srgb,var(--income) 18%,var(--surface));color:var(--income)}
+.wf-part .wf-n{background:color-mix(in srgb,var(--shift) 20%,var(--surface));color:var(--shift)}
+.wf-none .wf-n{background:color-mix(in srgb,var(--expense) 16%,var(--surface));color:var(--expense)}
+.wf-top{display:flex;justify-content:space-between;gap:8px;font-size:15px;margin-bottom:5px}
+.wf-top b{font-weight:600}
+.wf-sub{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted);margin-top:4px}
+.tag{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:99px}
+.tag.ok{background:color-mix(in srgb,var(--income) 15%,transparent);color:var(--income)}
+.tag.part{background:color-mix(in srgb,var(--shift) 18%,transparent);color:var(--shift)}
+.tag.no{background:color-mix(in srgb,var(--expense) 14%,transparent);color:var(--expense)}
+.wf-end{display:flex;justify-content:space-between;align-items:center;border-top:1.5px dashed var(--line);margin-top:14px;padding-top:12px;font-weight:700;font-size:17px}
+.slip-att{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 6px}
+.slip-tag{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;color:var(--ink)}
+.slip-img{width:100%;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);min-height:120px;display:block}
+.list-edit .li.li-bill{grid-template-columns:1fr 92px 30px 30px 30px}
+.list-edit .li button:disabled{opacity:.3}
+.period-pick{position:relative;display:block}
+.period-pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+.period-pick input:disabled{cursor:default}
+.period.p3{grid-template-columns:repeat(3,1fr)}
+.kpis.k3{grid-template-columns:repeat(3,1fr)}
+.kpis.k3 .kpi b{font-size:16px}
+.hist{display:grid}
+.hist-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 0;font-size:14px}
+.hist-row + .hist-row{border-top:1px solid var(--line)}
+.hist-row small{display:block;color:var(--muted);font-size:12.5px}
+.hist-row .ed{border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:6px 12px;cursor:pointer;font-weight:600;font-size:13px}
+.rm-btn{border:1px solid color-mix(in srgb,var(--expense) 40%,var(--line));background:none;color:var(--expense);border-radius:10px;padding:5px 10px;font-size:13px;font-weight:600;cursor:pointer;margin-left:8px}
+.deposit{margin-top:12px;display:grid;gap:6px}
 .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;z-index:60;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.2);white-space:nowrap}
 </style>
 </head>
@@ -374,7 +429,7 @@ section{margin-top:22px}
       <div class="topbar-r">
       <div class="month" role="group" aria-label="เลือกช่วงเวลา">
         <button id="btnPrev" type="button" aria-label="ก่อนหน้า"><svg class="i" style="width:18px;height:18px"><use href="#i-left"/></svg></button>
-        <span id="txtPeriod" class="num"></span>
+        <label class="period-pick"><span id="txtPeriod" class="num"></span><input id="inJump" type="date" aria-label="เลือกวันที่ที่ต้องการดู"></label>
         <button id="btnNext" type="button" aria-label="ถัดไป"><svg class="i" style="width:18px;height:18px"><use href="#i-right"/></svg></button>
       </div>
       <button id="btnSettings" class="iconbtn" type="button" aria-label="ตั้งค่าบ้าน"><svg class="i"><use href="#i-gear"/></svg></button>
@@ -456,6 +511,38 @@ section{margin-top:22px}
 
     <!-- ===== tab: list ===== -->
     <div id="tabList" class="hidden">
+      <div id="ioPeriodBar" class="period p3" role="group" aria-label="มุมมองรายรับรายจ่าย">
+        <button data-io-period="month" aria-pressed="true">เดือน</button>
+        <button data-io-period="year" aria-pressed="false">ปี</button>
+        <button data-io-period="all" aria-pressed="false">ทั้งหมด</button>
+      </div>
+      <div class="kpis k3" style="margin-top:0">
+        <div class="kpi" style="--c:var(--income)"><span>รายรับ</span><b id="ioIn" class="num">฿0</b></div>
+        <div class="kpi" style="--c:var(--expense)"><span>รายจ่าย</span><b id="ioOut" class="num">฿0</b></div>
+        <div class="kpi" style="--c:var(--brand)"><span>คงเหลือ</span><b id="ioNet" class="num">฿0</b></div>
+      </div>
+      <p class="muted" style="font-size:12.5px;margin:8px 2px 0">คิดจากรายการที่บันทึกด้วยปุ่ม + เท่านั้น (ไม่รวมเงินเดือนที่คำนวณอัตโนมัติ)</p>
+      <section>
+        <div class="sec-head"><h2 id="ioChartTitle">รายรับ–รายจ่าย</h2><small id="ioChartSub"></small></div>
+        <div class="card">
+          <div class="legend-row"><span><i style="background:var(--income)"></i>รายรับ</span><span><i style="background:var(--expense)"></i>รายจ่าย</span></div>
+          <div id="chartIO" class="chart"></div><div id="tipIO" class="tip"></div>
+        </div>
+      </section>
+      <section>
+        <div class="sec-head"><h2>รายจ่ายตามหมวด</h2><small id="ioExpSub"></small></div>
+        <div class="card"><div id="ioExpCats" class="hbars"></div></div>
+      </section>
+      <section>
+        <div class="sec-head"><h2>รายรับตามหมวด</h2><small id="ioIncSub"></small></div>
+        <div class="card"><div id="ioIncCats" class="hbars"></div></div>
+      </section>
+      <section>
+        <div class="sec-head"><h2>ใครใช้จ่ายเท่าไร</h2></div>
+        <div class="card"><div id="ioWho" class="hbars"></div></div>
+      </section>
+      <section>
+        <div class="sec-head"><h2>รายการ</h2></div>
       <div class="chips" role="group" aria-label="กรองรายการ">
         <button class="chip" data-filter="all" aria-pressed="true">ทั้งหมด</button>
         <button class="chip" data-filter="expense" aria-pressed="false">รายจ่าย</button>
@@ -463,6 +550,7 @@ section{margin-top:22px}
         <button class="chip" data-filter="shared" aria-pressed="false">ใช้ร่วมกัน</button>
       </div>
       <div id="fullList" class="ledger"></div>
+      </section>
     </div>
 
     <!-- ===== tab: salary ===== -->
@@ -475,10 +563,18 @@ section{margin-top:22px}
           <div class="label"><span>ค่าจ้างสุทธิรวมทั้งบ้าน</span><span id="allCount" class="pill"></span></div>
           <div id="allNet" class="big num">฿0</div>
           <div class="cols" style="margin-top:12px">
-            <div><span>OT รวม</span><strong id="allOt" class="num">฿0</strong></div>
-            <div><span>ค่ากะรวม</span><strong id="allShift" class="num">฿0</strong></div>
+            <div><span>รายจ่ายหลักของรอบ</span><strong id="allBills" class="num">฿0</strong></div>
+            <div><span id="allLeftLabel">คงเหลือ</span><strong id="allLeft" class="num">฿0</strong></div>
           </div>
         </div>
+        <section>
+          <div class="sec-head"><h2>จ่ายตามลำดับความสำคัญ</h2>
+            <button id="btnEditBills2" class="linkbtn" type="button"><svg class="i" style="width:16px;height:16px"><use href="#i-edit"/></svg>เพิ่ม / แก้ไข</button></div>
+          <div class="card">
+            <div id="wfInfo" class="muted" style="font-size:13px"></div>
+            <div id="wfBox"></div>
+          </div>
+        </section>
         <section>
           <div class="sec-head"><h2>ได้รับสุทธิแต่ละคน</h2><small>คำนวณ เทียบ ได้จริง</small></div>
           <div class="card"><div class="legend-row"><span><i style="background:color-mix(in srgb,var(--brand) 35%,transparent)"></i>คำนวณ</span><span><i style="background:var(--brand)"></i>ได้จริงตามสลิป</span></div>
@@ -542,16 +638,14 @@ section{margin-top:22px}
             <div><span>ได้จริง</span><b id="cmpAct" class="num">—</b></div>
             <div><span>ส่วนต่าง</span><b id="cmpDiff" class="num">—</b></div>
           </div>
-          <div id="actualEdit">
-            <div class="lbl">เงินเดือนสุทธิที่ได้จริงของรอบนี้</div>
-            <div class="actual-form">
-              <input id="inActual" class="input num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 20450" aria-label="เงินเดือนสุทธิที่ได้จริง">
-              <button id="btnSaveActual" class="btn btn-primary btn-sm" type="button">บันทึก</button>
-            </div>
-            <button id="btnDelActual" class="linkbtn hidden" type="button" style="color:var(--expense)">ลบยอดจริงของรอบนี้</button>
+          <div class="slip-att">
+            <button id="btnEditActual" class="btn btn-primary btn-sm" type="button">✏️ บันทึก / แก้ไขยอดจริง</button>
+            <button id="btnViewSlip" class="btn btn-soft btn-sm hidden" type="button">🧾 ดูรูปสลิป</button>
           </div>
           <div class="legend-row" style="margin-top:12px"><span><i style="background:color-mix(in srgb,var(--brand) 35%,transparent)"></i>คำนวณ</span><span><i style="background:var(--brand)"></i>ได้จริง</span></div>
           <div id="chartActual" class="chart"></div><div id="tipActual" class="tip"></div>
+          <div class="subhead" style="margin-top:16px">ประวัติยอดจริง 12 รอบล่าสุด</div>
+          <div id="actualHist" class="hist"></div>
         </div>
         <p id="salReadonly" class="readonly-note hidden">ดูได้อย่างเดียว เฉพาะเจ้าตัวหรือเจ้าของบ้านที่แก้ไขได้</p>
       </section>
@@ -580,7 +674,7 @@ section{margin-top:22px}
   <nav class="nav" aria-label="เมนูหลัก">
     <div class="nav-inner">
       <button class="tab" data-tab="overview" aria-current="page"><svg class="i"><use href="#i-home"/></svg>ภาพรวม</button>
-      <button class="tab" data-tab="list"><svg class="i"><use href="#i-list"/></svg>รายการ</button>
+      <button class="tab" data-tab="list"><svg class="i"><use href="#i-list"/></svg>รับ–จ่าย</button>
       <button id="btnAdd" class="fab" type="button" aria-label="บันทึกรายรับรายจ่าย"><svg class="i"><use href="#i-plus"/></svg></button>
       <button class="tab" data-tab="salary"><svg class="i"><use href="#i-wallet"/></svg>เงินเดือน</button>
       <button class="tab" data-tab="home"><svg class="i"><use href="#i-users"/></svg>บ้าน</button>
@@ -628,7 +722,8 @@ section{margin-top:22px}
     <div id="dayEarn" class="hint num"></div>
     <div id="dayErr" class="err" role="alert"></div>
     <div class="actions">
-      <button type="button" class="btn btn-ghost" id="btnClearDay">ล้างวันนี้</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="button" class="btn btn-ghost" id="btnClearDay" style="color:var(--expense)">ล้างวันนี้</button>
       <button type="submit" class="btn btn-primary" id="btnSaveDay">บันทึก</button>
     </div>
   </form>
@@ -660,8 +755,11 @@ section{margin-top:22px}
       <div class="field"><label for="psOt20">2 เท่า</label><input id="psOt20" class="num" type="number" inputmode="decimal" min="0" step="0.01"></div>
       <div class="field"><label for="psOt30">3 เท่า</label><input id="psOt30" class="num" type="number" inputmode="decimal" min="0" step="0.01"></div>
     </div>
-    <div class="subhead">รายรับประจำ <button type="button" class="linkbtn" data-add-line="incomes">+ เพิ่ม</button></div>
+    <div class="subhead">รายรับประจำต่อรอบ <button type="button" class="linkbtn" data-add-line="incomes">+ เพิ่ม</button></div>
     <div id="lines-incomes" class="list-edit"></div>
+    <div class="subhead">รายรับรายวัน <button type="button" class="linkbtn" data-add-line="dailyIncomes">+ เพิ่ม</button></div>
+    <div class="muted" style="font-size:13px;margin:-4px 0 8px">จ่ายตามจำนวนวันที่ “มาทำงาน” เช่น ค่าอาหาร ค่าทักษะ (ใส่ยอดต่อวัน)</div>
+    <div id="lines-dailyIncomes" class="list-edit"></div>
     <div class="subhead">รายการหัก <button type="button" class="linkbtn" data-add-line="deductions">+ เพิ่ม</button></div>
     <div id="lines-deductions" class="list-edit"></div>
     <div id="payErr" class="err" role="alert"></div>
@@ -691,14 +789,40 @@ section{margin-top:22px}
 <!-- ============ SHEET: family settings ============ -->
 <div id="sheetSettings" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <form class="sheet" id="formReset" novalidate>
-    <h2 id="setTitle">ตั้งค่าบ้าน</h2>
-    <div class="card" style="margin-bottom:14px">
-      <div class="kv" style="grid-template-columns:1fr">
-        <div><span>ชื่อบ้าน</span><b id="setFamName"></b></div>
-        <div><span>สมาชิก</span><b id="setMembers" class="num"></b></div>
-        <div><span>สิทธิ์ของคุณ</span><b id="setRole"></b></div>
+    <h2 id="setTitle">ตั้งค่า</h2>
+    <div class="set-block">
+      <h3>ธีม</h3>
+      <div class="seg seg3" role="group" aria-label="ธีม" style="margin:0">
+        <button type="button" data-theme-opt="auto">ตามเครื่อง</button>
+        <button type="button" data-theme-opt="light">สว่าง</button>
+        <button type="button" data-theme-opt="dark">มืด</button>
       </div>
     </div>
+    <div class="card set-block">
+      <h3>บ้าน</h3>
+      <div class="prof"><div id="setFamAv" class="avatar avatar-lg" aria-hidden="true"></div>
+        <div class="field"><label for="inFamName">ชื่อบ้าน</label><input id="inFamName" maxlength="60"></div></div>
+      <div class="prof-actions" id="famEditActions">
+        <label class="btn btn-ghost btn-sm" for="inFamPhoto">เปลี่ยนรูปบ้าน</label><input id="inFamPhoto" type="file" accept="image/*" hidden>
+        <button id="btnRmFamPhoto" class="linkbtn" type="button">ลบรูป</button>
+        <span style="flex:1"></span>
+        <button id="btnSaveFam" class="btn btn-primary btn-sm" type="button">บันทึก</button>
+      </div>
+      <p id="famReadonly" class="muted hidden" style="font-size:13px;margin:0">เฉพาะเจ้าของบ้านที่แก้ชื่อและรูปบ้านได้ · สมาชิก <span id="setMembers"></span></p>
+    </div>
+    <div class="card set-block">
+      <h3>โปรไฟล์ของฉัน <small class="muted" id="setRole" style="font-weight:400"></small></h3>
+      <div class="prof"><div id="setMyAv" class="avatar avatar-lg" aria-hidden="true"></div>
+        <div class="field"><label for="inMyName">ชื่อที่คนในบ้านเห็น</label><input id="inMyName" maxlength="40"></div></div>
+      <div class="prof-actions">
+        <label class="btn btn-ghost btn-sm" for="inMyPhoto">เปลี่ยนรูปโปรไฟล์</label><input id="inMyPhoto" type="file" accept="image/*" hidden>
+        <button id="btnRmMyPhoto" class="linkbtn" type="button">ลบรูป</button>
+        <span style="flex:1"></span>
+        <button id="btnSaveMe" class="btn btn-primary btn-sm" type="button">บันทึก</button>
+      </div>
+      <div id="profErr" class="err" role="alert"></div>
+    </div>
+    <span id="setFamName" class="hidden"></span>
     <div class="danger">
       <h3>ล้างข้อมูลทั้งหมดในบ้าน</h3>
       <p>ลบรายรับรายจ่าย วันทำงาน OT ค่ากะ การตั้งค่าเงินเดือน รายจ่ายหลัก และยอดจริงตามสลิปของทุกคนในบ้าน <b>กู้คืนไม่ได้</b> บ้านและสมาชิกยังอยู่เหมือนเดิม</p>
@@ -716,6 +840,44 @@ section{margin-top:22px}
   </form>
 </div>
 
+<div id="sheetActual" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="actTitle">
+  <form class="sheet" id="formActual" novalidate>
+    <h2 id="actTitle">ยอดจริงตามสลิป</h2>
+    <div class="cmp">
+      <div><span>คำนวณ</span><b id="actEst" class="num">฿0</b></div>
+      <div><span>ได้จริง</span><b id="actNow" class="num">—</b></div>
+      <div><span>ส่วนต่าง</span><b id="actDiff" class="num">—</b></div>
+    </div>
+    <div class="field"><label for="inActual">เงินเดือนสุทธิที่ได้จริง (บาท)</label>
+      <input id="inActual" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 20450"></div>
+    <div class="lbl">รูปสลิปเงินเดือน</div>
+    <div class="slip-att">
+      <button id="actViewSlip" class="btn btn-soft btn-sm hidden" type="button">🧾 ดูรูป</button>
+      <label id="actLblSlip" class="btn btn-ghost btn-sm" for="inSlip">📷 แนบรูปสลิป</label>
+      <input id="inSlip" type="file" accept="image/*" hidden>
+      <button id="actDelSlip" class="linkbtn hidden" type="button" style="color:var(--expense)">ลบรูป</button>
+    </div>
+    <div id="actErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" id="actDelAmount" style="color:var(--expense)">ลบยอด</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="actSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetSlip" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="slipTitle">
+  <div class="sheet">
+    <h2 id="slipTitle">รูปสลิปเงินเดือน</h2>
+    <div id="slipLoading" class="empty">กำลังโหลดรูป…</div>
+    <img id="slipImg" class="slip-img hidden" alt="รูปสลิปเงินเดือน">
+    <div class="actions" style="margin-top:14px">
+      <a id="slipOpen" class="btn btn-ghost" target="_blank" rel="noopener" href="#">เปิดเต็มจอ</a>
+      <button type="button" class="btn btn-primary" data-close>ปิด</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast hidden" role="status"></div>
 
 <script>
@@ -731,7 +893,7 @@ const DEMO = !CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY;
 const CATEGORIES = {
   expense: [["อาหาร","🍜"],["ของใช้ในบ้าน","🧺"],["ค่าน้ำค่าไฟ","💡"],["ค่าเช่า/ผ่อนบ้าน","🏠"],["เดินทาง","🚗"],
             ["การศึกษา","📚"],["สุขภาพ","💊"],["ช้อปปิ้ง","🛍️"],["บันเทิง","🎬"],["อื่น ๆ","📦"]],
-  income:  [["โบนัส","🎁"],["รายได้เสริม","💰"],["ขายของ","🏷️"],["เงินให้/ของขวัญ","🧧"],["อื่น ๆ","✨"]]
+  income:  [["เงินฝากจากเงินเหลือ","🏦"],["โบนัส","🎁"],["รายได้เสริม","💰"],["ขายของ","🏷️"],["เงินให้/ของขวัญ","🧧"],["อื่น ๆ","✨"]]
 };
 const LEGACY_ICONS = { "เงินเดือน": "💼", "OT": "⏱️" };
 const CAT_COLORS = ["#16805F","#C23A4A","#D08A1E","#2F7FC1","#8456C4","#5E8C3A","#C2612D","#1F9A8E","#9C6B4E","#7B8794"];
@@ -741,6 +903,7 @@ const STATUSES = [
   ["personal","ลากิจ","--st-personal"],["vacation","พักร้อน","--st-vacation"],["unpaid","ขาด/ไม่รับเงิน","--st-unpaid"]
 ];
 const WD = ["อา","จ","อ","พ","พฤ","ศ","ส"];
+const SAVE_CAT = "เงินฝากจากเงินเหลือ"; // ย้ายเงินเหลือไปเก็บ ไม่นับเป็นรายได้ซ้ำในภาพรวม
 const LEGACY_SLIP = "สลิปเงินเดือน รอบ"; // รายรับที่ปุ่มเก่าบันทึกไว้ ไม่นำมานับซ้ำ
 
 /* ---------- helpers ---------- */
@@ -784,6 +947,9 @@ function friendlyError(e) {
   if (m.includes("Password should be")) return "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร";
   if (m.includes("Failed to fetch")) return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต";
   if (m.includes("schema cache") || m.includes("does not exist")) return "ฐานข้อมูลยังไม่อัปเดต ให้รัน schema_phase3.sql ใน Supabase";
+  if (m.includes("daily_incomes") || m.includes("remove_member")) return "ฐานข้อมูลยังไม่อัปเดต ให้รัน schema_phase6.sql ใน Supabase";
+  if (m.includes("cannot_remove_owner")) return "ลบเจ้าของบ้านไม่ได้";
+  if (m.includes("not_found")) return "ไม่พบสมาชิกคนนี้";
   if (m.includes("not_owner")) return "เฉพาะเจ้าของบ้านที่ทำรายการนี้ได้";
   if (m.includes("confirm_mismatch")) return "ชื่อบ้านที่พิมพ์ไม่ตรง";
   if (m.includes("reset_family_data")) return "ฐานข้อมูลยังไม่อัปเดต ให้รัน schema_phase4.sql ใน Supabase";
@@ -794,7 +960,7 @@ function friendlyError(e) {
 /* =========================================================
    PAY MATH
    ========================================================= */
-const DEFAULT_PAY = { pay_type: "monthly", base_salary: 0, shift_rate: 0, start_day: 1, end_day: 31, ot15_rate: null, ot20_rate: null, ot30_rate: null, incomes: [], deductions: [] };
+const DEFAULT_PAY = { pay_type: "monthly", base_salary: 0, shift_rate: 0, start_day: 1, end_day: 31, ot15_rate: null, ot20_rate: null, ot30_rate: null, incomes: [], daily_incomes: [], deductions: [] };
 // รอบของเดือน M: เริ่ม <= สิ้นสุด → ภายในเดือน M; เริ่ม > สิ้นสุด (เช่น 21–20) → เริ่มเดือนก่อน จบเดือน M
 function cycleRange(month, startDay, endDay) {
   const y = month.getFullYear(), m = month.getMonth();
@@ -830,8 +996,10 @@ function calcPay(s, days) {
   const unpaidDeduct = daily ? 0 : round2(unpaid * rate / 30);
   const incomes = (s.incomes || []).filter(x => +x.amount > 0), deductions = (s.deductions || []).filter(x => +x.amount > 0);
   const incSum = sumItems(incomes), dedSum = sumItems(deductions);
-  const net = round2(base - unpaidDeduct + otTotal + shiftPay + incSum - dedSum);
-  return { daily, rate, counts, base, ...rates, shiftRate, h15, h20, h30, ot15, ot20, ot30, otTotal, shifts, shiftPay, unpaid, unpaidDeduct, incomes, deductions, incSum, dedSum, net, work, leave, hours: h15 + h20 + h30 };
+  const dailyIncomes = (s.daily_incomes || []).filter(x => +x.amount > 0).map(x => ({ name: x.name, rate: +x.amount, days: work, total: round2(+x.amount * work) }));
+  const dailyIncSum = round2(dailyIncomes.reduce((a, x) => a + x.total, 0));
+  const net = round2(base - unpaidDeduct + otTotal + shiftPay + incSum + dailyIncSum - dedSum);
+  return { daily, rate, counts, base, ...rates, shiftRate, h15, h20, h30, ot15, ot20, ot30, otTotal, shifts, shiftPay, unpaid, unpaidDeduct, incomes, deductions, incSum, dailyIncomes, dailyIncSum, dedSum, net, work, leave, hours: h15 + h20 + h30 };
 }
 
 /* =========================================================
@@ -860,11 +1028,26 @@ function makeSupabaseApi() {
     async signIn(email, password) { return must(await sb.auth.signInWithPassword({ email, password })).user; },
     async signOut() { await sb.auth.signOut(); },
     async getMyFamily(userId) {
-      const mine = must(await sb.from("family_members").select("id, family_id, display_name, role, families(id, name, invite_code, plan)").eq("user_id", userId).maybeSingle());
-      if (!mine) return null;
-      const members = must(await sb.from("family_members").select("id, display_name, role, user_id").eq("family_id", mine.family_id).order("created_at"));
-      return { family: mine.families, me: { id: mine.id, display_name: mine.display_name, role: mine.role }, members };
+      const q = async (av) => {
+        const A = av ? ", avatar_url" : "";
+        const mine = must(await sb.from("family_members").select(`id, family_id, display_name, role${A}, families(id, name, invite_code, plan${A})`).eq("user_id", userId).maybeSingle());
+        if (!mine) return null;
+        const members = must(await sb.from("family_members").select(`id, display_name, role, user_id${A}`).eq("family_id", mine.family_id).order("created_at"));
+        return { family: mine.families, me: { id: mine.id, display_name: mine.display_name, role: mine.role }, members };
+      };
+      try { return await q(true); }
+      catch (e) { if (String(e.message || e).includes("avatar_url")) return await q(false); throw e; }
     },
+    async updateFamily(fid, patch) { must(await sb.from("families").update(patch).eq("id", fid)); },
+    async removeMember(fid, mid) {
+      try { const { data } = await sb.storage.from("payslips").list(`${fid}/${mid}`, { limit: 1000 });
+        if (data?.length) await sb.storage.from("payslips").remove(data.map(f => `${fid}/${mid}/${f.name}`)); } catch (e) { console.warn(e); }
+      must(await sb.rpc("remove_member", { p_member: mid }));
+    },
+    async updateMe(mid, patch) { must(await sb.from("family_members").update(patch).eq("id", mid)); },
+    async uploadSlip(path, blob) { must(await sb.storage.from("payslips").upload(path, blob, { contentType: "image/jpeg", upsert: true })); return path; },
+    async slipUrl(path) { return must(await sb.storage.from("payslips").createSignedUrl(path, 3600)).signedUrl; },
+    async deleteSlip(path) { await sb.storage.from("payslips").remove([path]); },
     async createFamily(name, displayName) { must(await sb.rpc("create_family", { p_name: name, p_display_name: displayName })); },
     async joinFamily(code, displayName) { must(await sb.rpc("join_family", { p_code: code, p_display_name: displayName })); },
     async loadAll(fid) {
@@ -887,7 +1070,13 @@ function makeSupabaseApi() {
     async saveBills(row) { return must(await sb.from("family_bills").upsert(row, { onConflict: "family_id,effective_month" }).select().single()); },
     async saveActual(row) { return must(await sb.from("actual_pay").upsert(row, { onConflict: "member_id,cycle_month" }).select().single()); },
     async deleteActual(memberId, month) { must(await sb.from("actual_pay").delete().eq("member_id", memberId).eq("cycle_month", month)); },
-    async resetFamily(fid, confirmText) { must(await sb.rpc("reset_family_data", { p_family: fid, p_confirm: confirmText })); },
+    async resetFamily(fid, confirmText, memberIds = []) {
+      must(await sb.rpc("reset_family_data", { p_family: fid, p_confirm: confirmText }));
+      for (const mid of memberIds) { // ลบรูปสลิปที่เก็บไว้ด้วย (ทำต่อแม้บางไฟล์ลบไม่ได้)
+        try { const { data } = await sb.storage.from("payslips").list(`${fid}/${mid}`, { limit: 1000 });
+          if (data?.length) await sb.storage.from("payslips").remove(data.map(f => `${fid}/${mid}/${f.name}`)); } catch (e) { console.warn(e); }
+      }
+    },
     subscribe(fid, onChange, onStatus) {
       const ch = sb.channel("family-" + fid);
       ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay"].forEach(t => {
@@ -901,7 +1090,7 @@ function makeSupabaseApi() {
 }
 
 function makeDemoApi() {
-  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [] };
+  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], files: {} };
   let session = null;
   const uid = () => Math.random().toString(36).slice(2, 10);
   const wait = () => new Promise(r => setTimeout(r, 100));
@@ -912,7 +1101,7 @@ function makeDemoApi() {
     const t = new Date(), m0 = monthStart(t);
     const eff = ymd(addMonths(m0, -3));
     db.settings.push({ id: uid(), family_id: fid, member_id: meId, effective_month: eff, base_salary: 18000, shift_rate: 60, start_day: 21, end_day: 20, ot15_rate: null, ot20_rate: null, ot30_rate: null, incomes: [{ name: "ค่าอาหาร", amount: 1000 }], deductions: [{ name: "ประกันสังคม", amount: 750 }] });
-    db.settings.push({ id: uid(), family_id: fid, member_id: mom.id, effective_month: eff, pay_type: "daily", base_salary: 450, shift_rate: 0, start_day: 1, end_day: 31, ot15_rate: null, ot20_rate: null, ot30_rate: null, incomes: [], deductions: [{ name: "ประกันสังคม", amount: 750 }] });
+    db.settings.push({ id: uid(), family_id: fid, member_id: mom.id, effective_month: eff, pay_type: "daily", base_salary: 450, shift_rate: 0, daily_incomes: [{ name: "ค่าอาหาร", amount: 40 }], start_day: 1, end_day: 31, ot15_rate: null, ot20_rate: null, ot30_rate: null, incomes: [], deductions: [{ name: "ประกันสังคม", amount: 750 }] });
     db.bills.push({ id: uid(), family_id: fid, effective_month: eff, items: [{ name: "ค่าเช่าบ้าน", amount: 6500 }, { name: "ผ่อนรถ", amount: 8200 }, { name: "ค่าน้ำค่าไฟ", amount: 1800 }, { name: "อินเทอร์เน็ต + มือถือ", amount: 900 }] });
     for (let d = addDays(t, -100); d <= t; d = addDays(d, 1)) {
       const wd = d.getDay();
@@ -951,7 +1140,7 @@ function makeDemoApi() {
     async signOut() { session = null; },
     async getMyFamily(userId) {
       const me = db.members.find(m => m.user_id === userId); if (!me) return null;
-      return { family: db.families.find(f => f.id === me.family_id), me, members: db.members.filter(m => m.family_id === me.family_id) };
+      return { family: { ...db.families.find(f => f.id === me.family_id) }, me: { ...me }, members: db.members.filter(m => m.family_id === me.family_id).map(m => ({ ...m })) };
     },
     async createFamily(name, displayName) {
       await wait();
@@ -973,6 +1162,18 @@ function makeDemoApi() {
     async deleteWorkDay(mid, date) { db.days = db.days.filter(d => !(d.member_id === mid && d.work_date === date)); },
     async saveBills(row) { return upsert(db.bills, row, ["family_id", "effective_month"]); },
     async saveActual(row) { return upsert(db.actual, row, ["member_id", "cycle_month"]); },
+    async updateFamily(fid, patch) { Object.assign(db.families.find(f => f.id === fid), patch); },
+    async removeMember(fid, mid) {
+      const me = db.members.find(m => m.user_id === session.id && m.family_id === fid), t = db.members.find(m => m.id === mid);
+      if (!me || me.role !== "owner") throw new Error("not_owner"); if (!t) throw new Error("not_found"); if (t.role === "owner") throw new Error("cannot_remove_owner");
+      db.txs.forEach(x => { if (x.member_id === mid && x.scope === "shared") x.member_id = me.id; });
+      db.txs = db.txs.filter(x => x.member_id !== mid); ["days", "settings", "actual"].forEach(k => db[k] = db[k].filter(r => r.member_id !== mid));
+      db.members = db.members.filter(m => m.id !== mid);
+    },
+    async updateMe(mid, patch) { Object.assign(db.members.find(m => m.id === mid), patch); },
+    async uploadSlip(path, blob) { db.files[path] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); return path; },
+    async slipUrl(path) { if (!db.files[path]) throw new Error("ไม่พบไฟล์"); return db.files[path]; },
+    async deleteSlip(path) { delete db.files[path]; },
     async deleteActual(mid, month) { db.actual = db.actual.filter(a => !(a.member_id === mid && a.cycle_month === month)); },
     async resetFamily(fid, confirmText) {
       const f = db.families.find(x => x.id === fid), me = db.members.find(m => m.user_id === session.id && m.family_id === fid);
@@ -996,10 +1197,10 @@ const today0 = () => { const t = new Date(); return new Date(t.getFullYear(), t.
 const state = {
   user: null, family: null, me: null, members: [],
   data: { txs: [], days: [], settings: [], bills: [], actual: [], missing: [] },
-  anchor: today0(), period: "month", tab: "overview", filter: "all", authMode: "login",
+  anchor: today0(), period: "month", ioPeriod: "month", tab: "overview", filter: "all", authMode: "login",
   tx: { type: "expense", category: null, who: "shared" },
   salMember: null, day: { date: null, status: "work", shift: false },
-  draft: { incomes: [], deductions: [], bills: [] }
+  draft: { incomes: [], dailyIncomes: [], deductions: [], bills: [] }, act: { mid: null, M: null }
 };
 const IDX = { days: new Map(), settings: {}, bills: [], actual: new Map() };
 function buildIndex() {
@@ -1017,7 +1218,30 @@ const dayRec = (mid, d) => IDX.days.get(mid + "|" + (typeof d === "string" ? d :
 const memberIdx = (id) => Math.max(0, state.members.findIndex(m => m.id === id));
 const memberName = (id) => state.members.find(m => m.id === id)?.display_name || "—";
 const canEditMember = (id) => id === state.me.id || state.me.role === "owner";
-const avatarHTML = (m, cls = "mini-av") => `<span class="${cls}" style="background:${avColor(memberIdx(m.id))}">${esc(initial(m.display_name))}</span>`;
+const avatarHTML = (m, cls = "mini-av") => m.avatar_url
+  ? `<img class="${cls} av-img" src="${esc(m.avatar_url)}" alt="">`
+  : `<span class="${cls}" style="background:${avColor(memberIdx(m.id))}">${esc(initial(m.display_name))}</span>`;
+function paintAvatar(el, url, letter, bg) {
+  el.innerHTML = url ? `<img src="${esc(url)}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : esc(letter);
+  el.style.background = url ? "var(--surface-2)" : bg;
+}
+/* ---------- images ---------- */
+function loadImage(file) {
+  return new Promise((res, rej) => { const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); res(img); }; img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("อ่านไฟล์รูปไม่ได้ ลองใช้ไฟล์ JPG หรือ PNG")); }; img.src = url; });
+}
+async function avatarDataUrl(file) { // ครอปสี่เหลี่ยมจัตุรัส 256px
+  const img = await loadImage(file), side = Math.min(img.width, img.height), c = document.createElement("canvas");
+  c.width = c.height = 256;
+  c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 256, 256);
+  return c.toDataURL("image/jpeg", 0.82);
+}
+async function slipBlob(file) { // ย่อด้านยาวไม่เกิน 1800px ให้ตัวหนังสือบนสลิปยังอ่านออก
+  const img = await loadImage(file), k = Math.min(1, 1800 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, "image/jpeg", 0.82));
+}
 const countable = (t) => !(t.type === "income" && String(t.note || "").startsWith(LEGACY_SLIP));
 
 function payFor(mid, M) {
@@ -1029,7 +1253,8 @@ function payFor(mid, M) {
   const p = calcPay(S, days);
   const a = IDX.actual.get(mid + "|" + mStr);
   return Object.assign(p, { range, settings: S, days, inheritedFrom: String(s.effective_month).slice(0, 10) !== mStr ? parseYmd(s.effective_month) : null,
-    actual: a ? +a.actual_net : null, used: a ? +a.actual_net : p.net });
+    actual: a && a.actual_net !== null && a.actual_net !== undefined ? +a.actual_net : null,
+    used: a && a.actual_net !== null && a.actual_net !== undefined ? +a.actual_net : p.net, slipPath: a?.slip_path || null, actualRow: a || null });
 }
 // รายได้ของ 1 วัน (ใช้กับมุมมองวัน/สัปดาห์): ส่วนคงที่ของรอบเฉลี่ยรายวัน + OT + ค่ากะของวันนั้น
 function dailyEarn(mid, d) {
@@ -1046,6 +1271,7 @@ function dailyEarn(mid, d) {
     if (rec) {
       if (!daily && rec.status === "unpaid") fixed -= +S.base_salary / 30;
       if (daily && rec.status === "work") fixed += +S.base_salary;
+      if (rec.status === "work") fixed += sumItems(S.daily_incomes);
       ot = dayOtPay(rec, otRates(S)); otH = dayOtHours(rec);
       if (rec.has_shift) shift = +S.shift_rate || 0;
     }
@@ -1062,9 +1288,10 @@ function dataBounds() {
   const t = today0();
   return { start: min ? monthStart(parseYmd(min)) : monthStart(t), end: max && parseYmd(max) > t ? parseYmd(max) : t };
 }
-function periodRange() {
+const effPeriod = () => state.tab === "list" ? state.ioPeriod : state.tab === "salary" || state.tab === "home" ? "month" : state.period;
+function periodRange(period = state.period) {
   const a = state.anchor;
-  switch (state.period) {
+  switch (period) {
     case "day": return { start: a, end: a };
     case "week": { const s = addDays(a, -((a.getDay() + 6) % 7)); return { start: s, end: addDays(s, 6) }; }
     case "month": return { start: monthStart(a), end: new Date(a.getFullYear(), a.getMonth() + 1, 0) };
@@ -1073,9 +1300,9 @@ function periodRange() {
   }
 }
 function periodLabel() {
-  const a = state.anchor, r = periodRange();
+  const a = state.anchor, P = effPeriod(), r = periodRange(P);
   if (state.tab === "salary") return "รอบ " + monthLabel(a);
-  switch (state.period) {
+  switch (P) {
     case "day": return a.toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
     case "week": return `${r.start.getDate()}${r.start.getMonth() !== r.end.getMonth() ? " " + monthShort(r.start) : ""}–${r.end.getDate()} ${monthShort(r.end)}`;
     case "month": return monthLabel(a);
@@ -1084,7 +1311,7 @@ function periodLabel() {
   }
 }
 function shiftAnchor(dir) {
-  const a = state.anchor, p = state.tab === "salary" ? "month" : state.period;
+  const a = state.anchor, p = effPeriod();
   if (p === "all") return;
   state.anchor = p === "day" ? addDays(a, dir) : p === "week" ? addDays(a, 7 * dir)
     : p === "month" ? new Date(a.getFullYear(), a.getMonth() + dir, 1) : new Date(a.getFullYear() + dir, 0, 1);
@@ -1115,7 +1342,7 @@ function computeSummary() {
     });
   }
   const s0 = ymd(start), e0 = ymd(end);
-  const txs = state.data.txs.filter(t => countable(t) && t.tx_date >= s0 && t.tx_date <= e0);
+  const txs = state.data.txs.filter(t => countable(t) && t.category !== SAVE_CAT && t.tx_date >= s0 && t.tx_date <= e0);
   let shared = 0, personal = 0, sharedIncome = 0; const cats = {};
   txs.forEach(t => {
     const a = +t.amount;
@@ -1151,7 +1378,7 @@ function barChart(el, tipEl, { labels, series, stacked = true, fmt = shortNum, t
   const n = labels.length;
   const totals = labels.map((_, i) => stacked ? series.reduce((a, s) => a + Math.max(0, s.values[i] || 0), 0) : Math.max(0, ...series.map(s => s.values[i] || 0)));
   if (!n || totals.every(v => !v)) { el.innerHTML = `<div class="empty">${emptyText}</div>`; tipEl.innerHTML = ""; return; }
-  const padL = 34, padT = 8, padB = 22, W = Math.max(340, n * (stacked ? 14 : 30) + padL);
+  const padL = 34, padT = 8, padB = 22, W = Math.max(340, n * (stacked ? 14 : n > 12 ? 14 : 30) + padL);
   const max = niceMax(Math.max(...totals)), band = (W - padL) / n, plotH = H - padT - padB;
   let bars = "", hits = "";
   labels.forEach((l, i) => {
@@ -1283,16 +1510,17 @@ function renderAll() {
   if (!state.family) return;
   $("txtFamily").textContent = state.family.name;
   $("txtMe").textContent = `${state.me.display_name}${state.me.role === "owner" ? " · เจ้าของบ้าน" : ""}`;
-  $("famAvatar").textContent = initial(state.family.name.replace(/^บ้าน\s*/, "") || "บ้าน");
-  $("famAvatar").style.background = "linear-gradient(150deg,var(--hero-1),var(--hero-2))";
+  paintAvatar($("famAvatar"), state.family.avatar_url, initial(state.family.name.replace(/^บ้าน\s*/, "") || "บ้าน"), "linear-gradient(150deg,var(--hero-1),var(--hero-2))");
   $("txtPeriod").textContent = periodLabel();
-  const noNav = state.tab !== "salary" && state.period === "all";
-  $("btnPrev").disabled = noNav; $("btnNext").disabled = noNav;
-  $("periodBar").classList.toggle("hidden", !["overview", "list"].includes(state.tab));
+  const noNav = effPeriod() === "all";
+  $("btnPrev").disabled = noNav; $("btnNext").disabled = noNav; $("inJump").disabled = noNav;
+  $("inJump").value = ymd(state.anchor);
+  $("periodBar").classList.toggle("hidden", state.tab !== "overview");
+  document.querySelectorAll("[data-io-period]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ioPeriod === state.ioPeriod));
   document.querySelectorAll("[data-period]").forEach(b => b.setAttribute("aria-pressed", b.dataset.period === state.period));
   const S = computeSummary();
   renderDashboard(S);
-  renderList(S);
+  renderIO();
   renderSalary();
   renderHome();
 }
@@ -1444,6 +1672,42 @@ function ledgerHTML(list, groupByDay = true) {
   });
   return html;
 }
+function renderIO() {
+  const P = state.ioPeriod, r = periodRange(P), s0 = ymd(r.start), e0 = ymd(r.end);
+  const txs = state.data.txs.filter(t => countable(t) && t.tx_date >= s0 && t.tx_date <= e0);
+  let inc = 0, out = 0; const ec = {}, ic = {}, who = {}; let sharedOut = 0;
+  txs.forEach(t => { const a = +t.amount;
+    if (t.type === "income") { inc += a; ic[t.category] = (ic[t.category] || 0) + a; }
+    else { out += a; ec[t.category] = (ec[t.category] || 0) + a; if (t.scope === "shared") sharedOut += a; else who[t.member_id] = (who[t.member_id] || 0) + a; } });
+  $("ioIn").textContent = bahtR(inc); $("ioOut").textContent = bahtR(out);
+  $("ioNet").textContent = signed(Math.round(inc - out)); $("ioNet").style.color = inc - out < 0 ? "var(--expense)" : "";
+
+  // กราฟ: มุมมองเดือน = รายวัน · ปี/ทั้งหมด = รายเดือน
+  const B = [];
+  if (P === "month") eachDay(r.start, r.end, d => B.push({ key: ymd(d), label: String(d.getDate()), name: dayLabel(ymd(d)) }));
+  else eachMonth(r.start, P === "all" ? r.end : r.end, M => B.push({ key: ymd(M).slice(0, 7), label: P === "year" ? monthShort(M) : monthShort(M) + String(M.getFullYear() + 543).slice(2), name: monthLabel(M) }));
+  const kl = P === "month" ? 10 : 7, bi = {}, bo = {};
+  txs.forEach(t => { const k = t.tx_date.slice(0, kl); if (t.type === "income") bi[k] = (bi[k] || 0) + +t.amount; else bo[k] = (bo[k] || 0) + +t.amount; });
+  $("ioChartTitle").textContent = P === "month" ? "รายรับ–รายจ่าย รายวัน" : "รายรับ–รายจ่าย รายเดือน";
+  $("ioChartSub").textContent = P === "month" ? monthLabel(state.anchor) : P === "year" ? periodLabel() : "ทั้งหมด";
+  barChart($("chartIO"), $("tipIO"), {
+    labels: B.map(b => b.label), stacked: false, emptyText: "ยังไม่มีรายการในช่วงนี้",
+    series: [{ color: "var(--income)", values: B.map(b => bi[b.key] || 0) }, { color: "var(--expense)", values: B.map(b => bo[b.key] || 0) }],
+    tip: (i) => { const b = B[i], a = bi[b.key] || 0, o = bo[b.key] || 0;
+      return `<b>${esc(b.name)}</b><span>รับ <b class="num">${bahtR(a)}</b></span><span>จ่าย <b class="num">${bahtR(o)}</b></span><span style="color:${a - o >= 0 ? "var(--income)" : "var(--expense)"}">${a - o >= 0 ? "เหลือ" : "ขาด"} ${bahtR(Math.abs(a - o))}</span>`; }
+  });
+  const catBars = (obj, type, total, color) => { const e = Object.entries(obj).sort((a, b) => b[1] - a[1]); if (!e.length) return `<div class="empty">ไม่มีรายการ</div>`;
+    const max = e[0][1]; return e.map(([c, v], i) => `<div class="hbar"><div class="top"><b>${catIcon(type, c)} ${esc(c)}</b><span class="num" style="font-weight:700">${bahtR(v)} <small class="muted">${Math.round(v / total * 100)}%</small></span></div>
+      <div class="track"><i style="width:${(v / max * 100).toFixed(1)}%;background:${color(c, i)}"></i></div></div>`).join(""); };
+  $("ioExpCats").innerHTML = catBars(ec, "expense", out || 1, (c, i) => CAT_COLORS[i % CAT_COLORS.length]);
+  $("ioIncCats").innerHTML = catBars(ic, "income", inc || 1, (c) => c === SAVE_CAT ? "var(--bill)" : "var(--income)");
+  $("ioExpSub").textContent = bahtR(out); $("ioIncSub").textContent = bahtR(inc);
+  const wRows = state.members.map(m => ({ html: `${avatarHTML(m)}${esc(m.display_name)}`, v: who[m.id] || 0 })).concat([{ html: "🏠 ใช้ร่วมกัน", v: sharedOut }]);
+  const wMax = Math.max(1, ...wRows.map(w => w.v));
+  $("ioWho").innerHTML = wRows.map(w => `<div class="hbar"><div class="top"><b>${w.html}</b><span class="num" style="font-weight:700">${bahtR(w.v)}</span></div>
+    <div class="track"><i style="width:${(w.v / wMax * 100).toFixed(1)}%;background:var(--expense)"></i></div></div>`).join("");
+  renderList({ txs });
+}
 function renderList(S) {
   const f = state.filter;
   const list = [...S.txs].filter(t => f === "all" || (f === "shared" ? t.scope === "shared" : t.type === f))
@@ -1455,10 +1719,13 @@ function renderList(S) {
 document.querySelectorAll("[data-filter]").forEach(b => b.onclick = () => {
   state.filter = b.dataset.filter;
   document.querySelectorAll("[data-filter]").forEach(x => x.setAttribute("aria-pressed", x === b));
-  renderList(computeSummary());
+  renderIO();
 });
 document.querySelectorAll("[data-period]").forEach(b => b.onclick = () => { state.period = b.dataset.period; renderAll(); });
 $("btnPrev").onclick = () => shiftAnchor(-1);
+$("inJump").addEventListener("click", (e) => { try { e.target.showPicker(); } catch (_) {} });
+$("inJump").addEventListener("change", () => { if ($("inJump").value) { state.anchor = parseYmd($("inJump").value); renderAll(); } });
+document.querySelectorAll("[data-io-period]").forEach(b => b.onclick = () => { state.ioPeriod = b.dataset.ioPeriod; renderAll(); });
 $("btnNext").onclick = () => shiftAnchor(1);
 
 function renderHome() {
@@ -1467,8 +1734,19 @@ function renderHome() {
   $("txtEmail").textContent = `เข้าสู่ระบบด้วย ${state.user.email}`;
   $("memberList").innerHTML = state.members.map(m => `
     <div class="member"><div class="l">${avatarHTML(m, "avatar")}<div><b>${esc(m.display_name)}</b>${m.id === state.me.id ? ` <small class="muted">(คุณ)</small>` : ""}</div></div>
-    <span class="badge">${m.role === "owner" ? "เจ้าของบ้าน" : "สมาชิก"}</span></div>`).join("");
+    <div><span class="badge">${m.role === "owner" ? "เจ้าของบ้าน" : "สมาชิก"}</span>${state.me.role === "owner" && m.role !== "owner" ? `<button type="button" class="rm-btn" data-rm-member="${esc(m.id)}" aria-label="ลบ ${esc(m.display_name)} ออกจากบ้าน">ลบ</button>` : ""}</div></div>`).join("");
 }
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-rm-member]"); if (!b) return;
+  const name = memberName(b.dataset.rmMember);
+  if (!confirm(`ลบ “${name}” ออกจากบ้าน?\n\nข้อมูลส่วนตัวของ ${name} (รายรับรายจ่ายส่วนตัว วันทำงาน เงินเดือน รูปสลิป) จะถูกลบถาวร\nรายจ่าย “ใช้ร่วมกัน” ที่เคยบันทึกจะย้ายมาเป็นของคุณ`)) return;
+  b.disabled = true;
+  try {
+    await api.removeMember(state.family.id, b.dataset.rmMember);
+    if (state.salMember === b.dataset.rmMember) state.salMember = "all";
+    toast(`ลบ ${name} ออกจากบ้านแล้ว`); await refreshFamily(); await reload();
+  } catch (err) { toast(friendlyError(err)); b.disabled = false; }
+});
 $("btnCopyInvite").onclick = async () => {
   try { await navigator.clipboard.writeText(state.family.invite_code); toast("คัดลอกรหัสเชิญแล้ว"); }
   catch { toast(`รหัสเชิญ: ${state.family.invite_code}`); }
@@ -1501,6 +1779,64 @@ function renderSalaryChips() {
   $("salAll").classList.toggle("hidden", !all);
   $("salOne").classList.toggle("hidden", all);
 }
+const depositNote = (M) => `เงินเหลือรอบ ${monthLabel(M)}`;
+function depositHTML(M, left) {
+  if (left <= 0) return "";
+  const done = state.data.txs.filter(t => t.category === SAVE_CAT && t.note === depositNote(M)).reduce((a, t) => a + +t.amount, 0);
+  if (done) return `<div class="deposit"><button class="btn btn-soft" type="button" disabled>🏦 ฝากเงินเหลือรอบนี้แล้ว ${baht(done)} ✓</button></div>`;
+  if (M > monthStart(today0())) return `<div class="deposit"><button class="btn btn-soft" type="button" disabled>ฝากเงินเหลือได้เมื่อถึงรอบนี้</button></div>`;
+  return `<div class="deposit"><button class="btn btn-primary" type="button" data-deposit="${Math.round(left * 100) / 100}">🏦 ฝากเงินคงเหลือ ${baht(left)}</button>
+    <small class="muted" style="font-size:12.5px">บันทึกเป็นรายรับหมวด “${SAVE_CAT}” ในหน้ารายรับรายจ่าย</small></div>`;
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-deposit]"); if (!b) return;
+  const M = monthStart(state.anchor), amt = round2(b.dataset.deposit), t = today0(), endM = new Date(M.getFullYear(), M.getMonth() + 1, 0);
+  if (!confirm(`ฝากเงินคงเหลือ ${baht(amt)} ของรอบ ${monthLabel(M)}?`)) return;
+  b.disabled = true;
+  try {
+    await api.addTx({ family_id: state.family.id, member_id: state.me.id, type: "income", scope: "shared", amount: amt, category: SAVE_CAT, note: depositNote(M), tx_date: ymd(t < endM ? t : endM) });
+    toast("บันทึกเงินฝากแล้ว"); await reload();
+  } catch (err) { toast(friendlyError(err)); b.disabled = false; }
+});
+// เอารายได้สุทธิรวมของบ้าน ไล่จ่ายรายจ่ายหลักทีละรายการ ตามลำดับความสำคัญ (บนสุด = สำคัญสุด)
+function renderWaterfall(M, income) {
+  const mStr = ymd(M), b = billsFor(mStr), items = (b?.items || []).filter(x => +x.amount > 0);
+  const from = b && String(b.effective_month).slice(0, 10) !== mStr ? parseYmd(b.effective_month) : null;
+  const total = sumItems(items), left = income - total;
+  $("allBills").textContent = bahtR(total);
+  $("allLeftLabel").textContent = left >= 0 ? "คงเหลือ" : "ติดลบ";
+  $("allLeft").textContent = (left < 0 ? "−" : "") + bahtR(Math.abs(left));
+  $("allLeft").style.color = left < 0 ? "#FFB3BB" : "";
+  $("wfInfo").textContent = `${monthLabel(M)}${from ? ` · ใช้รายการจาก ${monthLabel(from)}` : b ? " · ตั้งรายการรอบนี้" : ""}`;
+  if (!items.length) {
+    $("wfBox").innerHTML = `<div class="empty">ยังไม่มีรายจ่ายหลักของรอบนี้<br><button class="btn btn-soft btn-sm" type="button" data-open-bills style="margin-top:10px">เพิ่มรายจ่าย</button></div>`;
+    return;
+  }
+  const scale = Math.max(income, total, 1);
+  let run = income, paidCount = 0, html = "", meter = "";
+  items.forEach((x, i) => {
+    const amt = +x.amount, before = run; run -= amt;
+    const covered = Math.max(0, Math.min(amt, before)), cls = covered >= amt ? "wf-full" : covered > 0 ? "wf-part" : "wf-none";
+    if (cls === "wf-full") paidCount++;
+    const tag = cls === "wf-full" ? `<span class="tag ok">จ่ายได้</span>` : cls === "wf-part" ? `<span class="tag part">จ่ายได้ ${bahtR(covered)} ขาด ${bahtR(amt - covered)}</span>` : `<span class="tag no">ไม่พอจ่าย</span>`;
+    const col = cls === "wf-full" ? "var(--income)" : cls === "wf-part" ? "var(--shift)" : "var(--expense)";
+    html += `<div class="wf-row ${cls}"><div class="wf-n num">${i + 1}</div><div>
+      <div class="wf-top"><b>${esc(x.name)}</b><span class="num">${baht(amt)}</span></div>
+      <div class="track"><i style="width:${(covered / amt * 100).toFixed(1)}%;background:${col}"></i></div>
+      <div class="wf-sub">${tag}<span class="num">เหลือหลังจ่าย <b style="color:${run < 0 ? "var(--expense)" : "var(--ink)"}">${run < 0 ? "−" : ""}${bahtR(Math.abs(run))}</b></span></div></div></div>`;
+    if (covered > 0) meter += `<i style="width:${(covered / scale * 100).toFixed(2)}%;background:${col}" title="${esc(x.name)}"></i>`;
+  });
+  if (left > 0) meter += `<i style="width:${(left / scale * 100).toFixed(2)}%;background:color-mix(in srgb,var(--income) 30%,transparent)" title="คงเหลือ"></i>`;
+  if (left < 0) meter += `<i style="width:${(-left / scale * 100).toFixed(2)}%;background:repeating-linear-gradient(45deg,var(--expense) 0 4px,color-mix(in srgb,var(--expense) 55%,transparent) 4px 8px)" title="ส่วนที่ขาด"></i>`;
+  const reach = paidCount === items.length ? "จ่ายได้ครบทุกรายการ" : paidCount === 0 ? "ยังจ่ายรายการแรกได้ไม่ครบ" : `จ่ายได้ครบถึงรายการที่ ${paidCount} (${esc(items[paidCount - 1].name)})`;
+  $("wfBox").innerHTML = `
+    <div class="wf-head" style="margin-top:10px"><span>รายได้สุทธิรวม <b class="num">${bahtR(income)}</b></span><span>รายจ่ายหลัก <b class="num">${bahtR(total)}</b></span></div>
+    <div class="wf-meter" role="img" aria-label="${reach}">${meter}</div>
+    <div style="font-size:14px;font-weight:600">${reach}</div>
+    <div class="wf-list">${html}</div>
+    <div class="wf-end"><span>${left >= 0 ? "คงเหลือหลังจ่ายครบ" : "ยังขาดอีก"}</span><span class="num" style="color:${left >= 0 ? "var(--income)" : "var(--expense)"}">${left < 0 ? "−" : ""}${baht(Math.abs(left))}</span></div>
+    ${depositHTML(M, left)}`;
+}
 function renderPayrollAll() {
   const M = monthStart(state.anchor);
   const rows = state.members.map(m => ({ m, p: payFor(m.id, M) }));
@@ -1509,8 +1845,7 @@ function renderPayrollAll() {
   const fmtH = (h) => (+h || 0).toLocaleString("th-TH", { maximumFractionDigits: 1 });
   $("allNet").textContent = signed(tot(p => p.used));
   $("allCount").textContent = `${set.length}/${rows.length} คนตั้งค่าแล้ว`;
-  $("allOt").textContent = `${bahtR(tot(p => p.otTotal))} · ${fmtH(tot(p => p.hours))} ชม.`;
-  $("allShift").textContent = `${bahtR(tot(p => p.shiftPay))} · ${tot(p => p.shifts)} วัน`;
+  renderWaterfall(M, tot(p => p.used));
 
   // net: คำนวณ vs ได้จริง
   barChart($("chartAllNet"), $("tipAllNet"), {
@@ -1526,10 +1861,10 @@ function renderPayrollAll() {
   const head = (m, right) => `<div class="top"><b>${avatarHTML(m)}${esc(m.display_name)}</b><span class="num" style="font-weight:700">${right}</span></div>`;
   const none = (m) => `<div class="hbar">${head(m, "—")}<div class="sub">ยังไม่ได้ตั้งค่าเงินเดือน</div></div>`;
 
-  const gMax = Math.max(1, ...set.map(r => r.p.base + r.p.otTotal + r.p.shiftPay + r.p.incSum));
-  $("allIncomeBars").innerHTML = rows.map(({ m, p }) => !p ? none(m) : `<div class="hbar">${head(m, bahtR(p.base + p.otTotal + p.shiftPay + p.incSum))}
-    <div class="track">${seg(p.base, gMax, "var(--income)")}${seg(p.otTotal, gMax, "#2F7FC1")}${seg(p.shiftPay, gMax, "var(--shift)")}${seg(p.incSum, gMax, "#8456C4")}</div>
-    <div class="sub num">${p.daily ? "ค่าแรง" : "เงินเดือน"} ${bahtR(p.base)} · OT ${bahtR(p.otTotal)} · กะ ${bahtR(p.shiftPay)}${p.incSum ? " · ประจำ " + bahtR(p.incSum) : ""} · หัก ${bahtR(p.dedSum + p.unpaidDeduct)} → <b style="color:var(--ink)">สุทธิ ${bahtR(p.net)}</b></div></div>`).join("");
+  const gMax = Math.max(1, ...set.map(r => r.p.base + r.p.otTotal + r.p.shiftPay + r.p.incSum + r.p.dailyIncSum));
+  $("allIncomeBars").innerHTML = rows.map(({ m, p }) => !p ? none(m) : `<div class="hbar">${head(m, bahtR(p.base + p.otTotal + p.shiftPay + p.incSum + p.dailyIncSum))}
+    <div class="track">${seg(p.base, gMax, "var(--income)")}${seg(p.otTotal, gMax, "#2F7FC1")}${seg(p.shiftPay, gMax, "var(--shift)")}${seg(p.incSum + p.dailyIncSum, gMax, "#8456C4")}</div>
+    <div class="sub num">${p.daily ? "ค่าแรง" : "เงินเดือน"} ${bahtR(p.base)} · OT ${bahtR(p.otTotal)} · กะ ${bahtR(p.shiftPay)}${p.incSum + p.dailyIncSum ? " · ประจำ/รายวัน " + bahtR(p.incSum + p.dailyIncSum) : ""} · หัก ${bahtR(p.dedSum + p.unpaidDeduct)} → <b style="color:var(--ink)">สุทธิ ${bahtR(p.net)}</b></div></div>`).join("");
 
   const hMax = Math.max(1, ...set.map(r => r.p.hours));
   $("allOtSub").textContent = `รวม ${fmtH(tot(p => p.hours))} ชม.`;
@@ -1546,7 +1881,7 @@ function renderPayrollAll() {
     <div class="sub num">${DAY_COLS.filter(c => p.counts[c[0]]).map(c => `${c[1]} ${p.counts[c[0]]}`).join(" · ") || "ยังไม่ได้บันทึก"} · บันทึกแล้ว ${rec}/${len} วัน (${shortDate(p.range.start)}–${shortDate(p.range.end)})</div></div>`; }).join("");
 
   const kv = (k, v, cls = "") => `<div><span>${k}</span><b class="num ${cls}">${v}</b></div>`;
-  $("allCards").innerHTML = rows.map(({ m, p }) => `<button type="button" class="pcard" data-sal-member="${esc(m.id)}">
+  $("allCards").innerHTML = rows.map(({ m, p }) => `<div class="pcard" role="button" tabindex="0" data-sal-member="${esc(m.id)}" aria-label="ดูรายละเอียดของ ${esc(m.display_name)}">
     <div class="pcard-h"><div class="l">${avatarHTML(m, "avatar")}<div><b>${esc(m.display_name)}</b>${p ? `<span class="type-tag">${p.daily ? "รายวัน" : "รายเดือน"}</span>` : ""}
       <small>${p ? `รอบ ${shortDate(p.range.start)} – ${shortDate(p.range.end)}` : "ยังไม่ได้ตั้งค่าเงินเดือน"}</small></div></div>
       ${p ? `<div class="pcard-net"><small class="muted" style="font-size:12px">${p.actual !== null ? "ได้จริง" : "สุทธิ (คำนวณ)"}</small><b class="num">${baht(p.used)}</b></div>` : ""}</div>
@@ -1558,12 +1893,13 @@ function renderPayrollAll() {
       ${!p.hours ? kv("OT", "0 ชม.") : ""}
       ${kv(`ค่ากะ · ${p.shifts} วัน`, (p.shiftPay ? "+" : "") + baht(p.shiftPay), p.shiftPay ? "plus" : "")}
       ${p.incSum ? kv("รายรับประจำ", "+" + baht(p.incSum), "plus") : ""}
+      ${p.dailyIncomes.map(x => kv(`${esc(x.name)} · ${x.days} วัน`, "+" + baht(x.total), "plus")).join("")}
       ${p.dedSum + p.unpaidDeduct ? kv(`รายการหัก${p.unpaidDeduct ? " (รวมหักวันขาด)" : ""}`, "−" + baht(p.dedSum + p.unpaidDeduct), "minus") : ""}
       ${kv("สุทธิคำนวณ", baht(p.net))}
       ${p.actual !== null ? kv("ได้จริงตามสลิป", baht(p.actual)) + kv("ส่วนต่าง", (p.actual - p.net >= 0 ? "+" : "−") + baht(Math.abs(p.actual - p.net)), p.actual - p.net >= 0 ? "plus" : "minus") : ""}
     </div>
-    <div class="daychips">${DAY_COLS.map(c => `<span style="--c:var(${c[2]})">${c[1]} <b class="num">${p.counts[c[0]]}</b></span>`).join("")}</div>
-    </div>` : ""}</button>`).join("");
+    <div class="daychips">${DAY_COLS.map(c => `<span style="--c:var(${c[2]})">${c[1]} <b class="num">${p.counts[c[0]]}</b></span>`).join("")}
+      ${p.slipPath ? `<button type="button" class="slip-tag" data-view-slip="${esc(m.id)}">🧾 ดูรูปสลิป</button>` : ""}</div>` : ""}</div>`).join("");
 }
 function renderSalary() {
   renderSalaryChips();
@@ -1587,6 +1923,7 @@ function renderSalary() {
   if (p.h30) html += row(`OT 3 เท่า · ${p.h30} ชม. × ${baht(p.r30)}`, "+" + baht(p.ot30), "sub plus");
   if (p.shifts) html += row(`ค่ากะ · ${p.shifts} วัน × ${baht(p.shiftRate)}`, "+" + baht(p.shiftPay), "sub plus");
   p.incomes.forEach(x => html += row(esc(x.name || "รายรับ"), "+" + baht(x.amount), "sub plus"));
+  p.dailyIncomes.forEach(x => html += row(`${esc(x.name || "รายรับรายวัน")} · ${x.days} วัน × ${baht(x.rate)}`, "+" + baht(x.total), "sub plus"));
   if (p.unpaid) html += row(`หักวันขาด/ไม่รับเงิน · ${p.unpaid} วัน`, "−" + baht(p.unpaidDeduct), "sub minus");
   p.deductions.forEach(x => html += row(esc(x.name || "รายการหัก"), "−" + baht(x.amount), "sub minus"));
   html += row("สุทธิ (คำนวณ)", baht(p.net), "total");
@@ -1597,9 +1934,10 @@ function renderSalary() {
   const diff = p.actual !== null ? p.actual - p.net : null;
   $("cmpDiff").textContent = diff === null ? "—" : (diff >= 0 ? "+" : "−") + baht(Math.abs(diff));
   $("cmpDiff").style.color = diff === null ? "" : diff >= 0 ? "var(--income)" : "var(--expense)";
-  $("inActual").value = p.actual !== null ? p.actual : "";
-  $("btnDelActual").classList.toggle("hidden", p.actual === null);
-  $("actualEdit").classList.toggle("hidden", !editable || !pRaw);
+  $("btnViewSlip").classList.toggle("hidden", !p.slipPath);
+  $("btnEditActual").classList.toggle("hidden", !editable || !pRaw);
+  $("btnEditActual").textContent = p.actual !== null || p.slipPath ? "✏️ แก้ไขยอดจริง / สลิป" : "✏️ บันทึกยอดจริง / แนบสลิป";
+  renderActualHistory(mid, M, editable);
   $("btnPaySettings").classList.toggle("hidden", !editable);
   $("salReadonly").classList.toggle("hidden", editable);
   $("calHint").textContent = editable ? "แตะวันเพื่อบันทึก" : "ดูอย่างเดียว";
@@ -1634,22 +1972,104 @@ function renderCalendar(p, editable) {
   $("calLegend").innerHTML = STATUSES.map(s => `<span><i style="background:var(${s[2]})"></i>${s[1]}</span>`).join("") + `<span><i style="background:var(--shift);border-radius:2px"></i>มุมส้ม = มีค่ากะ</span>`;
 }
 document.addEventListener("click", (e) => {
+  const vs = e.target.closest("[data-view-slip]"); if (vs) { const pp = payFor(vs.dataset.viewSlip, monthStart(state.anchor)); if (pp?.slipPath) openSlip(pp.slipPath, vs.dataset.viewSlip); return; }
   const c = e.target.closest("[data-sal-member]"); if (c) { state.salMember = c.dataset.salMember; renderSalary(); if (c.classList.contains("pcard")) window.scrollTo({ top: 0, behavior: "smooth" }); }
   const d = e.target.closest("[data-day]"); if (d && !d.disabled) openDaySheet(d.dataset.day);
 });
 
-$("btnSaveActual").onclick = async () => {
-  const v = round2($("inActual").value);
-  if (!(v > 0)) { toast("ใส่ยอดเงินเดือนที่ได้จริงก่อน"); $("inActual").focus(); return; }
-  const btn = $("btnSaveActual"); btn.disabled = true;
-  try { await api.saveActual({ family_id: state.family.id, member_id: state.salMember, cycle_month: ymd(monthStart(state.anchor)), actual_net: v, note: "" }); toast("บันทึกยอดจริงแล้ว"); await reload(); }
-  catch (err) { toast(friendlyError(err)); }
+/* ---------- actual pay (ยอดจริงตามสลิป) — แก้ได้ทุกรอบย้อนหลัง ---------- */
+function renderActualHistory(mid, M, editable) {
+  const rows = [];
+  for (let i = 0; i < 12; i++) { const m = addMonths(M, -i), p = payFor(mid, m); if (p) rows.push({ m, p }); }
+  $("actualHist").innerHTML = rows.length ? rows.map(({ m, p }) => { const d = p.actual !== null ? p.actual - p.net : null;
+    return `<div class="hist-row"><div><b>${monthLabel(m)}</b><small class="num">คำนวณ ${baht(p.net)}${p.slipPath ? " · 🧾 มีสลิป" : ""}</small></div>
+      <div class="num" style="text-align:right"><b>${p.actual !== null ? baht(p.actual) : "—"}</b>${d !== null ? `<small style="color:${d >= 0 ? "var(--income)" : "var(--expense)"}">${d >= 0 ? "+" : "−"}${baht(Math.abs(d))}</small>` : `<small>ยังไม่บันทึก</small>`}</div>
+      ${editable ? `<button type="button" class="ed" data-edit-actual="${ymd(m)}">แก้ไข</button>` : p.slipPath ? `<button type="button" class="ed" data-hist-slip="${ymd(m)}">สลิป</button>` : "<span></span>"}</div>`; }).join("")
+    : `<div class="empty">ยังไม่มีรอบที่ตั้งค่าเงินเดือน</div>`;
+}
+function openActual(mid, M) {
+  state.act = { mid, M };
+  const p = payFor(mid, M); if (!p) { toast("รอบนี้ยังไม่ได้ตั้งค่าเงินเดือน"); return; }
+  $("actTitle").textContent = `ยอดจริง · ${memberName(mid)} · รอบ ${monthLabel(M)}`;
+  $("inActual").value = p.actual !== null ? p.actual : "";
+  $("actErr").textContent = "";
+  paintActual();
+  openSheet("sheetActual");
+}
+function paintActual() {
+  const { mid, M } = state.act, p = payFor(mid, M);
+  const v = $("inActual").value.trim() === "" ? null : round2($("inActual").value);
+  $("actEst").textContent = baht(p.net);
+  $("actNow").textContent = v !== null ? baht(v) : "—";
+  const d = v !== null ? v - p.net : null;
+  $("actDiff").textContent = d === null ? "—" : (d >= 0 ? "+" : "−") + baht(Math.abs(d));
+  $("actDiff").style.color = d === null ? "" : d >= 0 ? "var(--income)" : "var(--expense)";
+  $("actViewSlip").classList.toggle("hidden", !p.slipPath);
+  $("actDelSlip").classList.toggle("hidden", !p.slipPath);
+  $("actLblSlip").textContent = p.slipPath ? "📷 เปลี่ยนรูป" : "📷 แนบรูปสลิป";
+  $("actDelAmount").classList.toggle("hidden", p.actual === null);
+}
+$("inActual").addEventListener("input", paintActual);
+$("btnEditActual").onclick = () => openActual(state.salMember, monthStart(state.anchor));
+document.addEventListener("click", (e) => {
+  const ea = e.target.closest("[data-edit-actual]"); if (ea) openActual(state.salMember, parseYmd(ea.dataset.editActual));
+  const hs = e.target.closest("[data-hist-slip]"); if (hs) { const M = parseYmd(hs.dataset.histSlip), p = payFor(state.salMember, M); if (p?.slipPath) openSlip(p.slipPath, state.salMember, M); }
+});
+const actRow = (actual_net, slip_path) => ({ family_id: state.family.id, member_id: state.act.mid, cycle_month: ymd(state.act.M), actual_net, slip_path, note: "" });
+$("formActual").onsubmit = async (e) => {
+  e.preventDefault();
+  const p = payFor(state.act.mid, state.act.M), raw = $("inActual").value.trim();
+  const v = raw === "" ? null : round2(raw);
+  if (v !== null && !(v >= 0)) { $("actErr").textContent = "ใส่ตัวเลขให้ถูกต้อง"; return; }
+  if (v === null && !p.slipPath) { $("actErr").textContent = "ใส่ยอดที่ได้จริง หรือแนบรูปสลิป"; return; }
+  const btn = $("actSave"); btn.disabled = true;
+  try { await api.saveActual(actRow(v, p.slipPath || null)); closeSheet("sheetActual"); toast("บันทึกยอดจริงแล้ว"); await reload(); }
+  catch (err) { $("actErr").textContent = friendlyError(err); }
   finally { btn.disabled = false; }
 };
-$("btnDelActual").onclick = async () => {
-  try { await api.deleteActual(state.salMember, ymd(monthStart(state.anchor))); toast("ลบยอดจริงแล้ว"); await reload(); }
-  catch (err) { toast(friendlyError(err)); }
+$("actDelAmount").onclick = async () => {
+  const p = payFor(state.act.mid, state.act.M);
+  if (!confirm("ลบยอดจริงของรอบนี้?")) return;
+  try {
+    if (p.slipPath) await api.saveActual(actRow(null, p.slipPath)); else await api.deleteActual(state.act.mid, ymd(state.act.M));
+    closeSheet("sheetActual"); toast("ลบยอดจริงแล้ว"); await reload();
+  } catch (err) { $("actErr").textContent = friendlyError(err); }
 };
+$("inSlip").addEventListener("change", async () => {
+  const file = $("inSlip").files[0]; $("inSlip").value = ""; if (!file) return;
+  const { mid, M } = state.act, p = payFor(mid, M), cm = ymd(M);
+  const typed = $("inActual").value.trim() === "" ? p.actual : round2($("inActual").value);
+  const lbl = $("actLblSlip"); lbl.textContent = "กำลังอัปโหลด…";
+  try {
+    const path = await api.uploadSlip(`${state.family.id}/${mid}/${cm}-${Date.now()}.jpg`, await slipBlob(file));
+    await api.saveActual(actRow(typed, path));
+    if (p.slipPath && p.slipPath !== path) api.deleteSlip(p.slipPath).catch(() => {});
+    toast("แนบรูปสลิปแล้ว"); await reload(); paintActual();
+  } catch (err) { $("actErr").textContent = friendlyError(err); paintActual(); }
+});
+$("actViewSlip").onclick = () => { const p = payFor(state.act.mid, state.act.M); if (p?.slipPath) openSlip(p.slipPath, state.act.mid, state.act.M); };
+$("actDelSlip").onclick = async () => {
+  const p = payFor(state.act.mid, state.act.M);
+  if (!p.slipPath || !confirm("ลบรูปสลิปของรอบนี้?")) return;
+  try {
+    await api.deleteSlip(p.slipPath);
+    if (p.actual === null) await api.deleteActual(state.act.mid, ymd(state.act.M)); else await api.saveActual(actRow(p.actual, null));
+    toast("ลบรูปสลิปแล้ว"); await reload(); paintActual();
+  } catch (err) { $("actErr").textContent = friendlyError(err); }
+};
+$("btnViewSlip").onclick = () => openSlip(state.salPay.slipPath, state.salMember, monthStart(state.anchor));
+async function openSlip(path, mid, M = monthStart(state.anchor)) {
+  $("slipTitle").textContent = `สลิป ${memberName(mid)} · ${monthLabel(M)}`;
+  $("slipImg").classList.add("hidden"); $("slipLoading").classList.remove("hidden"); $("slipLoading").textContent = "กำลังโหลดรูป…";
+  $("slipOpen").classList.add("hidden");
+  openSheet("sheetSlip");
+  try {
+    const url = await api.slipUrl(path);
+    $("slipImg").onload = () => { $("slipLoading").classList.add("hidden"); $("slipImg").classList.remove("hidden"); };
+    $("slipImg").src = url;
+    $("slipOpen").href = url; $("slipOpen").classList.toggle("hidden", url.startsWith("data:"));
+  } catch (err) { $("slipLoading").textContent = "เปิดรูปไม่ได้: " + friendlyError(err); }
+}
 
 /* ---------- day sheet ---------- */
 const OT_KEYS = [["ot15_hours", "1.5 เท่า", "r15"], ["ot20_hours", "2 เท่า", "r20"], ["ot30_hours", "3 เท่า", "r30"]];
@@ -1701,10 +2121,13 @@ $("btnClearDay").onclick = async () => {
 
 /* ---------- editable line lists (incomes / deductions / bills) ---------- */
 function renderLines(kind) {
-  const items = state.draft[kind], ph = { incomes: "เช่น ค่าอาหาร", deductions: "เช่น ประกันสังคม", bills: "เช่น ค่าเช่าบ้าน" }[kind];
+  const items = state.draft[kind], ph = { incomes: "เช่น ค่าตำแหน่ง", dailyIncomes: "เช่น ค่าอาหาร", deductions: "เช่น ประกันสังคม", bills: "เช่น ค่าเช่าบ้าน" }[kind];
+  const bills = kind === "bills";
   $("lines-" + kind).innerHTML = items.length ? items.map((x, i) => `
-    <div class="li"><input data-line="${kind}" data-i="${i}" data-k="name" maxlength="40" value="${esc(x.name)}" placeholder="${ph}" aria-label="ชื่อรายการ">
+    <div class="li${bills ? " li-bill" : ""}"><input data-line="${kind}" data-i="${i}" data-k="name" maxlength="40" value="${esc(x.name)}" placeholder="${ph}" aria-label="ชื่อรายการ">
     <input data-line="${kind}" data-i="${i}" data-k="amount" class="num" type="number" inputmode="decimal" min="0" step="0.01" value="${x.amount || ""}" placeholder="บาท" aria-label="จำนวนเงิน">
+    ${bills ? `<button type="button" data-mv-line="-1" data-i="${i}" aria-label="เลื่อนขึ้น (สำคัญกว่า)" ${i === 0 ? "disabled" : ""}>↑</button>
+    <button type="button" data-mv-line="1" data-i="${i}" aria-label="เลื่อนลง" ${i === items.length - 1 ? "disabled" : ""}>↓</button>` : ""}
     <button type="button" data-rm-line="${kind}" data-i="${i}" aria-label="ลบรายการ">×</button></div>`).join("")
     : `<div class="muted" style="font-size:14px">ยังไม่มีรายการ</div>`;
   if (kind === "bills") $("billsDraftTotal").textContent = baht(sumItems(items));
@@ -1716,6 +2139,8 @@ document.addEventListener("input", (e) => {
 });
 document.addEventListener("click", (e) => {
   const a = e.target.closest("[data-add-line]"); if (a) { state.draft[a.dataset.addLine].push({ name: "", amount: "" }); renderLines(a.dataset.addLine); const ins = $("lines-" + a.dataset.addLine).querySelectorAll("input"); ins[ins.length - 2]?.focus(); }
+  const mv = e.target.closest("[data-mv-line]");
+  if (mv) { const a = state.draft.bills, i = +mv.dataset.i, j = i + +mv.dataset.mvLine; if (j >= 0 && j < a.length) { [a[i], a[j]] = [a[j], a[i]]; renderLines("bills"); } }
   const r = e.target.closest("[data-rm-line]"); if (r) { state.draft[r.dataset.rmLine].splice(+r.dataset.i, 1); renderLines(r.dataset.rmLine); }
 });
 const cleanLines = (arr) => arr.filter(x => String(x.name).trim() || +x.amount > 0).map(x => ({ name: String(x.name).trim() || "ไม่ระบุ", amount: round2(x.amount) }));
@@ -1747,8 +2172,9 @@ $("btnPaySettings").onclick = () => {
   fillDaySelect($("psStart"), s.start_day); fillDaySelect($("psEnd"), s.end_day);
   $("psOt15").value = s.ot15_rate ?? ""; $("psOt20").value = s.ot20_rate ?? ""; $("psOt30").value = s.ot30_rate ?? "";
   state.draft.incomes = (s.incomes || []).map(x => ({ ...x })); state.draft.deductions = (s.deductions || []).map(x => ({ ...x }));
+  state.draft.dailyIncomes = (s.daily_incomes || []).map(x => ({ ...x }));
   setPayType(s.pay_type === "daily" ? "daily" : "monthly");
-  renderLines("incomes"); renderLines("deductions"); updateRangePreview(); $("payErr").textContent = "";
+  renderLines("incomes"); renderLines("deductions"); renderLines("dailyIncomes"); updateRangePreview(); $("payErr").textContent = "";
   openSheet("sheetPay");
 };
 ["psStart", "psEnd", "psBase"].forEach(id => $(id).addEventListener("input", updateRangePreview));
@@ -1763,6 +2189,8 @@ $("formPay").onsubmit = async (e) => {
     ot15_rate: rate("psOt15"), ot20_rate: rate("psOt20"), ot30_rate: rate("psOt30"),
     incomes: cleanLines(state.draft.incomes), deductions: cleanLines(state.draft.deductions)
   };
+  const di = cleanLines(state.draft.dailyIncomes || []);
+  if (di.length || (state.salPay.settings.daily_incomes || []).length) row.daily_incomes = di;
   const btn = $("btnSavePay"); btn.disabled = true;
   try { await api.savePaySettings(row); closeSheet("sheetPay"); toast("บันทึกการตั้งค่าแล้ว"); await reload(); }
   catch (err) { $("payErr").textContent = friendlyError(err); }
@@ -1773,13 +2201,14 @@ $("formPay").onsubmit = async (e) => {
 function openBills() {
   const M = monthStart(state.anchor), b = billsFor(ymd(M));
   $("billsTitle").textContent = `รายจ่ายหลัก · ${monthLabel(M)}`;
-  $("billsHint").textContent = `ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้าอัตโนมัติ · รายการเหล่านี้ไม่ต้องบันทึกซ้ำในปุ่ม +`;
+  $("billsHint").textContent = `เรียงจากสำคัญมากไปน้อย (บนสุดจ่ายก่อน) ใช้ปุ่ม ↑ ↓ จัดลำดับ · ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้า · ไม่ต้องบันทึกซ้ำในปุ่ม +`;
   state.draft.bills = (b?.items || []).map(x => ({ ...x }));
   if (!state.draft.bills.length) state.draft.bills.push({ name: "", amount: "" });
   renderLines("bills"); $("billsErr").textContent = "";
   openSheet("sheetBills");
 }
 $("btnEditBills").onclick = openBills;
+$("btnEditBills2").onclick = openBills;
 document.addEventListener("click", (e) => { if (e.target.closest("[data-open-bills]")) openBills(); });
 $("formBills").onsubmit = async (e) => {
   e.preventDefault();
@@ -1849,8 +2278,63 @@ $("formTx").onsubmit = async (e) => {
 };
 
 /* ---------- family settings / reset ---------- */
-$("btnSettings").onclick = () => {
+function applyTheme(t) {
+  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  try { localStorage.setItem("samudbaan-theme", t); } catch (e) {}
+  document.querySelectorAll("[data-theme-opt]").forEach(b => b.setAttribute("aria-pressed", b.dataset.themeOpt === t));
+  if (state.family) renderAll(); // วาดกราฟใหม่ให้สีตรงธีม
+}
+const currentTheme = () => document.documentElement.dataset.theme || "auto";
+document.querySelectorAll("[data-theme-opt]").forEach(b => b.onclick = () => applyTheme(b.dataset.themeOpt));
+const meMember = () => state.members.find(m => m.id === state.me.id) || state.me;
+function paintProfileEditors() {
+  const famLetter = initial(state.family.name.replace(/^บ้าน\s*/, "") || "บ้าน"), me = meMember();
+  const famAv = state.draft.famAv !== undefined ? state.draft.famAv : state.family.avatar_url;
+  const myAv = state.draft.myAv !== undefined ? state.draft.myAv : me.avatar_url;
+  paintAvatar($("setFamAv"), famAv, famLetter, "linear-gradient(150deg,var(--hero-1),var(--hero-2))");
+  paintAvatar($("setMyAv"), myAv, initial(me.display_name), avColor(memberIdx(me.id)));
+  $("btnRmFamPhoto").classList.toggle("hidden", !famAv); $("btnRmMyPhoto").classList.toggle("hidden", !myAv);
+}
+async function pickAvatar(input, key) {
+  const f = input.files[0]; input.value = ""; if (!f) return;
+  try { state.draft[key] = await avatarDataUrl(f); paintProfileEditors(); }
+  catch (err) { $("profErr").textContent = friendlyError(err); }
+}
+$("inFamPhoto").addEventListener("change", () => pickAvatar($("inFamPhoto"), "famAv"));
+$("inMyPhoto").addEventListener("change", () => pickAvatar($("inMyPhoto"), "myAv"));
+$("btnRmFamPhoto").onclick = () => { state.draft.famAv = null; paintProfileEditors(); };
+$("btnRmMyPhoto").onclick = () => { state.draft.myAv = null; paintProfileEditors(); };
+async function refreshFamily() {
+  const fam = await api.getMyFamily(state.user.id);
+  if (fam) Object.assign(state, { family: fam.family, me: fam.me, members: fam.members });
+  renderAll();
+}
+$("btnSaveFam").onclick = async () => {
+  const name = $("inFamName").value.trim(); $("profErr").textContent = "";
+  if (!name) { $("profErr").textContent = "ใส่ชื่อบ้านก่อน"; return; }
+  const patch = { name }; if (state.draft.famAv !== undefined) patch.avatar_url = state.draft.famAv;
+  const btn = $("btnSaveFam"); btn.disabled = true;
+  try { await api.updateFamily(state.family.id, patch); delete state.draft.famAv; await refreshFamily(); openSettings(true); toast("บันทึกข้อมูลบ้านแล้ว"); }
+  catch (err) { $("profErr").textContent = friendlyError(err).includes("avatar_url") ? "ให้รัน schema_phase5.sql ก่อน" : friendlyError(err); }
+  finally { btn.disabled = false; }
+};
+$("btnSaveMe").onclick = async () => {
+  const name = $("inMyName").value.trim(); $("profErr").textContent = "";
+  if (!name) { $("profErr").textContent = "ใส่ชื่อของคุณก่อน"; return; }
+  const patch = { display_name: name }; if (state.draft.myAv !== undefined) patch.avatar_url = state.draft.myAv;
+  const btn = $("btnSaveMe"); btn.disabled = true;
+  try { await api.updateMe(state.me.id, patch); delete state.draft.myAv; await refreshFamily(); openSettings(true); toast("บันทึกโปรไฟล์แล้ว"); }
+  catch (err) { $("profErr").textContent = friendlyError(err).includes("avatar_url") ? "ให้รัน schema_phase5.sql ก่อน" : friendlyError(err); }
+  finally { btn.disabled = false; }
+};
+function openSettings(keepOpen) {
   const owner = state.me.role === "owner";
+  if (!keepOpen) { delete state.draft.famAv; delete state.draft.myAv; $("profErr").textContent = ""; }
+  document.querySelectorAll("[data-theme-opt]").forEach(b => b.setAttribute("aria-pressed", b.dataset.themeOpt === currentTheme()));
+  $("inFamName").value = state.family.name; $("inFamName").disabled = !owner;
+  $("famEditActions").classList.toggle("hidden", !owner); $("famReadonly").classList.toggle("hidden", owner);
+  $("inMyName").value = meMember().display_name;
+  paintProfileEditors();
   $("setFamName").textContent = state.family.name;
   $("setMembers").textContent = `${state.members.length} คน`;
   $("setRole").textContent = owner ? "เจ้าของบ้าน" : "สมาชิก";
@@ -1859,8 +2343,10 @@ $("btnSettings").onclick = () => {
   $("resetLabel").textContent = `พิมพ์ “${state.family.name}” เพื่อยืนยัน`;
   $("inResetConfirm").value = ""; $("inResetConfirm").placeholder = state.family.name;
   $("btnReset").disabled = true; $("resetErr").textContent = "";
-  openSheet("sheetSettings");
-};
+  if (!keepOpen) openSheet("sheetSettings");
+}
+$("btnSettings").onclick = () => openSettings(false);
+document.addEventListener("keydown", (e) => { const c = e.target.closest?.(".pcard[role=button]"); if (c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); c.click(); } });
 $("inResetConfirm").addEventListener("input", () => { $("btnReset").disabled = $("inResetConfirm").value.trim() !== state.family.name; });
 $("formReset").onsubmit = async (e) => {
   e.preventDefault();
@@ -1868,7 +2354,7 @@ $("formReset").onsubmit = async (e) => {
   if (v !== state.family.name) { $("resetErr").textContent = "ชื่อบ้านที่พิมพ์ไม่ตรง"; return; }
   if (!confirm("ยืนยันอีกครั้ง: ข้อมูลทั้งหมดของบ้านจะถูกลบถาวร")) return;
   const btn = $("btnReset"); btn.disabled = true;
-  try { await api.resetFamily(state.family.id, v); closeSheet("sheetSettings"); toast("ล้างข้อมูลทั้งหมดแล้ว"); await reload(); }
+  try { await api.resetFamily(state.family.id, v, state.members.map(m => m.id)); closeSheet("sheetSettings"); toast("ล้างข้อมูลทั้งหมดแล้ว"); await reload(); }
   catch (err) { $("resetErr").textContent = friendlyError(err); btn.disabled = false; }
 };
 
