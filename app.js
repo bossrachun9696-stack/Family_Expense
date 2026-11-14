@@ -26,6 +26,7 @@ const FEATURES = [
   ["shift", "ค่ากะ", "สวิตช์ค่ากะในปฏิทิน", true],
   ["slips", "ยอดจริงและรูปสลิป", "เทียบยอดจริงกับยอดคำนวณ", true],
   ["bills", "รายจ่ายหลัก", "จ่ายตามลำดับความสำคัญในหน้าเงินเดือน", true],
+  ["dues", "ต้องจ่ายเดือนนี้", "รายการที่ต้องจ่าย วันครบกำหนด ติ๊กจ่ายแล้ว และเตือนในแชท DarkChat", true],
   ["salary_overview", "นับเงินเดือนที่คำนวณในหน้าภาพรวม", "ถ้าปิด ให้บันทึกเงินเดือนเป็นรายรับเองด้วยปุ่ม +", false],
   ["deposit", "ปุ่มฝากเงินคงเหลือ", "บันทึกเงินเหลือเป็นเงินฝาก", true],
   ["savings", "เงินเก็บและเป้าหมายออม", "ดูเงินเก็บคงเหลือ ตั้งเป้าหมาย", true],
@@ -197,7 +198,7 @@ function makeSupabaseApi() {
     async loadAll(fid) {
       const missing = [];
       const opt = (p, name) => p.catch(e => { missing.push(name); console.warn(e); return []; });
-      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, checks] = await Promise.all([
+      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks] = await Promise.all([
         fetchAll("transactions", fid, "tx_date"),
         opt(fetchAll("work_days", fid, "work_date"), "work_days"),
         opt(fetchAll("member_pay_settings", fid, "effective_month"), "member_pay_settings"),
@@ -217,9 +218,10 @@ function makeSupabaseApi() {
         opt(fetchAll("bill_payments", fid, "cycle_month"), "bill_payments"),
         opt(fetchAll("child_days", fid, "day_date"), "child_days"),
         opt(fetchAll("child_spends", fid, "spend_date"), "child_spends"),
+        opt(fetchAll("due_lists", fid, "effective_month"), "due_lists"),
         opt(fetchAll("bill_checks", fid, "cycle_month"), "bill_checks")
       ]);
-      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, checks, missing };
+      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, missing };
     },
     async addTx(tx) { return must(await sb.from("transactions").insert(tx).select().single()); },
     async addDebt(row) { return must(await sb.from("debts").insert(row).select().single()); },
@@ -262,6 +264,7 @@ function makeSupabaseApi() {
     async saveWorkDay(row) { return must(await sb.from("work_days").upsert(row, { onConflict: "member_id,work_date" }).select().single()); },
     async deleteWorkDay(memberId, date) { must(await sb.from("work_days").delete().eq("member_id", memberId).eq("work_date", date)); },
     async saveBills(row) { return must(await sb.from("family_bills").upsert(row, { onConflict: "family_id,effective_month" }).select().single()); },
+    async saveDues(row) { return must(await sb.from("due_lists").upsert({ ...row, updated_by: state.user.id, updated_at: new Date().toISOString() }, { onConflict: "family_id,effective_month" }).select().single()); },
     async checkBill(row) { must(await sb.from("bill_checks").upsert({ ...row, paid_by: state.user.id }, { onConflict: "family_id,cycle_month,item_key" })); },
     async uncheckBill(fid, month, key) { must(await sb.from("bill_checks").delete().eq("family_id", fid).eq("cycle_month", month).eq("item_key", key)); },
     async saveActual(row) { return must(await sb.from("actual_pay").upsert(row, { onConflict: "member_id,cycle_month" }).select().single()); },
@@ -275,7 +278,7 @@ function makeSupabaseApi() {
     },
     subscribe(fid, onChange, onStatus) {
       const ch = sb.channel("family-" + fid);
-      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "bill_checks"].forEach(t => {
+      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "due_lists", "bill_checks"].forEach(t => {
         ch.on("postgres_changes", { event: "*", schema: "public", table: t, filter: `family_id=eq.${fid}` }, onChange);
         ch.on("postgres_changes", { event: "DELETE", schema: "public", table: t }, onChange); // การลบกรองตาม family ไม่ได้
       });
@@ -286,7 +289,7 @@ function makeSupabaseApi() {
 }
 
 function makeDemoApi() {
-  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], checks: [], files: {} };
+  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], dues: [], checks: [], files: {} };
   let session = null;
   const uid = () => Math.random().toString(36).slice(2, 10);
   const wait = () => new Promise(r => setTimeout(r, 100));
@@ -395,7 +398,8 @@ function makeDemoApi() {
         pspends: famRows(db.pspends, fid).filter(b => b.member_id === me?.id), recurring: famRows(db.recurring, fid), goals: famRows(db.goals, fid),
         contribs: famRows(db.contribs, fid), catbud: famRows(db.catbud, fid), accounts: famRows(db.accounts, fid), moves: famRows(db.moves, fid),
         paccts: famRows(db.paccts, fid).filter(a => a.member_id === me?.id || a.shared), pmoves: famRows(db.pmoves, fid).filter(m => { const a = db.paccts.find(x => x.id === m.account_id); return a && (a.member_id === me?.id || a.shared); }),
-        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), checks: famRows(db.checks, fid), missing: [] }; },
+        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), dues: famRows(db.dues, fid), checks: famRows(db.checks, fid), missing: [] }; },
+    async saveDues(row) { return upsert(db.dues, row, ["family_id", "effective_month"]); },
     async checkBill(row) { db.checks = db.checks.filter(r => !(r.family_id === row.family_id && r.cycle_month === row.cycle_month && r.item_key === row.item_key)); db.checks.push({ ...row, paid_by: session.id, paid_at: new Date().toISOString() }); },
     async uncheckBill(fid, month, key) { db.checks = db.checks.filter(r => !(r.family_id === fid && r.cycle_month === month && r.item_key === key)); },
     async setBillPays(fid, month, rows) { db.bpays = db.bpays.filter(r => !(r.family_id === fid && r.cycle_month === month)); rows.forEach(r => db.bpays.push({ ...r, id: uid(), created_at: new Date().toISOString() })); },
@@ -480,13 +484,13 @@ const state = {
   salMember: null, day: { date: null, status: "work", shift: false },
   draft: { incomes: [], dailyIncomes: [], deductions: [], bills: [] }, act: { mid: null, M: null }
 };
-const IDX = { days: new Map(), settings: {}, bills: [], actual: new Map(), catbud: [], recur: new Set() };
+const IDX = { days: new Map(), settings: {}, bills: [], dues: [], actual: new Map(), catbud: [], recur: new Set() };
 const MEMO = new Map(); // เก็บผลคำนวณซ้ำ ล้างทุกครั้งที่ข้อมูลเปลี่ยน
 const memo = (key, fn) => { if (MEMO.has(key)) return MEMO.get(key); const v = fn(); MEMO.set(key, v); return v; };
 function buildIndex() {
   const D = state.data;
   MEMO.clear();
-  ["pspends", "recurring", "goals", "contribs", "catbud", "debts", "budgets", "accounts", "moves", "paccts", "pmoves", "bpays", "cdays", "cspends", "checks"].forEach(k => D[k] ||= []);
+  ["pspends", "recurring", "goals", "contribs", "catbud", "debts", "budgets", "accounts", "moves", "paccts", "pmoves", "bpays", "cdays", "cspends", "dues", "checks"].forEach(k => D[k] ||= []);
   IDX.catbud = [...D.catbud].sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)));
   IDX.recur = new Set(D.txs.filter(t => t.recurring_id).map(t => t.recurring_id + "|" + String(t.recurring_month).slice(0, 10)));
   IDX.days = new Map(D.days.map(d => [d.member_id + "|" + String(d.work_date).slice(0, 10), d]));
@@ -494,10 +498,12 @@ function buildIndex() {
   D.settings.forEach(s => (IDX.settings[s.member_id] ||= []).push(s));
   Object.values(IDX.settings).forEach(a => a.sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month))));
   IDX.bills = [...D.bills].sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)));
+  IDX.dues = [...D.dues].sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)));
   IDX.actual = new Map(D.actual.map(a => [a.member_id + "|" + String(a.cycle_month).slice(0, 10), a]));
 }
 const settingsFor = (mid, mStr) => (IDX.settings[mid] || []).find(s => String(s.effective_month).slice(0, 10) <= mStr) || null;
 const billsFor = (mStr) => IDX.bills.find(b => String(b.effective_month).slice(0, 10) <= mStr) || null;
+const duesFor = (mStr) => IDX.dues.find(b => String(b.effective_month).slice(0, 10) <= mStr) || null;
 const dayRec = (mid, d) => IDX.days.get(mid + "|" + (typeof d === "string" ? d : ymd(d)));
 const memberIdx = (id) => Math.max(0, state.members.findIndex(m => m.id === id));
 const memberName = (id) => state.members.find(m => m.id === id)?.display_name || "—";
@@ -784,6 +790,7 @@ async function route() {
   Object.assign(state, { family: fam.family, me: fam.me, members: fam.members });
   if (state.salMember !== "all" && !state.members.some(m => m.id === state.salMember)) state.salMember = "all";
   show("viewApp");
+  pinGate();
   await reload();
   if (unsubscribe) unsubscribe();
   let t = null;
@@ -792,7 +799,8 @@ async function route() {
 async function reload() {
   try { state.data = await api.loadAll(state.family.id); }
   catch (err) { toast(friendlyError(err)); }
-  const miss = state.data.missing || [];
+  const miss = (state.data.missing || []).filter(x => x !== "due_lists" && x !== "bill_checks");
+  state.duesMissing = (state.data.missing || []).includes("due_lists");
   $("schemaNote").classList.toggle("hidden", !miss.length);
   $("schemaNote").textContent = miss.length ? `ฐานข้อมูลยังไม่อัปเดต (${miss.join(", ")}) ให้รันไฟล์ schema ที่ยังไม่ได้รันใน Supabase (ล่าสุดคือ schema_phase11.sql)` : "";
   buildIndex();
@@ -833,12 +841,14 @@ $("formAuth").onsubmit = async (e) => {
   if (!/^\S+@\S+\.\S+$/.test(email)) return ($("authErr").textContent = "กรอกอีเมลให้ถูกรูปแบบ");
   if (pass.length < 6) return ($("authErr").textContent = "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
   const btn = $("btnAuth"); btn.disabled = true; $("authErr").textContent = "";
-  try { state.user = state.authMode === "register" ? await api.signUp(email, pass) : await api.signIn(email, pass); await route(); }
+  try { state.user = state.authMode === "register" ? await api.signUp(email, pass) : await api.signIn(email, pass); PIN.fresh = true; await route(); }
   catch (err) { $("authErr").textContent = friendlyError(err); }
   finally { btn.disabled = false; }
 };
 async function logout() {
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  if (state.user) pinClear(state.user.id);
+  pinHide();
   await api.signOut();
   Object.assign(state, { user: null, family: null, me: null, members: [], salMember: null });
   $("authPass").value = ""; setAuthMode("login"); setTab("overview"); show("viewAuth");
@@ -2278,7 +2288,6 @@ function renderLines(kind) {
   $("lines-" + kind).innerHTML = items.length ? items.map((x, i) => `
     <div class="li${bills ? " li-bill" : ""}"><input data-line="${kind}" data-i="${i}" data-k="name" maxlength="40" value="${esc(x.name)}" placeholder="${ph}" aria-label="ชื่อรายการ">
     <input data-line="${kind}" data-i="${i}" data-k="amount" class="num" type="number" inputmode="decimal" min="0" step="0.01" value="${x.amount || ""}" placeholder="บาท" aria-label="จำนวนเงิน">
-    ${bills ? `<select data-line="bills" data-i="${i}" data-k="due_day" class="due-sel" aria-label="ครบกำหนดจ่ายวันที่">${dueDayOptions(x.due_day)}</select>` : ""}
     ${bills ? `<button type="button" data-mv-line="-1" data-i="${i}" aria-label="เลื่อนขึ้น (สำคัญกว่า)" ${i === 0 ? "disabled" : ""}>↑</button>
     <button type="button" data-mv-line="1" data-i="${i}" aria-label="เลื่อนลง" ${i === items.length - 1 ? "disabled" : ""}>↓</button>` : ""}
     <button type="button" data-rm-line="${kind}" data-i="${i}" aria-label="ลบรายการ">×</button></div>`).join("")
@@ -2295,14 +2304,6 @@ document.addEventListener("click", (e) => {
   const mv = e.target.closest("[data-mv-line]");
   if (mv) { const a = state.draft.bills, i = +mv.dataset.i, j = i + +mv.dataset.mvLine; if (j >= 0 && j < a.length) { [a[i], a[j]] = [a[j], a[i]]; renderLines("bills"); } }
   const r = e.target.closest("[data-rm-line]"); if (r) { state.draft[r.dataset.rmLine].splice(+r.dataset.i, 1); renderLines(r.dataset.rmLine); }
-});
-const dueDayOptions = (v) => `<option value="">วันจ่าย</option>` + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${+v === i + 1 ? "selected" : ""}>ทุกวันที่ ${i + 1}${i === 30 ? " (สิ้นเดือน)" : ""}</option>`).join("");
-// รายการที่ต้องจ่าย: เก็บวันครบกำหนด และรหัสประจำรายการ (ใช้ผูกการติ๊กว่าจ่ายแล้ว รายการเดิมที่ไม่มีรหัสใช้ชื่อแทน)
-const billKey = (x) => x.key || "n:" + String(x.name || "").trim();
-const cleanBills = (arr) => arr.filter(x => String(x.name).trim() || +x.amount > 0).map(x => {
-  const name = String(x.name).trim() || "ไม่ระบุ", o = { name, amount: round2(x.amount), key: x.key || (x.name ? "n:" + name : "b" + Math.random().toString(36).slice(2, 10)) };
-  const d = parseInt(x.due_day, 10); if (d >= 1 && d <= 31) o.due_day = d;
-  return o;
 });
 const cleanLines = (arr) => arr.filter(x => String(x.name).trim() || +x.amount > 0).map(x => ({ name: String(x.name).trim() || "ไม่ระบุ", amount: round2(x.amount) }));
 
@@ -2362,7 +2363,7 @@ $("formPay").onsubmit = async (e) => {
 function openBills() {
   const M = monthStart(state.anchor), b = billsFor(ymd(M));
   $("billsTitle").textContent = `รายจ่ายหลัก · ${monthLabel(M)}`;
-  $("billsHint").textContent = `เรียงจากสำคัญมากไปน้อย (บนสุดจ่ายก่อน) ใช้ปุ่ม ↑ ↓ จัดลำดับ · เลือก "วันจ่าย" เพื่อให้เตือนก่อนครบกำหนด 3 วัน (และเตือนในห้องแชท DarkChat ที่เชื่อมไว้) · ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้า · ไม่ต้องบันทึกซ้ำในปุ่ม +`;
+  $("billsHint").textContent = `เรียงจากสำคัญมากไปน้อย (บนสุดจ่ายก่อน) ใช้ปุ่ม ↑ ↓ จัดลำดับ · ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้า · ไม่ต้องบันทึกซ้ำในปุ่ม +`;
   state.draft.bills = (b?.items || []).map(x => ({ ...x }));
   if (!state.draft.bills.length) state.draft.bills.push({ name: "", amount: "" });
   renderLines("bills"); $("billsErr").textContent = "";
@@ -2373,7 +2374,7 @@ document.addEventListener("click", (e) => { if (e.target.closest("[data-open-bil
 $("formBills").onsubmit = async (e) => {
   e.preventDefault();
   const btn = $("btnSaveBills"); btn.disabled = true;
-  try { await api.saveBills({ family_id: state.family.id, effective_month: ymd(monthStart(state.anchor)), items: cleanBills(state.draft.bills) }); closeSheet("sheetBills"); toast("บันทึกรายจ่ายหลักแล้ว"); await reload(); }
+  try { await api.saveBills({ family_id: state.family.id, effective_month: ymd(monthStart(state.anchor)), items: cleanLines(state.draft.bills) }); closeSheet("sheetBills"); toast("บันทึกรายจ่ายหลักแล้ว"); await reload(); }
   catch (err) { $("billsErr").textContent = friendlyError(err); }
   finally { btn.disabled = false; }
 };
@@ -2765,6 +2766,7 @@ $("btnSaveMe").onclick = async () => {
 };
 function openSettings(keepOpen) {
   const owner = isOwner(), canFam = can("family"), act = document.activeElement;
+  pinPaintSettings();
   if (!keepOpen) { delete state.draft.famAv; delete state.draft.myAv; $("profErr").textContent = ""; }
   document.querySelectorAll("[data-theme-opt]").forEach(b => b.setAttribute("aria-pressed", b.dataset.themeOpt === currentTheme()));
   document.querySelectorAll(".swatch[data-palette]").forEach(b => b.setAttribute("aria-pressed", b.dataset.palette === currentPalette()));
@@ -2797,14 +2799,16 @@ $("formReset").onsubmit = async (e) => {
 };
 
 /* =========================================================
-   ต้องจ่ายเดือนนี้: ติ๊กว่าจ่ายแล้ว (สีจาง) · วันครบกำหนด
-   การเตือนในห้องแชท DarkChat ทำที่ฝั่งเซิร์ฟเวอร์ (เตือนก่อนครบกำหนด 3 วัน ยิ่งใกล้ยิ่งถี่)
+   ต้องจ่ายเดือนนี้ (แยกจาก "จ่ายตามลำดับความสำคัญ")
+   รายการของตัวเอง: ชื่อ จำนวนเงิน วันครบกำหนด · ติ๊กจ่ายแล้ว (สีจาง)
+   การเตือนในห้องแชท DarkChat ทำที่ฝั่งเซิร์ฟเวอร์ (ก่อนครบกำหนด 3 วัน ยิ่งใกล้ยิ่งถี่)
    ========================================================= */
+const dueKey = (x) => x.key || "n:" + String(x.name || "").trim();
 function dueItems(M) {
-  const mStr = ymd(M), b = billsFor(mStr), last = lastDayOf(M.getFullYear(), M.getMonth());
+  const mStr = ymd(M), d = duesFor(mStr), last = lastDayOf(M.getFullYear(), M.getMonth());
   const checks = (state.data.checks || []).filter(c => String(c.cycle_month).slice(0, 10) === mStr);
-  return (b?.items || []).filter(x => +x.amount > 0).map((x, i) => {
-    const key = billKey(x), c = checks.find(r => r.item_key === key);
+  return (d?.items || []).filter(x => +x.amount > 0).map((x, i) => {
+    const key = dueKey(x), c = checks.find(r => r.item_key === key);
     const due = x.due_day ? new Date(M.getFullYear(), M.getMonth(), Math.min(+x.due_day, last)) : null;
     return { i, key, name: x.name, amount: +x.amount, due, check: c || null };
   }).sort((a, b) => (a.due ? a.due.getTime() : 9e15) - (b.due ? b.due.getTime() : 9e15) || a.i - b.i);
@@ -2820,19 +2824,22 @@ function dueStatus(it) {
 }
 function renderDue(M) {
   const sec = $("secDue"); if (!sec) return;
-  sec.classList.toggle("hidden", !feat("bills"));
+  sec.classList.toggle("hidden", !feat("dues"));
   const items = dueItems(M), paid = items.filter(x => x.check), total = items.reduce((a, x) => a + x.amount, 0), paidAmt = paid.reduce((a, x) => a + x.amount, 0);
-  $("dueTitle").textContent = `ต้องจ่าย${monthStart(today0()).getTime() === M.getTime() ? "เดือนนี้" : " " + monthLabel(M)}`;
+  const d = duesFor(ymd(M)), from = d && String(d.effective_month).slice(0, 10) !== ymd(M) ? parseYmd(d.effective_month) : null;
+  $("dueTitle").textContent = monthStart(today0()).getTime() === M.getTime() ? "ต้องจ่ายเดือนนี้" : `ต้องจ่าย ${monthLabel(M)}`;
+  if (state.duesMissing) { $("dueSum").textContent = ""; $("dueList").innerHTML = `<div class="empty">ยังใช้ส่วนนี้ไม่ได้<br><small>ให้รันไฟล์ supabase-dues.sql ใน Supabase ก่อน</small></div>`; return; }
   if (!items.length) {
     $("dueSum").textContent = "";
-    $("dueList").innerHTML = `<div class="empty">ยังไม่มีรายการที่ต้องจ่าย<br><button class="btn btn-soft btn-sm" type="button" data-open-bills style="margin-top:10px" ${can("bills") ? "" : "hidden"}>+ เพิ่มรายการ</button></div>`;
+    $("dueList").innerHTML = `<div class="empty">ยังไม่มีรายการที่ต้องจ่าย<br><small>เช่น ค่าเช่า ค่างวดรถ ค่าไฟ ใส่วันครบกำหนดไว้ ระบบจะเตือนก่อน 3 วัน</small><br><button class="btn btn-soft btn-sm" type="button" data-open-due style="margin-top:10px">+ เพิ่มรายการ</button></div>`;
     return;
   }
   $("dueSum").innerHTML = `จ่ายแล้ว <b class="num">${paid.length}/${items.length}</b> รายการ · <b class="num">${baht(paidAmt)}</b> จาก <span class="num">${baht(total)}</span>`
     + (paid.length < items.length ? ` · ยังไม่จ่าย <b class="num" style="color:var(--expense)">${baht(total - paidAmt)}</b>` : ` · <b style="color:var(--income)">ครบแล้ว ✓</b>`)
+    + (from ? `<br><small>ใช้รายการจาก ${monthLabel(from)}</small>` : "")
     + `<div class="track" style="margin-top:8px"><i style="width:${(paidAmt / (total || 1) * 100).toFixed(1)}%;background:var(--income)"></i></div>`;
-  const whoPaid = (c) => { const m = state.members.find(x => x.user_id && x.user_id === c.paid_by); const d = c.paid_at ? new Date(c.paid_at) : null;
-    return `จ่ายแล้ว${m ? " · " + esc(m.display_name) : ""}${d ? " · " + d.toLocaleDateString("th-TH", { day: "numeric", month: "short" }) : ""}`; };
+  const whoPaid = (c) => { const m = state.members.find(x => x.user_id && x.user_id === c.paid_by); const t = c.paid_at ? new Date(c.paid_at) : null;
+    return `จ่ายแล้ว${m ? " · " + esc(m.display_name) : ""}${t ? " · " + t.toLocaleDateString("th-TH", { day: "numeric", month: "short" }) : ""}`; };
   $("dueList").innerHTML = items.map(it => `<div class="due-row${it.check ? " due-paid" : ""}">
       <button type="button" class="due-tick" data-due-tick="${esc(it.key)}" data-due-name="${esc(it.name)}" data-due-amt="${it.amount}" aria-pressed="${!!it.check}" aria-label="${it.check ? "ยกเลิกติ๊กจ่ายแล้ว" : "ติ๊กว่าจ่ายแล้ว"}: ${esc(it.name)}">${it.check ? "✓" : ""}</button>
       <div class="due-main"><b>${esc(it.name)}</b><small>${it.due ? `ครบกำหนด ${it.due.getDate()} ${it.due.toLocaleDateString("th-TH", { month: "short" })}` : "ไม่ได้กำหนดวันจ่าย"}${it.check ? " · " + whoPaid(it.check) : ""}</small></div>
@@ -2841,7 +2848,7 @@ function renderDue(M) {
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-due-tick]"); if (!b) return;
   const M = monthStart(state.anchor), mStr = ymd(M), key = b.dataset.dueTick, on = b.getAttribute("aria-pressed") === "true";
-  if (on && !confirm(`ยกเลิกติ๊ก "${b.dataset.dueName}" ว่าจ่ายแล้ว?\n(ถ้ายังไม่ถึงกำหนดหรือเลยกำหนด จะกลับมาเตือนในห้องแชทอีก)`)) return;
+  if (on && !confirm(`ยกเลิกติ๊ก "${b.dataset.dueName}" ว่าจ่ายแล้ว?\n(ถ้าใกล้หรือเลยกำหนด จะกลับมาเตือนในห้องแชทอีก)`)) return;
   b.disabled = true;
   try {
     if (on) await api.uncheckBill(state.family.id, mStr, key);
@@ -2850,6 +2857,180 @@ document.addEventListener("click", async (e) => {
     await reload();
   } catch (err) { toast(/bill_checks/.test(String(err.message || err)) ? "ให้รันไฟล์ supabase-ledger.sql ใน Supabase ก่อน" : friendlyError(err)); b.disabled = false; }
 });
+
+/* ---------- แก้รายการที่ต้องจ่าย ---------- */
+const dueDayOptions = (v) => `<option value="">วันจ่าย</option>` + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${+v === i + 1 ? "selected" : ""}>ทุกวันที่ ${i + 1}${i === 30 ? " (สิ้นเดือน)" : ""}</option>`).join("");
+function renderDueLines() {
+  const items = state.draft.due;
+  $("lines-due").innerHTML = items.length ? items.map((x, i) => `
+    <div class="li li-due"><input data-due-i="${i}" data-due-k="name" maxlength="40" value="${esc(x.name)}" placeholder="เช่น ค่าเช่าบ้าน" aria-label="ชื่อรายการ">
+    <input data-due-i="${i}" data-due-k="amount" class="num" type="number" inputmode="decimal" min="0" step="0.01" value="${x.amount || ""}" placeholder="บาท" aria-label="จำนวนเงิน">
+    <select data-due-i="${i}" data-due-k="due_day" class="due-sel" aria-label="ครบกำหนดจ่ายวันที่">${dueDayOptions(x.due_day)}</select>
+    <button type="button" data-rm-due="${i}" aria-label="ลบรายการ">×</button></div>`).join("")
+    : `<div class="muted" style="font-size:14px">ยังไม่มีรายการ</div>`;
+  $("dueDraftTotal").textContent = baht(sumItems(items));
+}
+function openDue() {
+  const M = monthStart(state.anchor), d = duesFor(ymd(M));
+  $("dueSheetTitle").textContent = `ต้องจ่าย · ${monthLabel(M)}`;
+  $("dueSheetHint").textContent = `ใส่ชื่อ จำนวนเงิน และวันครบกำหนดของแต่ละรายการ · ระบบเตือนก่อนครบกำหนด 3 วัน (ในห้องแชท DarkChat ที่เชื่อมไว้) · ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้า · รายการนี้แยกจาก "จ่ายตามลำดับความสำคัญ"`;
+  state.draft.due = (d?.items || []).map(x => ({ ...x }));
+  if (!state.draft.due.length) state.draft.due.push({ name: "", amount: "", due_day: "" });
+  renderDueLines(); $("dueErr").textContent = "";
+  openSheet("sheetDue");
+}
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-open-due]")) return openDue();
+  if (e.target.closest("[data-add-due]")) { state.draft.due.push({ name: "", amount: "", due_day: "" }); renderDueLines(); const ins = $("lines-due").querySelectorAll("input"); ins[ins.length - 2]?.focus(); return; }
+  const r = e.target.closest("[data-rm-due]"); if (r) { state.draft.due.splice(+r.dataset.rmDue, 1); renderDueLines(); }
+});
+const onDueInput = (e) => {
+  const l = e.target.closest("[data-due-i]"); if (!l) return;
+  state.draft.due[+l.dataset.dueI][l.dataset.dueK] = l.value;
+  $("dueDraftTotal").textContent = baht(sumItems(state.draft.due));
+};
+document.addEventListener("input", onDueInput);
+document.addEventListener("change", onDueInput);
+$("formDue").onsubmit = async (e) => {
+  e.preventDefault();
+  const items = state.draft.due.filter(x => String(x.name).trim() || +x.amount > 0).map(x => {
+    const name = String(x.name).trim() || "ไม่ระบุ", o = { key: x.key || "d" + Math.random().toString(36).slice(2, 10), name, amount: round2(x.amount) };
+    const d = parseInt(x.due_day, 10); if (d >= 1 && d <= 31) o.due_day = d;
+    return o;
+  });
+  const btn = $("btnSaveDue"); btn.disabled = true;
+  try { await api.saveDues({ family_id: state.family.id, effective_month: ymd(monthStart(state.anchor)), items }); closeSheet("sheetDue"); toast("บันทึกรายการที่ต้องจ่ายแล้ว"); await reload(); }
+  catch (err) { $("dueErr").textContent = /due_lists/.test(String(err.message || err)) ? "ให้รันไฟล์ supabase-dues.sql ใน Supabase ก่อน" : friendlyError(err); }
+  finally { btn.disabled = false; }
+};
+
+/* =========================================================
+   ล็อกแอปด้วย PIN 6 หลัก (เก็บเฉพาะในเครื่อง) + ล็อกอัตโนมัติ
+   ========================================================= */
+const PIN = { mode: null, buf: "", first: "", tries: 0, onDone: null, fresh: false, locked: false, lastAct: Date.now(), hiddenAt: 0 };
+const pinK = (uid, k) => `samudbaan_pin_${k}_${uid}`;
+const pinLS = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* เครื่องไม่ให้เก็บ */ } },
+  del: (k) => { try { localStorage.removeItem(k); } catch (e) { /* ไม่เป็นไร */ } } };
+const pinOn = (uid) => pinLS.get(pinK(uid, "on")) !== "0";          // ค่าเริ่มต้น: เปิด
+const pinHas = (uid) => !!pinLS.get(pinK(uid, "hash"));
+const pinIdle = (uid) => { const v = pinLS.get(pinK(uid, "idle")); return v === null ? 60 : +v; };
+async function pinHash(uid, pin, salt) {
+  const txt = `${salt}|${uid}|${pin}`;
+  if (window.crypto?.subtle) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+  let h = 5381; for (let i = 0; i < txt.length; i++) h = ((h << 5) + h + txt.charCodeAt(i)) | 0;   // สำรองเมื่อเปิดแบบไฟล์ในเครื่อง
+  return "f" + (h >>> 0).toString(16);
+}
+async function pinSave(uid, pin) {
+  const salt = Math.random().toString(36).slice(2, 12);
+  pinLS.set(pinK(uid, "salt"), salt);
+  pinLS.set(pinK(uid, "hash"), await pinHash(uid, pin, salt));
+}
+async function pinCheck(uid, pin) { return (await pinHash(uid, pin, pinLS.get(pinK(uid, "salt")) || "")) === pinLS.get(pinK(uid, "hash")); }
+function pinClear(uid) { ["hash", "salt"].forEach(k => pinLS.del(pinK(uid, k))); }
+
+function pinShow(mode, onDone) {
+  PIN.mode = mode; PIN.buf = ""; PIN.first = ""; PIN.onDone = onDone || null;
+  if (mode === "unlock") PIN.locked = true;
+  const me = state.members?.find(m => m.user_id === state.user?.id);
+  $("pinWho").textContent = me ? me.display_name : (state.user?.email || "");
+  $("pinAv").innerHTML = me ? avatarHTML(me, "avatar avatar-lg") : '<div class="avatar avatar-lg">🏠</div>';
+  pinTexts();
+  $("pinLock").classList.remove("hidden");
+  document.activeElement?.blur?.();
+}
+function pinTexts() {
+  const T = { create: ["ตั้ง PIN 6 หลัก", "ใช้ปลดล็อกสมุดบ้านทุกครั้งที่เปิดแอป"], confirm: ["ยืนยัน PIN อีกครั้ง", "ใส่ PIN เดิมอีกครั้ง"],
+    unlock: ["ใส่ PIN", "ปลดล็อกสมุดบ้าน"], verify: ["ใส่ PIN ปัจจุบัน", "ยืนยันตัวตนก่อนเปลี่ยนการตั้งค่า"] }[PIN.mode];
+  $("pinTitle").textContent = T[0]; $("pinSub").textContent = T[1]; $("pinErr").textContent = "";
+  $("pinAlt").textContent = PIN.mode === "unlock" ? "ลืม PIN?" : (PIN.mode === "verify" ? "ยกเลิก" : (PIN.mode === "create" && !PIN.required ? "ไม่ใช้ PIN" : ""));
+  $("pinAlt").classList.toggle("hidden", !$("pinAlt").textContent);
+  pinDots();
+}
+function pinDots() { [...$("pinDots").children].forEach((d, i) => d.classList.toggle("on", i < PIN.buf.length)); }
+function pinHide() { $("pinLock").classList.add("hidden"); PIN.mode = null; PIN.locked = false; PIN.lastAct = Date.now(); }
+function pinShake(msg) {
+  $("pinErr").textContent = msg; PIN.buf = ""; pinDots();
+  $("pinDots").classList.remove("shake"); void $("pinDots").offsetWidth; $("pinDots").classList.add("shake");
+}
+async function pinEntered() {
+  const uid = state.user.id, v = PIN.buf;
+  if (PIN.mode === "create") { PIN.first = v; PIN.mode = "confirm"; PIN.buf = ""; return pinTexts(); }
+  if (PIN.mode === "confirm") {
+    if (v !== PIN.first) { PIN.mode = "create"; PIN.first = ""; pinTexts(); return pinShake("PIN ไม่ตรงกัน ตั้งใหม่อีกครั้ง"); }
+    await pinSave(uid, v); pinLS.set(pinK(uid, "on"), "1"); PIN.tries = 0;
+    const cb = PIN.onDone; pinHide(); toast("ตั้ง PIN แล้ว"); cb?.(); pinPaintSettings(); return;
+  }
+  if (await pinCheck(uid, v)) { PIN.tries = 0; const cb = PIN.onDone; pinHide(); cb?.(); return; }
+  PIN.tries++;
+  if (PIN.tries >= 5) { toast("ใส่ PIN ผิด 5 ครั้ง ออกจากระบบแล้ว เข้าสู่ระบบใหม่เพื่อตั้ง PIN ใหม่"); PIN.tries = 0; return logout(); }
+  pinShake(`PIN ไม่ถูกต้อง (เหลืออีก ${5 - PIN.tries} ครั้ง)`);
+}
+document.addEventListener("click", (e) => {
+  const k = e.target.closest("[data-pin]"); if (!k || !PIN.mode) return;
+  if (k.dataset.pin === "del") { PIN.buf = PIN.buf.slice(0, -1); return pinDots(); }
+  if (PIN.buf.length >= 6) return;
+  PIN.buf += k.dataset.pin; pinDots(); $("pinErr").textContent = "";
+  if (PIN.buf.length === 6) setTimeout(pinEntered, 120);
+});
+document.addEventListener("keydown", (e) => {
+  if (!PIN.mode) return;
+  if (/^[0-9]$/.test(e.key) && PIN.buf.length < 6) { PIN.buf += e.key; pinDots(); if (PIN.buf.length === 6) setTimeout(pinEntered, 120); e.preventDefault(); }
+  else if (e.key === "Backspace") { PIN.buf = PIN.buf.slice(0, -1); pinDots(); e.preventDefault(); }
+}, true);
+$("pinAlt").onclick = () => {
+  if (PIN.mode === "unlock") { if (confirm("ลืม PIN?\nต้องออกจากระบบ แล้วเข้าสู่ระบบด้วยอีเมลและรหัสผ่านใหม่ จากนั้นตั้ง PIN ใหม่")) logout(); return; }
+  if (PIN.mode === "verify") { pinHide(); pinPaintSettings(); return; }
+  if (PIN.mode === "create" || PIN.mode === "confirm") { pinLS.set(pinK(state.user.id, "on"), "0"); pinHide(); toast("ไม่ใช้ PIN · เปิดได้ที่ ตั้งค่า > ความปลอดภัยและการล็อก"); pinPaintSettings(); }
+};
+$("pinOut").onclick = () => { if (confirm("ออกจากระบบ?")) logout(); };
+
+// เปิดแอป: ยังไม่มี PIN = ตั้ง, มี PIN และไม่ได้เพิ่งล็อกอินด้วยรหัสผ่าน = ใส่ PIN
+function pinGate() {
+  const uid = state.user?.id; if (!uid) return;
+  const fresh = PIN.fresh; PIN.fresh = false;
+  if (!pinOn(uid)) return;
+  if (!pinHas(uid)) { PIN.required = false; return pinShow("create"); }
+  if (!fresh) pinShow("unlock");
+}
+function pinLockNow() { const uid = state.user?.id; if (!uid || !pinOn(uid) || !pinHas(uid) || PIN.mode) return; pinShow("unlock"); }
+
+// ล็อกอัตโนมัติ
+["pointerdown", "keydown", "touchstart", "wheel"].forEach(ev => document.addEventListener(ev, () => { if (!PIN.mode) PIN.lastAct = Date.now(); }, { passive: true, capture: true }));
+const pinAppOpen = () => !!state.user && !!state.family && !$("viewApp")?.classList.contains("hidden");
+setInterval(() => {
+  const uid = state.user?.id; if (!uid || !pinAppOpen() || PIN.mode) return;
+  const lim = pinIdle(uid); if (!lim) return;
+  if (Date.now() - PIN.lastAct > lim * 1000) pinLockNow();
+}, 5000);
+document.addEventListener("visibilitychange", () => {
+  const uid = state.user?.id; if (!uid) return;
+  if (document.hidden) { PIN.hiddenAt = Date.now(); return; }
+  const lim = pinIdle(uid);
+  if (pinAppOpen() && lim && PIN.hiddenAt && Date.now() - PIN.hiddenAt > lim * 1000) pinLockNow();
+  PIN.hiddenAt = 0;
+});
+
+// หน้าตั้งค่า
+function pinPaintSettings() {
+  const uid = state.user?.id; if (!uid || !$("setPinOn")) return;
+  const on = pinOn(uid) && pinHas(uid);
+  $("setPinOn").setAttribute("aria-checked", String(on));
+  $("setPinIdle").value = String(pinIdle(uid));
+  $("setPinIdle").disabled = !on; $("btnPinChange").disabled = !on; $("btnPinLockNow").disabled = !on;
+}
+$("setPinOn").onclick = () => {
+  const uid = state.user.id, on = pinOn(uid) && pinHas(uid);
+  if (on) pinShow("verify", () => { pinLS.set(pinK(uid, "on"), "0"); pinClear(uid); toast("ปิดการล็อกด้วย PIN แล้ว"); pinPaintSettings(); });
+  else { PIN.required = true; pinShow("create", () => pinPaintSettings()); }
+};
+$("setPinIdle").onchange = () => { pinLS.set(pinK(state.user.id, "idle"), $("setPinIdle").value); PIN.lastAct = Date.now(); toast("บันทึกเวลาล็อกอัตโนมัติแล้ว"); };
+$("btnPinChange").onclick = () => pinShow("verify", () => { PIN.required = true; pinShow("create", () => pinPaintSettings()); });
+$("btnPinLockNow").onclick = () => pinLockNow();
+document.addEventListener("keydown", (e) => { if (e.altKey && (e.key === "l" || e.key === "L")) pinLockNow(); });
 
 /* =========================================================
    รายจ่ายหลักที่จ่ายไป (บันทึกตอนกด "ฝากเงินคงเหลือ")
