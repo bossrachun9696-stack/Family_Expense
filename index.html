@@ -381,7 +381,7 @@
         </div>
         <section id="secDue">
           <div class="sec-head"><h2 id="dueTitle">ต้องจ่ายเดือนนี้</h2>
-            <button class="linkbtn" type="button" data-open-bills><svg class="i" style="width:16px;height:16px"><use href="#i-edit"/></svg>เพิ่ม / แก้ไข</button></div>
+            <button class="linkbtn" type="button" data-open-due><svg class="i" style="width:16px;height:16px"><use href="#i-edit"/></svg>เพิ่ม / แก้ไข</button></div>
           <div class="card">
             <div id="dueSum" class="muted" style="font-size:13.5px"></div>
             <div id="dueList" class="due-list"></div>
@@ -586,6 +586,80 @@
     <!-- ===== tab: settings ===== -->
     <div id="tabSettings" class="hidden">
       <h2 style="margin:0 0 14px;font-size:22px">ตั้งค่า</h2>
+    <details class="sgroup" open>
+      <summary>🔒 ความปลอดภัยและการล็อก</summary>
+      <div class="sgroup-body">
+    <div class="card set-block">
+      <div class="perm-row"><div><b>ล็อกแอปด้วย PIN</b><small>ใส่ PIN 6 หลักทุกครั้งที่เปิดแอป (ปิดได้ แต่ต้องใส่ PIN เดิมก่อน)</small></div>
+        <button type="button" class="switch brand" role="switch" aria-checked="true" aria-label="ล็อกแอปด้วย PIN" id="setPinOn"></button></div>
+      <div class="perm-row"><div><b>ล็อกอัตโนมัติเมื่อไม่ได้ใช้งาน</b><small>กลับไปหน้าใส่ PIN เมื่อไม่ได้แตะหรือพิมพ์ตามเวลานี้ หรือสลับไปแอปอื่นนานกว่านี้</small></div>
+        <select id="setPinIdle" class="input pin-idle" aria-label="เวลาล็อกอัตโนมัติ">
+          <option value="30">30 วินาที</option><option value="60">1 นาที</option><option value="120">2 นาที</option><option value="300">5 นาที</option><option value="0">ไม่ล็อก</option>
+        </select></div>
+      <div class="prof-actions" style="margin-top:6px">
+        <button class="btn btn-ghost btn-sm" type="button" id="btnPinChange">🔑 เปลี่ยน PIN</button>
+        <button class="btn btn-soft btn-sm" type="button" id="btnPinLockNow">🔒 ล็อกตอนนี้</button>
+      </div>
+      <p class="muted" style="font-size:12.5px;margin:8px 0 0">PIN เก็บเฉพาะในเครื่องนี้ ออกจากระบบแล้วต้องตั้งใหม่ · ใส่ผิด 5 ครั้งจะออกจากระบบ</p>
+    </div>
+      </div>
+    </details>
+    <details class="sgroup">
+      <summary>🏠 บ้านและสมาชิก</summary>
+      <div class="sgroup-body">
+    <div class="card set-block">
+      <h3>บ้าน</h3>
+      <div class="prof"><div id="setFamAv" class="avatar avatar-lg" aria-hidden="true"></div>
+        <div class="field"><label for="inFamName">ชื่อบ้าน</label><input id="inFamName" maxlength="60"></div></div>
+      <div class="prof-actions" id="famEditActions">
+        <label class="btn btn-ghost btn-sm" for="inFamPhoto">เปลี่ยนรูปบ้าน</label><input id="inFamPhoto" type="file" accept="image/*" hidden>
+        <button id="btnRmFamPhoto" class="linkbtn" type="button">ลบรูป</button>
+        <span style="flex:1"></span>
+        <button id="btnSaveFam" class="btn btn-primary btn-sm" type="button">บันทึก</button>
+      </div>
+      <p id="famReadonly" class="muted hidden" style="font-size:13px;margin:0">เฉพาะเจ้าของบ้านที่แก้ชื่อและรูปบ้านได้ · สมาชิก <span id="setMembers"></span></p>
+    </div>
+    <div class="card set-block">
+      <h3>ชวนคนในบ้าน</h3>
+      <div class="invite"><div><small class="muted">รหัสเชิญ</small><br><code id="txtInvite" class="num"></code></div>
+        <button id="btnCopyInvite" class="btn btn-soft" type="button">คัดลอก</button></div>
+    </div>
+    <div class="set-block">
+      <h3 style="display:flex;justify-content:space-between">สมาชิกและสิทธิ์ <small id="txtMemberCount" class="muted" style="font-weight:400"></small></h3>
+      <div id="memberList" class="ledger"></div>
+      <div id="addKidRow" class="addkid hidden">
+        <input id="inKidName" class="input" maxlength="40" placeholder="ชื่อเด็ก เช่น น้องมะลิ" aria-label="ชื่อเด็ก">
+        <button id="btnAddKid" class="btn btn-soft" type="button">🎒 เพิ่มเด็ก</button>
+        <small class="muted">เด็กไม่ต้องมีบัญชีเข้าระบบ ผู้ใหญ่ในบ้านบันทึกเงินไปโรงเรียนให้ได้ · ถ้าเด็กมีบัญชีแล้ว กด “เป็นเด็ก” ที่ชื่อของเขา</small>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="sgroup">
+      <summary>👤 โปรไฟล์และบัญชี</summary>
+      <div class="sgroup-body">
+    <div class="card set-block">
+      <h3>โปรไฟล์ของฉัน <small class="muted" id="setRole" style="font-weight:400"></small></h3>
+      <div class="prof"><div id="setMyAv" class="avatar avatar-lg" aria-hidden="true"></div>
+        <div class="field"><label for="inMyName">ชื่อที่คนในบ้านเห็น</label><input id="inMyName" maxlength="40"></div></div>
+      <div class="prof-actions">
+        <label class="btn btn-ghost btn-sm" for="inMyPhoto">เปลี่ยนรูปโปรไฟล์</label><input id="inMyPhoto" type="file" accept="image/*" hidden>
+        <button id="btnRmMyPhoto" class="linkbtn" type="button">ลบรูป</button>
+        <span style="flex:1"></span>
+        <button id="btnSaveMe" class="btn btn-primary btn-sm" type="button">บันทึก</button>
+      </div>
+      <div id="profErr" class="err" role="alert"></div>
+    </div>
+    <div class="card set-block">
+      <h3>บัญชีของคุณ</h3>
+      <p id="txtEmail" class="muted" style="margin:0 0 12px"></p>
+      <button class="btn btn-ghost btn-block" type="button" data-action="logout">ออกจากระบบ</button>
+    </div>
+      </div>
+    </details>
+    <details class="sgroup">
+      <summary>🎨 หน้าตาและธีม</summary>
+      <div class="sgroup-body">
     <div class="set-block">
       <h3>ธีม</h3>
       <div class="seg seg3" role="group" aria-label="ธีม" style="margin:0">
@@ -602,44 +676,11 @@
         <button type="button" class="swatch" data-palette="sakura"><i style="background:linear-gradient(135deg,#EE5A96,#8E1A4D)"></i>ชมพูซากุระ</button>
       </div>
     </div>
-    <div class="card set-block">
-      <h3>บ้าน</h3>
-      <div class="prof"><div id="setFamAv" class="avatar avatar-lg" aria-hidden="true"></div>
-        <div class="field"><label for="inFamName">ชื่อบ้าน</label><input id="inFamName" maxlength="60"></div></div>
-      <div class="prof-actions" id="famEditActions">
-        <label class="btn btn-ghost btn-sm" for="inFamPhoto">เปลี่ยนรูปบ้าน</label><input id="inFamPhoto" type="file" accept="image/*" hidden>
-        <button id="btnRmFamPhoto" class="linkbtn" type="button">ลบรูป</button>
-        <span style="flex:1"></span>
-        <button id="btnSaveFam" class="btn btn-primary btn-sm" type="button">บันทึก</button>
       </div>
-      <p id="famReadonly" class="muted hidden" style="font-size:13px;margin:0">เฉพาะเจ้าของบ้านที่แก้ชื่อและรูปบ้านได้ · สมาชิก <span id="setMembers"></span></p>
-    </div>
-    <div class="card set-block">
-      <h3>โปรไฟล์ของฉัน <small class="muted" id="setRole" style="font-weight:400"></small></h3>
-      <div class="prof"><div id="setMyAv" class="avatar avatar-lg" aria-hidden="true"></div>
-        <div class="field"><label for="inMyName">ชื่อที่คนในบ้านเห็น</label><input id="inMyName" maxlength="40"></div></div>
-      <div class="prof-actions">
-        <label class="btn btn-ghost btn-sm" for="inMyPhoto">เปลี่ยนรูปโปรไฟล์</label><input id="inMyPhoto" type="file" accept="image/*" hidden>
-        <button id="btnRmMyPhoto" class="linkbtn" type="button">ลบรูป</button>
-        <span style="flex:1"></span>
-        <button id="btnSaveMe" class="btn btn-primary btn-sm" type="button">บันทึก</button>
-      </div>
-      <div id="profErr" class="err" role="alert"></div>
-    </div>
-    <div class="card set-block">
-      <h3>ชวนคนในบ้าน</h3>
-      <div class="invite"><div><small class="muted">รหัสเชิญ</small><br><code id="txtInvite" class="num"></code></div>
-        <button id="btnCopyInvite" class="btn btn-soft" type="button">คัดลอก</button></div>
-    </div>
-    <div class="set-block">
-      <h3 style="display:flex;justify-content:space-between">สมาชิกและสิทธิ์ <small id="txtMemberCount" class="muted" style="font-weight:400"></small></h3>
-      <div id="memberList" class="ledger"></div>
-      <div id="addKidRow" class="addkid hidden">
-        <input id="inKidName" class="input" maxlength="40" placeholder="ชื่อเด็ก เช่น น้องมะลิ" aria-label="ชื่อเด็ก">
-        <button id="btnAddKid" class="btn btn-soft" type="button">🎒 เพิ่มเด็ก</button>
-        <small class="muted">เด็กไม่ต้องมีบัญชีเข้าระบบ ผู้ใหญ่ในบ้านบันทึกเงินไปโรงเรียนให้ได้ · ถ้าเด็กมีบัญชีแล้ว กด “เป็นเด็ก” ที่ชื่อของเขา</small>
-      </div>
-    </div>
+    </details>
+    <details class="sgroup">
+      <summary>⚙️ ฟังก์ชันและรายการประจำ</summary>
+      <div class="sgroup-body">
     <div class="card set-block">
       <h3>ฟังก์ชันที่ใช้ในบ้านนี้</h3>
       <p class="muted" id="featHint" style="font-size:13px;margin:-4px 0 4px"></p>
@@ -650,6 +691,11 @@
       <p class="muted" style="font-size:13px;margin:-4px 0 6px">ตั้งได้จากปุ่ม + แล้วเปิด “ทำซ้ำทุกเดือน”</p>
       <div id="recurList"></div>
     </div>
+      </div>
+    </details>
+    <details class="sgroup">
+      <summary>📱 แอปบนมือถือ</summary>
+      <div class="sgroup-body">
     <div class="card set-block">
       <h3>แอปบนมือถือ</h3>
       <p class="muted" id="installTxt" style="font-size:13.5px;margin:0 0 10px"></p>
@@ -658,12 +704,12 @@
         <button class="btn btn-ghost btn-sm" type="button" id="btnWizard">🧭 เปิดตัวช่วยตั้งค่าอีกครั้ง</button>
       </div>
     </div>
-    <div class="card set-block">
-      <h3>บัญชีของคุณ</h3>
-      <p id="txtEmail" class="muted" style="margin:0 0 12px"></p>
-      <button class="btn btn-ghost btn-block" type="button" data-action="logout">ออกจากระบบ</button>
-    </div>
+      </div>
+    </details>
     <span id="setFamName" class="hidden"></span>
+    <details class="sgroup">
+      <summary>⚠️ ล้างข้อมูลทั้งบ้าน</summary>
+      <div class="sgroup-body">
     <form id="formReset" novalidate>
     <div class="danger">
       <h3>ล้างข้อมูลทั้งหมดในบ้าน</h3>
@@ -677,6 +723,8 @@
       <p id="resetNotOwner" class="hidden" style="margin:0">เฉพาะเจ้าของบ้านที่ล้างข้อมูลได้</p>
     </div>
     </form>
+      </div>
+    </details>
     </div>
   </div>
 
@@ -812,6 +860,45 @@
       <button type="submit" class="btn btn-primary" id="btnSavePay">บันทึกการตั้งค่า</button>
     </div>
   </form>
+</div>
+
+<!-- ============ SHEET: ต้องจ่ายเดือนนี้ ============ -->
+<div id="sheetDue" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="dueSheetTitle">
+  <form class="sheet" id="formDue" novalidate>
+    <h2 id="dueSheetTitle">ต้องจ่ายเดือนนี้</h2>
+    <div class="hint" id="dueSheetHint"></div>
+    <div class="subhead">รายการ <button type="button" class="linkbtn" data-add-due>+ เพิ่ม</button></div>
+    <div id="lines-due" class="list-edit"></div>
+    <div class="bill-total num" style="margin-bottom:12px"><span>รวม</span><span id="dueDraftTotal">฿0</span></div>
+    <div id="dueErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="btnSaveDue">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ ล็อกด้วย PIN ============ -->
+<div id="pinLock" class="pinlock hidden" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+  <div class="pin-box">
+    <div id="pinAv" class="pin-av" aria-hidden="true"></div>
+    <div id="pinWho" class="pin-who"></div>
+    <h2 id="pinTitle">ใส่ PIN</h2>
+    <p id="pinSub" class="muted"></p>
+    <div id="pinDots" class="pin-dots" aria-live="polite"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div id="pinErr" class="pin-err" role="alert"></div>
+    <div class="pin-pad">
+      <button type="button" data-pin="1">1</button><button type="button" data-pin="2">2</button><button type="button" data-pin="3">3</button>
+      <button type="button" data-pin="4">4</button><button type="button" data-pin="5">5</button><button type="button" data-pin="6">6</button>
+      <button type="button" data-pin="7">7</button><button type="button" data-pin="8">8</button><button type="button" data-pin="9">9</button>
+      <button type="button" class="blank" tabindex="-1" aria-hidden="true"></button><button type="button" data-pin="0">0</button>
+      <button type="button" class="del" data-pin="del" aria-label="ลบ">⌫</button>
+    </div>
+    <div class="pin-links">
+      <button type="button" class="linkbtn" id="pinAlt"></button>
+      <button type="button" class="linkbtn danger-link" id="pinOut">ออกจากระบบ</button>
+    </div>
+  </div>
 </div>
 
 <!-- ============ SHEET: household bills ============ -->
