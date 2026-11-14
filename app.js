@@ -197,7 +197,7 @@ function makeSupabaseApi() {
     async loadAll(fid) {
       const missing = [];
       const opt = (p, name) => p.catch(e => { missing.push(name); console.warn(e); return []; });
-      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends] = await Promise.all([
+      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, checks] = await Promise.all([
         fetchAll("transactions", fid, "tx_date"),
         opt(fetchAll("work_days", fid, "work_date"), "work_days"),
         opt(fetchAll("member_pay_settings", fid, "effective_month"), "member_pay_settings"),
@@ -216,9 +216,10 @@ function makeSupabaseApi() {
         opt(fetchAll("personal_moves", fid, "move_date"), "personal_moves"),
         opt(fetchAll("bill_payments", fid, "cycle_month"), "bill_payments"),
         opt(fetchAll("child_days", fid, "day_date"), "child_days"),
-        opt(fetchAll("child_spends", fid, "spend_date"), "child_spends")
+        opt(fetchAll("child_spends", fid, "spend_date"), "child_spends"),
+        opt(fetchAll("bill_checks", fid, "cycle_month"), "bill_checks")
       ]);
-      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, missing };
+      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, checks, missing };
     },
     async addTx(tx) { return must(await sb.from("transactions").insert(tx).select().single()); },
     async addDebt(row) { return must(await sb.from("debts").insert(row).select().single()); },
@@ -261,6 +262,8 @@ function makeSupabaseApi() {
     async saveWorkDay(row) { return must(await sb.from("work_days").upsert(row, { onConflict: "member_id,work_date" }).select().single()); },
     async deleteWorkDay(memberId, date) { must(await sb.from("work_days").delete().eq("member_id", memberId).eq("work_date", date)); },
     async saveBills(row) { return must(await sb.from("family_bills").upsert(row, { onConflict: "family_id,effective_month" }).select().single()); },
+    async checkBill(row) { must(await sb.from("bill_checks").upsert({ ...row, paid_by: state.user.id }, { onConflict: "family_id,cycle_month,item_key" })); },
+    async uncheckBill(fid, month, key) { must(await sb.from("bill_checks").delete().eq("family_id", fid).eq("cycle_month", month).eq("item_key", key)); },
     async saveActual(row) { return must(await sb.from("actual_pay").upsert(row, { onConflict: "member_id,cycle_month" }).select().single()); },
     async deleteActual(memberId, month) { must(await sb.from("actual_pay").delete().eq("member_id", memberId).eq("cycle_month", month)); },
     async resetFamily(fid, confirmText, memberIds = []) {
@@ -272,7 +275,7 @@ function makeSupabaseApi() {
     },
     subscribe(fid, onChange, onStatus) {
       const ch = sb.channel("family-" + fid);
-      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends"].forEach(t => {
+      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "bill_checks"].forEach(t => {
         ch.on("postgres_changes", { event: "*", schema: "public", table: t, filter: `family_id=eq.${fid}` }, onChange);
         ch.on("postgres_changes", { event: "DELETE", schema: "public", table: t }, onChange); // การลบกรองตาม family ไม่ได้
       });
@@ -283,7 +286,7 @@ function makeSupabaseApi() {
 }
 
 function makeDemoApi() {
-  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], files: {} };
+  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], checks: [], files: {} };
   let session = null;
   const uid = () => Math.random().toString(36).slice(2, 10);
   const wait = () => new Promise(r => setTimeout(r, 100));
@@ -392,7 +395,9 @@ function makeDemoApi() {
         pspends: famRows(db.pspends, fid).filter(b => b.member_id === me?.id), recurring: famRows(db.recurring, fid), goals: famRows(db.goals, fid),
         contribs: famRows(db.contribs, fid), catbud: famRows(db.catbud, fid), accounts: famRows(db.accounts, fid), moves: famRows(db.moves, fid),
         paccts: famRows(db.paccts, fid).filter(a => a.member_id === me?.id || a.shared), pmoves: famRows(db.pmoves, fid).filter(m => { const a = db.paccts.find(x => x.id === m.account_id); return a && (a.member_id === me?.id || a.shared); }),
-        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), missing: [] }; },
+        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), checks: famRows(db.checks, fid), missing: [] }; },
+    async checkBill(row) { db.checks = db.checks.filter(r => !(r.family_id === row.family_id && r.cycle_month === row.cycle_month && r.item_key === row.item_key)); db.checks.push({ ...row, paid_by: session.id, paid_at: new Date().toISOString() }); },
+    async uncheckBill(fid, month, key) { db.checks = db.checks.filter(r => !(r.family_id === fid && r.cycle_month === month && r.item_key === key)); },
     async setBillPays(fid, month, rows) { db.bpays = db.bpays.filter(r => !(r.family_id === fid && r.cycle_month === month)); rows.forEach(r => db.bpays.push({ ...r, id: uid(), created_at: new Date().toISOString() })); },
     async saveChildDay(row) { return upsert(db.cdays, { ...row, created_at: new Date().toISOString() }, ["member_id", "day_date"]); },
     async deleteChildDay(mid, date) { db.cdays = db.cdays.filter(r => !(r.member_id === mid && r.day_date === date)); },
@@ -481,7 +486,7 @@ const memo = (key, fn) => { if (MEMO.has(key)) return MEMO.get(key); const v = f
 function buildIndex() {
   const D = state.data;
   MEMO.clear();
-  ["pspends", "recurring", "goals", "contribs", "catbud", "debts", "budgets", "accounts", "moves", "paccts", "pmoves", "bpays", "cdays", "cspends"].forEach(k => D[k] ||= []);
+  ["pspends", "recurring", "goals", "contribs", "catbud", "debts", "budgets", "accounts", "moves", "paccts", "pmoves", "bpays", "cdays", "cspends", "checks"].forEach(k => D[k] ||= []);
   IDX.catbud = [...D.catbud].sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)));
   IDX.recur = new Set(D.txs.filter(t => t.recurring_id).map(t => t.recurring_id + "|" + String(t.recurring_month).slice(0, 10)));
   IDX.days = new Map(D.days.map(d => [d.member_id + "|" + String(d.work_date).slice(0, 10), d]));
@@ -1983,6 +1988,7 @@ function renderPayrollAll() {
       <div class="amt num"><b class="${p && p.actual !== null ? "gold" : ""}">${p ? baht(p.used) : "—"}</b></div></div>`).join("");
   $("allCount").textContent = `${set.length}/${rows.length} คนตั้งค่าแล้ว`;
   $("secWaterfall").classList.toggle("hidden", !feat("bills"));
+  renderDue(M);
   $("allBillsBox").parentElement.classList.toggle("hidden", !feat("bills"));
   $("btnEditBills2").classList.toggle("hidden", !can("bills"));
   if (feat("bills")) renderWaterfall(M, tot(p => p.used));
@@ -2272,6 +2278,7 @@ function renderLines(kind) {
   $("lines-" + kind).innerHTML = items.length ? items.map((x, i) => `
     <div class="li${bills ? " li-bill" : ""}"><input data-line="${kind}" data-i="${i}" data-k="name" maxlength="40" value="${esc(x.name)}" placeholder="${ph}" aria-label="ชื่อรายการ">
     <input data-line="${kind}" data-i="${i}" data-k="amount" class="num" type="number" inputmode="decimal" min="0" step="0.01" value="${x.amount || ""}" placeholder="บาท" aria-label="จำนวนเงิน">
+    ${bills ? `<select data-line="bills" data-i="${i}" data-k="due_day" class="due-sel" aria-label="ครบกำหนดจ่ายวันที่">${dueDayOptions(x.due_day)}</select>` : ""}
     ${bills ? `<button type="button" data-mv-line="-1" data-i="${i}" aria-label="เลื่อนขึ้น (สำคัญกว่า)" ${i === 0 ? "disabled" : ""}>↑</button>
     <button type="button" data-mv-line="1" data-i="${i}" aria-label="เลื่อนลง" ${i === items.length - 1 ? "disabled" : ""}>↓</button>` : ""}
     <button type="button" data-rm-line="${kind}" data-i="${i}" aria-label="ลบรายการ">×</button></div>`).join("")
@@ -2288,6 +2295,14 @@ document.addEventListener("click", (e) => {
   const mv = e.target.closest("[data-mv-line]");
   if (mv) { const a = state.draft.bills, i = +mv.dataset.i, j = i + +mv.dataset.mvLine; if (j >= 0 && j < a.length) { [a[i], a[j]] = [a[j], a[i]]; renderLines("bills"); } }
   const r = e.target.closest("[data-rm-line]"); if (r) { state.draft[r.dataset.rmLine].splice(+r.dataset.i, 1); renderLines(r.dataset.rmLine); }
+});
+const dueDayOptions = (v) => `<option value="">วันจ่าย</option>` + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${+v === i + 1 ? "selected" : ""}>ทุกวันที่ ${i + 1}${i === 30 ? " (สิ้นเดือน)" : ""}</option>`).join("");
+// รายการที่ต้องจ่าย: เก็บวันครบกำหนด และรหัสประจำรายการ (ใช้ผูกการติ๊กว่าจ่ายแล้ว รายการเดิมที่ไม่มีรหัสใช้ชื่อแทน)
+const billKey = (x) => x.key || "n:" + String(x.name || "").trim();
+const cleanBills = (arr) => arr.filter(x => String(x.name).trim() || +x.amount > 0).map(x => {
+  const name = String(x.name).trim() || "ไม่ระบุ", o = { name, amount: round2(x.amount), key: x.key || (x.name ? "n:" + name : "b" + Math.random().toString(36).slice(2, 10)) };
+  const d = parseInt(x.due_day, 10); if (d >= 1 && d <= 31) o.due_day = d;
+  return o;
 });
 const cleanLines = (arr) => arr.filter(x => String(x.name).trim() || +x.amount > 0).map(x => ({ name: String(x.name).trim() || "ไม่ระบุ", amount: round2(x.amount) }));
 
@@ -2347,7 +2362,7 @@ $("formPay").onsubmit = async (e) => {
 function openBills() {
   const M = monthStart(state.anchor), b = billsFor(ymd(M));
   $("billsTitle").textContent = `รายจ่ายหลัก · ${monthLabel(M)}`;
-  $("billsHint").textContent = `เรียงจากสำคัญมากไปน้อย (บนสุดจ่ายก่อน) ใช้ปุ่ม ↑ ↓ จัดลำดับ · ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้า · ไม่ต้องบันทึกซ้ำในปุ่ม +`;
+  $("billsHint").textContent = `เรียงจากสำคัญมากไปน้อย (บนสุดจ่ายก่อน) ใช้ปุ่ม ↑ ↓ จัดลำดับ · เลือก "วันจ่าย" เพื่อให้เตือนก่อนครบกำหนด 3 วัน (และเตือนในห้องแชท DarkChat ที่เชื่อมไว้) · ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้า · ไม่ต้องบันทึกซ้ำในปุ่ม +`;
   state.draft.bills = (b?.items || []).map(x => ({ ...x }));
   if (!state.draft.bills.length) state.draft.bills.push({ name: "", amount: "" });
   renderLines("bills"); $("billsErr").textContent = "";
@@ -2358,7 +2373,7 @@ document.addEventListener("click", (e) => { if (e.target.closest("[data-open-bil
 $("formBills").onsubmit = async (e) => {
   e.preventDefault();
   const btn = $("btnSaveBills"); btn.disabled = true;
-  try { await api.saveBills({ family_id: state.family.id, effective_month: ymd(monthStart(state.anchor)), items: cleanLines(state.draft.bills) }); closeSheet("sheetBills"); toast("บันทึกรายจ่ายหลักแล้ว"); await reload(); }
+  try { await api.saveBills({ family_id: state.family.id, effective_month: ymd(monthStart(state.anchor)), items: cleanBills(state.draft.bills) }); closeSheet("sheetBills"); toast("บันทึกรายจ่ายหลักแล้ว"); await reload(); }
   catch (err) { $("billsErr").textContent = friendlyError(err); }
   finally { btn.disabled = false; }
 };
@@ -2780,6 +2795,61 @@ $("formReset").onsubmit = async (e) => {
   try { await api.resetFamily(state.family.id, v, state.members.map(m => m.id)); $("inResetConfirm").value = ""; toast("ล้างข้อมูลทั้งหมดแล้ว"); await reload(); }
   catch (err) { $("resetErr").textContent = friendlyError(err); btn.disabled = false; }
 };
+
+/* =========================================================
+   ต้องจ่ายเดือนนี้: ติ๊กว่าจ่ายแล้ว (สีจาง) · วันครบกำหนด
+   การเตือนในห้องแชท DarkChat ทำที่ฝั่งเซิร์ฟเวอร์ (เตือนก่อนครบกำหนด 3 วัน ยิ่งใกล้ยิ่งถี่)
+   ========================================================= */
+function dueItems(M) {
+  const mStr = ymd(M), b = billsFor(mStr), last = lastDayOf(M.getFullYear(), M.getMonth());
+  const checks = (state.data.checks || []).filter(c => String(c.cycle_month).slice(0, 10) === mStr);
+  return (b?.items || []).filter(x => +x.amount > 0).map((x, i) => {
+    const key = billKey(x), c = checks.find(r => r.item_key === key);
+    const due = x.due_day ? new Date(M.getFullYear(), M.getMonth(), Math.min(+x.due_day, last)) : null;
+    return { i, key, name: x.name, amount: +x.amount, due, check: c || null };
+  }).sort((a, b) => (a.due ? a.due.getTime() : 9e15) - (b.due ? b.due.getTime() : 9e15) || a.i - b.i);
+}
+function dueStatus(it) {
+  if (it.check) return "";
+  if (!it.due) return `<span class="tag">ยังไม่กำหนดวัน</span>`;
+  const left = Math.round((it.due - today0()) / 864e5);
+  if (left < 0) return `<span class="tag no">เลยกำหนด ${-left} วัน</span>`;
+  if (left === 0) return `<span class="tag no">ครบกำหนดวันนี้</span>`;
+  if (left <= 3) return `<span class="tag part">อีก ${left} วัน</span>`;
+  return `<span class="tag">อีก ${left} วัน</span>`;
+}
+function renderDue(M) {
+  const sec = $("secDue"); if (!sec) return;
+  sec.classList.toggle("hidden", !feat("bills"));
+  const items = dueItems(M), paid = items.filter(x => x.check), total = items.reduce((a, x) => a + x.amount, 0), paidAmt = paid.reduce((a, x) => a + x.amount, 0);
+  $("dueTitle").textContent = `ต้องจ่าย${monthStart(today0()).getTime() === M.getTime() ? "เดือนนี้" : " " + monthLabel(M)}`;
+  if (!items.length) {
+    $("dueSum").textContent = "";
+    $("dueList").innerHTML = `<div class="empty">ยังไม่มีรายการที่ต้องจ่าย<br><button class="btn btn-soft btn-sm" type="button" data-open-bills style="margin-top:10px" ${can("bills") ? "" : "hidden"}>+ เพิ่มรายการ</button></div>`;
+    return;
+  }
+  $("dueSum").innerHTML = `จ่ายแล้ว <b class="num">${paid.length}/${items.length}</b> รายการ · <b class="num">${baht(paidAmt)}</b> จาก <span class="num">${baht(total)}</span>`
+    + (paid.length < items.length ? ` · ยังไม่จ่าย <b class="num" style="color:var(--expense)">${baht(total - paidAmt)}</b>` : ` · <b style="color:var(--income)">ครบแล้ว ✓</b>`)
+    + `<div class="track" style="margin-top:8px"><i style="width:${(paidAmt / (total || 1) * 100).toFixed(1)}%;background:var(--income)"></i></div>`;
+  const whoPaid = (c) => { const m = state.members.find(x => x.user_id && x.user_id === c.paid_by); const d = c.paid_at ? new Date(c.paid_at) : null;
+    return `จ่ายแล้ว${m ? " · " + esc(m.display_name) : ""}${d ? " · " + d.toLocaleDateString("th-TH", { day: "numeric", month: "short" }) : ""}`; };
+  $("dueList").innerHTML = items.map(it => `<div class="due-row${it.check ? " due-paid" : ""}">
+      <button type="button" class="due-tick" data-due-tick="${esc(it.key)}" data-due-name="${esc(it.name)}" data-due-amt="${it.amount}" aria-pressed="${!!it.check}" aria-label="${it.check ? "ยกเลิกติ๊กจ่ายแล้ว" : "ติ๊กว่าจ่ายแล้ว"}: ${esc(it.name)}">${it.check ? "✓" : ""}</button>
+      <div class="due-main"><b>${esc(it.name)}</b><small>${it.due ? `ครบกำหนด ${it.due.getDate()} ${it.due.toLocaleDateString("th-TH", { month: "short" })}` : "ไม่ได้กำหนดวันจ่าย"}${it.check ? " · " + whoPaid(it.check) : ""}</small></div>
+      <div class="due-right"><span class="num">${baht(it.amount)}</span>${dueStatus(it)}</div></div>`).join("");
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-due-tick]"); if (!b) return;
+  const M = monthStart(state.anchor), mStr = ymd(M), key = b.dataset.dueTick, on = b.getAttribute("aria-pressed") === "true";
+  if (on && !confirm(`ยกเลิกติ๊ก "${b.dataset.dueName}" ว่าจ่ายแล้ว?\n(ถ้ายังไม่ถึงกำหนดหรือเลยกำหนด จะกลับมาเตือนในห้องแชทอีก)`)) return;
+  b.disabled = true;
+  try {
+    if (on) await api.uncheckBill(state.family.id, mStr, key);
+    else await api.checkBill({ family_id: state.family.id, cycle_month: mStr, item_key: key, item_name: String(b.dataset.dueName).slice(0, 60), amount: round2(b.dataset.dueAmt) });
+    toast(on ? "ยกเลิกแล้ว" : `✓ ${b.dataset.dueName} จ่ายแล้ว`);
+    await reload();
+  } catch (err) { toast(/bill_checks/.test(String(err.message || err)) ? "ให้รันไฟล์ supabase-ledger.sql ใน Supabase ก่อน" : friendlyError(err)); b.disabled = false; }
+});
 
 /* =========================================================
    รายจ่ายหลักที่จ่ายไป (บันทึกตอนกด "ฝากเงินคงเหลือ")
