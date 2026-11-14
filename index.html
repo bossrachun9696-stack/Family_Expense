@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16614F">
+<title>สมุดบ้าน — บัญชีรายรับรายจ่ายครอบครัว</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="สมุดบ้าน">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>try{var t=localStorage.getItem("samudbaan-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;var p=localStorage.getItem("samudbaan-palette");if(p&&p!=="forest")document.documentElement.dataset.palette=p;}catch(e){}</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18"/><path d="M16 15h2"/><path d="M6 6V5a2 2 0 0 1 2-2h9"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></symbol>
+</svg>
+
+<!-- ============ AUTH ============ -->
+<div id="viewAuth" class="gate hidden">
+  <div class="brandmark">
+    <div class="logo" aria-hidden="true"></div>
+    <div><h1>สมุดบ้าน</h1><p>รายรับ รายจ่าย เงินเดือน และ OT ของทั้งบ้านในที่เดียว</p></div>
+  </div>
+  <div id="demoNoteAuth" class="banner hidden">โหมดทดลอง: ยังไม่ได้เชื่อม Supabase ข้อมูลจะหายเมื่อรีเฟรชหน้า</div>
+  <form id="formAuth" class="card" novalidate>
+    <div class="field"><label for="authEmail">อีเมล</label>
+      <input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></div>
+    <div class="field"><label for="authPass">รหัสผ่าน (อย่างน้อย 6 ตัว)</label>
+      <input id="authPass" type="password" autocomplete="current-password" minlength="6" required></div>
+    <div id="authErr" class="err" role="alert"></div>
+    <button id="btnAuth" class="btn btn-primary btn-block" type="submit">เข้าสู่ระบบ</button>
+  </form>
+  <p style="text-align:center;margin-top:14px"><button id="btnAuthToggle" class="linkbtn" type="button">ยังไม่มีบัญชี? สมัครใช้งาน</button></p>
+</div>
+
+<!-- ============ ONBOARDING ============ -->
+<div id="viewOnboard" class="gate hidden">
+  <div class="brandmark">
+    <div class="logo" aria-hidden="true"></div>
+    <div><h1>เริ่มสมุดของบ้าน</h1><p>สร้างบ้านใหม่ หรือเข้าร่วมบ้านที่มีอยู่แล้ว</p></div>
+  </div>
+  <div class="field"><label for="obName">ชื่อที่ให้คนในบ้านเห็น</label><input id="obName" maxlength="40" placeholder="เช่น พ่อ, แม่, น้องฟ้า"></div>
+  <div class="stack">
+    <div class="card"><h2>สร้างบ้านใหม่</h2><p>คุณจะเป็นเจ้าของบ้าน และได้รหัสไว้ชวนคนอื่น</p>
+      <div class="field"><label for="obFamily">ชื่อบ้าน</label><input id="obFamily" maxlength="60" placeholder="เช่น บ้านใจดี"></div>
+      <button id="btnCreateFamily" class="btn btn-primary btn-block" type="button">สร้างบ้าน</button></div>
+    <div class="card"><h2>มีรหัสเชิญแล้ว</h2><p>ขอรหัส 8 ตัวจากเจ้าของบ้าน</p>
+      <div class="field"><label for="obCode">รหัสเชิญ</label><input id="obCode" maxlength="8" autocapitalize="characters" placeholder="เช่น 3FA9C21B"></div>
+      <button id="btnJoinFamily" class="btn btn-soft btn-block" type="button">เข้าร่วมบ้าน</button></div>
+  </div>
+  <div id="obErr" class="err" role="alert" style="margin-top:12px"></div>
+  <p style="text-align:center"><button class="linkbtn" type="button" data-action="logout">ออกจากระบบ</button></p>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="viewApp" class="hidden">
+  <div class="wrap">
+    <div id="demoNoteApp" class="banner hidden">โหมดทดลอง: ข้อมูลจะหายเมื่อรีเฟรชหน้า</div>
+    <div id="schemaNote" class="banner hidden"></div>
+    <header class="topbar">
+      <div class="who">
+        <div id="famAvatar" class="avatar" aria-hidden="true"></div>
+        <div style="min-width:0"><h1 id="txtFamily">บ้าน</h1><small><span id="liveDot" class="live" title="อัปเดตอัตโนมัติ"></span><span id="txtMe"></span></small></div>
+      </div>
+      <div class="topbar-r">
+      <div class="month" role="group" aria-label="เลือกช่วงเวลา">
+        <button id="btnPrev" type="button" aria-label="ก่อนหน้า"><svg class="i" style="width:18px;height:18px"><use href="#i-left"/></svg></button>
+        <label class="period-pick"><span id="txtPeriod" class="num"></span><input id="inJump" type="date" aria-label="เลือกวันที่ที่ต้องการดู"></label>
+        <button id="btnNext" type="button" aria-label="ถัดไป"><svg class="i" style="width:18px;height:18px"><use href="#i-right"/></svg></button>
+      </div>
+      <button id="btnSettings" class="iconbtn" type="button" aria-label="ตั้งค่าบ้าน"><svg class="i"><use href="#i-gear"/></svg></button>
+      </div>
+    </header>
+
+    <div id="periodBar" class="period p3" role="group" aria-label="มุมมอง">
+      <button data-period="month" aria-pressed="true">เดือน</button>
+      <button data-period="year" aria-pressed="false">ปี</button>
+      <button data-period="all" aria-pressed="false">ทั้งหมด</button>
+    </div>
+
+    <!-- ===== tab: overview / dashboard ===== -->
+    <div id="tabOverview">
+      <div class="hero">
+        <div class="label" style="margin-bottom:10px"><span id="dashLabel">คงเหลือเดือนนี้</span><span id="dashPill" class="pill hidden"></span></div>
+        <div class="ring-wrap">
+          <div id="dashDonut"></div>
+          <div class="side">
+            <div><span>รายรับ</span><strong id="dashIncome" class="num">฿0</strong></div>
+            <div><span>รายจ่าย</span><strong id="dashExpense" class="num">฿0</strong></div>
+          </div>
+        </div>
+        <div id="dashGrowth" class="growth" style="margin:12px 0 0"></div>
+        <span id="dashBalance" class="hidden"></span>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi" style="--c:var(--income)"><span>รายรับ</span><b id="kOther" class="num">฿0</b><small>จากปุ่ม +</small></div>
+        <div class="kpi" style="--c:var(--bill)" role="button" tabindex="0" onclick="document.getElementById('secBillPay').scrollIntoView({behavior:'smooth'})"><span>จ่ายประจำ (รายจ่ายหลัก)</span><b id="kBills" class="num">฿0</b><small id="kBillsSub"></small></div>
+        <div class="kpi" style="--c:var(--shared)"><span>ใช้ร่วมกัน</span><b id="kShared" class="num">฿0</b><small id="kSharedSub">จากปุ่ม +</small></div>
+        <div class="kpi" style="--c:var(--expense)"><span>ใช้ส่วนตัว</span><b id="kPersonal" class="num">฿0</b><small>ทุกคนรวมกัน</small></div>
+      </div>
+
+      <div id="budAlerts" class="alerts"></div>
+
+      <section id="secCarry">
+        <div class="sec-head"><h2 id="carryTitle">ใช้เงินเดือนก่อนเกินไหม</h2><small id="carrySub"></small></div>
+        <div class="card">
+          <div id="carryBox"></div>
+          <div class="legend-row" style="margin-top:14px"><span><i style="background:var(--income)"></i>รายรับเดือนก่อน + เงินเหลือที่ฝาก</span><span><i style="background:var(--expense)"></i>รายจ่ายเดือนนี้</span></div>
+          <div id="chartCarry" class="chart"></div><div id="tipCarry" class="tip"></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="sec-head"><h2 id="cmpTitle">รายรับ–รายจ่าย แต่ละเดือน</h2><small id="cmpSub"></small></div>
+        <div class="card">
+          <div class="legend-row"><span><i style="background:var(--income)"></i>รายรับ</span><span><i style="background:var(--expense)"></i>รายจ่าย</span></div>
+          <div id="chartCmp" class="chart"></div><div id="tipCmp" class="tip"></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="sec-head"><h2 id="growTitle">เงินเหลือ โตขึ้นหรือลดลง</h2><small id="growSub"></small></div>
+        <div class="card">
+          <div id="growCmp" class="cmp2"></div>
+          <div id="chartGrow" class="chart"></div><div id="tipGrow" class="tip"></div>
+        </div>
+      </section>
+
+      <section id="secBillPay">
+        <div class="sec-head"><h2>จ่ายประจำ · มากไปน้อย</h2><small id="bpSub"></small></div>
+        <div class="card">
+          <p class="muted" style="font-size:13px;margin:0 0 8px">รายจ่ายหลัก + รายการหักในสลิป ที่บันทึกตอนกด “ฝากเงินคงเหลือ” · ดูยอดอย่างเดียว ไม่นับรวมในรายรับรายจ่าย</p>
+          <div id="bpList" class="hbars"></div>
+          <div class="legend-row" style="margin-top:14px"><span><i style="background:var(--bill)"></i>รายจ่ายหลัก</span><span><i style="background:#E0620F"></i>หักในสลิป</span></div>
+          <div id="chartBP" class="chart"></div><div id="tipBP" class="tip"></div>
+        </div>
+      </section>
+
+      <section id="secKids" class="hidden">
+        <div class="sec-head"><h2>🎒 เงินไปโรงเรียนของน้อง</h2><small>ไม่นับรวมรายรับรายจ่าย</small></div>
+        <div class="card">
+          <div id="kidsOv" class="hbars"></div>
+          <div class="legend-row" style="margin-top:14px"><span><i style="background:color-mix(in srgb,var(--brand) 40%,transparent)"></i>ให้ไป</span><span><i style="background:var(--expense)"></i>ใช้ไป</span><span><i style="background:var(--income)"></i>เหลือ</span></div>
+          <div id="chartKidsOv" class="chart"></div><div id="tipKidsOv" class="tip"></div>
+        </div>
+      </section>
+
+      <section id="secDebts">
+        <div class="sec-head"><h2>เงินเก็บ · กู้ยืม · ออกให้ก่อน</h2></div>
+        <div id="debtSummary"></div>
+      </section>
+
+      <section id="secOt">
+        <div class="sec-head"><h2>OT แต่ละคน</h2><small id="otSub"></small></div>
+        <div class="card">
+          <div id="otLegend" class="legend-row"></div>
+          <div id="chartOt" class="chart"></div><div id="tipOt" class="tip"></div>
+        </div>
+      </section>
+
+      <section id="secMemberIncome">
+        <div class="sec-head"><h2>รายได้–รายจ่ายแต่ละคน</h2><small>รวมเงินเดือนและรายการหัก</small></div>
+        <div class="card"><div class="legend-row">
+          <span><i style="background:var(--income)"></i>เงินเดือน (ก่อนหัก)</span><span><i style="background:#8456C4"></i>รายรับอื่น</span>
+          <span><i style="background:#E0620F"></i>หักในสลิป</span><span><i style="background:var(--expense)"></i>ใช้ส่วนตัว</span></div>
+          <div id="memberIncome" class="hbars"></div></div>
+      </section>
+
+      <section>
+        <div class="sec-head"><h2>ใช้ส่วนตัวแต่ละคน</h2><small id="pmSub">รายจ่ายส่วนตัวจากปุ่ม +</small></div>
+        <div class="card">
+          <div id="pmLegend" class="legend-row"></div>
+          <div id="chartPM" class="chart"></div><div id="tipPM" class="tip"></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="sec-head"><h2>จ่ายไปกับอะไร</h2><small id="txtTopCat"></small></div>
+        <div class="card" id="catBox"></div>
+      </section>
+
+      <section>
+        <div class="sec-head"><h2>ล่าสุด</h2><button class="linkbtn" type="button" data-goto="list">ดูทั้งหมด</button></div>
+        <div id="recentList" class="ledger"></div>
+      </section>
+    </div>
+
+    <!-- ===== tab: list ===== -->
+    <div id="tabList" class="hidden">
+      <div id="ioViews" class="subtabs" role="group" aria-label="หมวด">
+        <button data-io-view="flow" aria-pressed="true">💸 รับ–จ่าย</button>
+        <button data-io-view="loan" aria-pressed="false">🏦 กู้ยืม</button>
+        <button data-io-view="save" aria-pressed="false">🎯 เงินเก็บ</button>
+        <button data-io-view="adv" aria-pressed="false">🤝 ออกให้ก่อน</button>
+      </div>
+      <div id="ioPeriodBar" class="period p3" role="group" aria-label="มุมมองรายรับรายจ่าย">
+        <button data-io-period="month" aria-pressed="true">เดือน</button>
+        <button data-io-period="year" aria-pressed="false">ปี</button>
+        <button data-io-period="all" aria-pressed="false">ทั้งหมด</button>
+      </div>
+      <div id="mstrip" class="mstrip" role="group" aria-label="เลื่อนเลือกเดือน"></div>
+
+      <!-- กู้ยืม -->
+      <div id="ioLoan" class="hidden">
+        <div class="hero">
+          <div class="label"><span>มีคนยืมเงินอยู่ (ค้างคืนทั้งหมด)</span><span id="lnPill" class="pill"></span></div>
+          <div id="lnOutstanding" class="big num">฿0</div>
+          <div class="cols" style="margin-top:12px">
+            <div><span id="lnBorrowLbl">ให้ยืมช่วงนี้</span><strong id="lnBorrow" class="num">฿0</strong></div>
+            <div><span id="lnRepayLbl">ได้คืนช่วงนี้</span><strong id="lnRepay" class="num">฿0</strong></div>
+          </div>
+        </div>
+        <section>
+          <div class="sec-head"><h2>ใครยืมอยู่บ้าง</h2><small>คืนแล้ว / ยอดยืม</small></div>
+          <div id="lnCards"></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>ให้ยืม เทียบ ได้คืน</h2><small id="lnChartSub"></small></div>
+          <div class="card"><div class="legend-row"><span><i style="background:var(--shift)"></i>ให้ยืม</span><span><i style="background:var(--bill)"></i>ได้คืน</span></div>
+            <div id="chartLoan" class="chart"></div><div id="tipLoan" class="tip"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>ยอดค้างคืนตามเวลา</h2></div>
+          <div class="card"><div id="chartLoanBal" class="chart"></div><div id="tipLoanBal" class="tip"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>รายการกู้ยืม</h2></div>
+          <div id="lnList" class="ledger"></div>
+        </section>
+      </div>
+
+      <!-- ออกให้ก่อน -->
+      <div id="ioAdv" class="hidden">
+        <div class="hero">
+          <div class="label"><span>ยอดค้างคืนกันในบ้าน</span><span id="avPill" class="pill"></span></div>
+          <div id="avOutstanding" class="big num">฿0</div>
+          <div class="cols" style="margin-top:12px">
+            <div><span>ออกให้ก่อนทั้งหมด</span><strong id="avPaid" class="num">฿0</strong></div>
+            <div><span>คืนกันแล้วทั้งหมด</span><strong id="avSettled" class="num">฿0</strong></div>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12.5px;margin:8px 2px 0">ไม่นับรวมรายรับรายจ่ายของบ้าน เป็นการคิดกันเองระหว่างคนในบ้าน</p>
+        <section>
+          <div class="sec-head"><h2>ใครต้องคืนใคร</h2></div>
+          <div id="avPairs"></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>สถานะแต่ละคน</h2><small>บวก = มีคนค้างคืน · ลบ = ต้องคืนคนอื่น</small></div>
+          <div class="card"><div id="chartAdvNet" class="chart"></div><div id="tipAdvNet" class="tip"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>แต่ละคน ออกให้ก่อน / คืนไปแล้ว</h2><small id="avChartSub">ทั้งหมด</small></div>
+          <div class="card"><div class="legend-row"><span><i style="background:var(--st-personal)"></i>ออกให้คนอื่นก่อน</span><span><i style="background:var(--income)"></i>คืนคนอื่นไปแล้ว</span></div>
+            <div id="chartAdv" class="chart"></div><div id="tipAdv" class="tip"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>รายการออกให้ก่อนทั้งหมด</h2></div>
+          <div id="avList" class="ledger"></div>
+        </section>
+      </div>
+
+      <!-- เงินเก็บ + เป้าหมาย -->
+      <div id="ioSave" class="hidden">
+        <div class="hero">
+          <div class="label"><span>เงินรวมทุกบัญชี</span><span id="svPill" class="pill"></span></div>
+          <div id="svTotal" class="big num">฿0</div>
+          <div id="svSub" class="verdict"></div>
+          <div class="cols">
+            <div><span>บัญชีรายรับรายจ่าย</span><strong id="svMain" class="num">฿0</strong></div>
+            <div><span>บัญชีเงินเก็บรวม</span><strong id="svSave" class="num">฿0</strong></div>
+          </div>
+        </div>
+        <div class="slip-att" style="margin-top:12px">
+          <button class="btn btn-primary btn-sm" type="button" id="btnSvDeposit">+ ฝาก / ถอน</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="btnNewAcct">🏦 เพิ่มบัญชีเงินเก็บ</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="btnSvLend">↗ ให้ยืมจากบัญชี</button>
+        </div>
+        <section>
+          <div class="sec-head"><h2>บัญชีทั้งหมด</h2><small>แตะบัญชีเพื่อดูรายการ</small></div>
+          <div id="acctList"></div>
+        </section>
+        <section id="secSharedPersonal" class="hidden">
+          <div class="sec-head"><h2>บัญชีส่วนตัวที่แชร์ให้ดู</h2><small>ไม่นับรวมยอดด้านบน</small></div>
+          <div id="sharedPaList"></div>
+        </section>
+        <section id="secGoals">
+          <div class="sec-head"><h2>เป้าหมายการออม</h2><button class="linkbtn" type="button" id="btnNewGoal">+ เป้าหมายใหม่</button></div>
+          <div id="goalList"></div>
+        </section>
+      </div>
+
+      <!-- รายรับรายจ่าย -->
+      <div id="ioFlow">
+      <div class="kpis k3" style="margin-top:0">
+        <div class="kpi" style="--c:var(--income)"><span>รายรับ</span><b id="ioIn" class="num">฿0</b></div>
+        <div class="kpi" style="--c:var(--expense)"><span>รายจ่าย</span><b id="ioOut" class="num">฿0</b></div>
+        <div class="kpi" style="--c:var(--brand)"><span>คงเหลือ</span><b id="ioNet" class="num">฿0</b></div>
+      </div>
+      <div class="card" style="margin-top:12px"><div class="ring-wrap"><div id="ioDonut"></div><div class="side">
+        <div><span>รายรับ</span><strong id="ioDIn" class="num" style="color:var(--income)">฿0</strong></div>
+        <div><span>รายจ่าย</span><strong id="ioDOut" class="num" style="color:var(--expense)">฿0</strong></div>
+        <div><span>ใช้ไปแล้ว</span><strong id="ioDPct" class="num">0%</strong></div></div></div></div>
+      <div id="ioLoanNote" class="hint hidden" style="margin-top:10px"></div>
+      <p class="muted" style="font-size:12.5px;margin:8px 2px 0">คิดจากรายการที่บันทึกด้วยปุ่ม + เท่านั้น (ไม่รวมเงินเดือนที่คำนวณอัตโนมัติ)</p>
+      <section>
+        <div class="sec-head"><h2 id="ioChartTitle">รายรับ–รายจ่าย</h2><small id="ioChartSub"></small></div>
+        <div class="card">
+          <div class="legend-row"><span><i style="background:var(--income)"></i>รายรับ</span><span><i style="background:var(--expense)"></i>รายจ่าย</span></div>
+          <div id="chartIO" class="chart"></div><div id="tipIO" class="tip"></div>
+        </div>
+      </section>
+      <section id="secHeat">
+        <div class="sec-head"><h2 id="heatTitle">ปฏิทินการใช้จ่าย</h2><small>สีเข้ม = ใช้เยอะ</small></div>
+        <div class="card"><div id="heatBox"></div><div id="heatTip" class="tip"></div></div>
+      </section>
+      <section id="secCatBud">
+        <div class="sec-head"><h2>งบรายหมวด</h2><button class="linkbtn" type="button" id="btnCatBud">ตั้งงบ</button></div>
+        <div class="card"><div id="catBudInfo" class="muted" style="font-size:13px"></div><div id="catBudList"></div></div>
+      </section>
+      <section>
+        <div class="sec-head"><h2>รายจ่ายตามหมวด</h2><small id="ioExpSub"></small></div>
+        <div class="card"><div id="ioExpCats" class="hbars"></div></div>
+      </section>
+      <section>
+        <div class="sec-head"><h2>รายรับตามหมวด</h2><small id="ioIncSub"></small></div>
+        <div class="card"><div id="ioIncCats" class="hbars"></div></div>
+      </section>
+      <section>
+        <div class="sec-head"><h2>ใครใช้จ่ายเท่าไร</h2></div>
+        <div class="card"><div id="ioWho" class="hbars"></div></div>
+      </section>
+      <section>
+        <div class="sec-head"><h2>รายการ</h2><small id="listCount"></small></div>
+      <div class="searchbar">
+        <input id="ioSearch" type="search" placeholder="🔍 ค้นหา โน้ต หมวด หรือจำนวนเงิน" aria-label="ค้นหารายการ">
+        <select id="ioWhoFilter" aria-label="กรองตามคน"></select>
+      </div>
+      <div class="chips" role="group" aria-label="กรองรายการ">
+        <button class="chip" data-filter="all" aria-pressed="true">ทั้งหมด</button>
+        <button class="chip" data-filter="expense" aria-pressed="false">รายจ่าย</button>
+        <button class="chip" data-filter="income" aria-pressed="false">รายรับ</button>
+        <button class="chip" data-filter="shared" aria-pressed="false">ใช้ร่วมกัน</button>
+      </div>
+      <div id="fullList" class="ledger"></div>
+      </section>
+      </div>
+    </div>
+
+    <!-- ===== tab: salary ===== -->
+    <div id="tabSalary" class="hidden">
+      <div id="salMembers" class="chips" role="group" aria-label="เลือกสมาชิก"></div>
+
+      <!-- ภาพรวมทั้งบ้าน -->
+      <div id="salAll">
+        <div class="hero">
+          <div class="label"><span>ค่าจ้างสุทธิรวมทั้งบ้าน</span><span id="allCount" class="pill"></span></div>
+          <div id="allNet" class="big num">฿0</div>
+          <div id="allContrib" class="contrib"></div>
+          <div class="cols" style="margin-top:4px">
+            <div id="allBillsBox"><span>รายจ่ายหลักของรอบ</span><strong id="allBills" class="num">฿0</strong></div>
+            <div style="background:rgba(255,224,138,.16);outline:1.5px solid rgba(255,224,138,.5)"><span id="allLeftLabel">คงเหลือ</span><strong id="allLeft" class="num gold">฿0</strong></div>
+          </div>
+        </div>
+        <section id="secWaterfall">
+          <div class="sec-head"><h2>จ่ายตามลำดับความสำคัญ</h2>
+            <button id="btnEditBills2" class="linkbtn" type="button"><svg class="i" style="width:16px;height:16px"><use href="#i-edit"/></svg>เพิ่ม / แก้ไข</button></div>
+          <div class="card">
+            <div id="wfInfo" class="muted" style="font-size:13px"></div>
+            <div id="wfBox"></div>
+          </div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>ได้รับสุทธิแต่ละคน</h2><small>คำนวณ เทียบ ได้จริง</small></div>
+          <div class="card"><div class="legend-row"><span><i style="background:color-mix(in srgb,var(--brand) 35%,transparent)"></i>คำนวณ</span><span><i style="background:var(--brand)"></i>ได้จริงตามสลิป</span></div>
+            <div id="chartAllNet" class="chart"></div><div id="tipAllNet" class="tip"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>ที่มาของรายได้</h2><small>ก่อนหักรายการหัก</small></div>
+          <div class="card"><div class="legend-row">
+            <span><i style="background:var(--income)"></i>ค่าจ้าง</span><span><i style="background:#2F7FC1"></i>OT</span>
+            <span><i style="background:var(--shift)"></i>ค่ากะ</span><span><i style="background:#8456C4"></i>รายรับประจำ</span></div>
+            <div id="allIncomeBars" class="hbars"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>ชั่วโมง OT</h2><small id="allOtSub"></small></div>
+          <div class="card"><div class="legend-row">
+            <span><i style="background:#8FC3EC"></i>1.5 เท่า</span><span><i style="background:#2F7FC1"></i>2 เท่า</span><span><i style="background:#1B4F86"></i>3 เท่า</span></div>
+            <div id="allOtBars" class="hbars"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>วันทำงาน · ลา · หยุด</h2><small>ตามรอบของแต่ละคน</small></div>
+          <div class="card"><div id="allDayLegend" class="legend-row"></div><div id="allDayBars" class="hbars"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>รายละเอียดรายคน</h2><small>แตะเพื่อดูปฏิทิน</small></div>
+          <div id="allCards"></div>
+        </section>
+      </div>
+
+      <!-- เด็ก: เงินไปโรงเรียน -->
+      <div id="salKid" class="hidden">
+        <div class="hero">
+          <div class="label"><span id="kidName">เงินไปโรงเรียน</span><span id="kidPill" class="pill"></span></div>
+          <div class="muted-hero">เหลือเดือนนี้</div>
+          <div id="kidLeft" class="big num">฿0</div>
+          <div class="cols" style="margin-top:12px">
+            <div><span>ให้ไปโรงเรียน</span><strong id="kidGiven" class="num">฿0</strong></div>
+            <div><span>ใช้ไป</span><strong id="kidSpent" class="num">฿0</strong></div>
+          </div>
+          <div class="kid-wallet"><div><span>💰 เงินเก็บของน้อง (สะสมทั้งหมด)</span><small id="kidBuyMonth"></small></div><strong id="kidWallet" class="num gold">฿0</strong></div>
+          <button id="btnKidBuy" class="btn btn-gold" type="button">🧸 ใช้เงินเก็บ (เช่น ซื้อของเล่น)</button>
+        </div>
+        <section>
+          <div class="sec-head"><h2>ปฏิทินเงินไปโรงเรียน</h2><small id="kidCalHint">แตะวันเพื่อบันทึก</small></div>
+          <div class="cal"><div id="kidCal" class="cal-grid"></div>
+            <div class="cal-legend"><span><i style="background:var(--income)"></i>เหลือ</span><span><i style="background:var(--expense)"></i>ใช้เกิน</span><span><i style="background:var(--muted)"></i>ใช้หมดพอดี</span><span>บน = ให้ไป · ล่าง = เหลือ</span></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>ใช้ไป–เหลือ รายวัน</h2></div>
+          <div class="card"><div class="legend-row"><span><i style="background:var(--expense)"></i>ใช้ไป</span><span><i style="background:var(--income)"></i>เหลือ</span></div>
+            <div id="chartKid" class="chart"></div><div id="tipKid" class="tip"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>6 เดือนล่าสุด</h2></div>
+          <div class="card"><div class="legend-row"><span><i style="background:color-mix(in srgb,var(--brand) 40%,transparent)"></i>ให้ไป</span><span><i style="background:var(--expense)"></i>ใช้ไป</span><span><i style="background:var(--income)"></i>เหลือ</span></div>
+            <div id="chartKid6" class="chart"></div><div id="tipKid6" class="tip"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>ใช้เงินเก็บของน้อง</h2><small>ล่าสุดก่อน</small></div>
+          <div id="kidBuys" class="ledger"></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>รายละเอียดรายวัน</h2><small>ล่าสุดก่อน</small></div>
+          <div id="kidDays" class="ledger"></div>
+        </section>
+      </div>
+
+      <!-- รายคน -->
+      <div id="salOne">
+      <div class="hero">
+        <div class="label"><span>เงินเดือนสุทธิ (คำนวณ)</span><span id="payInherit" class="pill"></span></div>
+        <div id="payNet" class="big num">฿0</div>
+        <div class="cols" style="margin-top:12px">
+          <div><span>รอบบัญชี</span><strong id="payPeriod" class="num" style="font-size:15px">—</strong></div>
+          <div><span>ได้จริงตามสลิป</span><strong id="payActualHero" class="num">—</strong></div>
+        </div>
+      </div>
+      <section>
+        <div class="stats">
+          <div class="stat"><span>ทำงาน</span><b id="statWork" class="num">0</b></div>
+          <div class="stat"><span>ลา/ขาด</span><b id="statLeave" class="num">0</b></div>
+          <div class="stat"><span>OT ชม.</span><b id="statOtH" class="num">0</b></div>
+          <div class="stat"><span>วันกะ</span><b id="statShift" class="num">0</b></div>
+        </div>
+      </section>
+      <section>
+        <div class="sec-head"><h2>ปฏิทินการทำงาน</h2><small id="calHint">แตะวันเพื่อบันทึก</small></div>
+        <div class="cal"><div id="calGrid" class="cal-grid"></div><div class="cal-legend" id="calLegend"></div></div>
+      </section>
+      <section>
+        <div class="sec-head"><h2>สลิปเงินเดือน (คำนวณ)</h2>
+          <button id="btnPaySettings" class="linkbtn" type="button"><svg class="i" style="width:16px;height:16px"><use href="#i-edit"/></svg>ตั้งค่ารอบนี้</button></div>
+        <div class="slip"><div id="slipRows"></div></div>
+      </section>
+      <section id="secActual">
+        <div class="sec-head"><h2>เทียบกับยอดจริงตามสลิป</h2></div>
+        <div class="card">
+          <div class="cmp">
+            <div><span>คำนวณ</span><b id="cmpEst" class="num">฿0</b></div>
+            <div><span>ได้จริง</span><b id="cmpAct" class="num">—</b></div>
+            <div><span>ส่วนต่าง</span><b id="cmpDiff" class="num">—</b></div>
+          </div>
+          <div class="slip-att">
+            <button id="btnEditActual" class="btn btn-primary btn-sm" type="button">✏️ บันทึก / แก้ไขยอดจริง</button>
+            <button id="btnViewSlip" class="btn btn-soft btn-sm hidden" type="button">🧾 ดูรูปสลิป</button>
+          </div>
+          <div class="legend-row" style="margin-top:12px"><span><i style="background:color-mix(in srgb,var(--brand) 35%,transparent)"></i>คำนวณ</span><span><i style="background:var(--brand)"></i>ได้จริง</span></div>
+          <div id="chartActual" class="chart"></div><div id="tipActual" class="tip"></div>
+          <div class="subhead" style="margin-top:16px">ประวัติยอดจริง 12 รอบล่าสุด</div>
+          <div id="actualHist" class="hist"></div>
+        </div>
+        <p id="salReadonly" class="readonly-note hidden">ดูได้อย่างเดียว เฉพาะเจ้าตัวหรือเจ้าของบ้านที่แก้ไขได้</p>
+      </section>
+      </div>
+    </div>
+
+    <!-- ===== tab: personal ===== -->
+    <div id="tabPersonal" class="hidden">
+      <div class="subtabs" role="group" aria-label="ส่วนตัว">
+        <button data-p-view="daily" aria-pressed="true">📅 ใช้รายวัน</button>
+        <button data-p-view="accts" aria-pressed="false">🔒 บัญชีส่วนตัว</button>
+      </div>
+      <!-- บัญชีส่วนตัว -->
+      <div id="pAccts" class="hidden">
+        <div class="hero">
+          <div class="label"><span>เงินในบัญชีส่วนตัวของฉัน</span><span id="paPill" class="pill"></span></div>
+          <div id="paTotal" class="big num">฿0</div>
+          <div class="verdict" style="font-weight:500;opacity:.85">ของคุณคนเดียว ไม่นับรวมเงินเก็บของบ้าน</div>
+        </div>
+        <div class="slip-att" style="margin-top:12px">
+          <button class="btn btn-primary btn-sm" type="button" id="btnPaMove">+ ฝาก / ถอน</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="btnPaNew">🔒 เพิ่มบัญชีส่วนตัว</button>
+        </div>
+        <section>
+          <div class="sec-head"><h2>บัญชีของฉัน</h2><small>แตะบัญชีเพื่อดูรายการ</small></div>
+          <div id="paList"></div>
+        </section>
+      </div>
+      <!-- ใช้รายวัน -->
+      <div id="pDaily">
+      <div id="pEmpty" class="card hidden" style="text-align:center">
+        <div style="font-size:40px">🧮</div>
+        <h2 style="margin:6px 0">งบใช้ส่วนตัว</h2>
+        <p style="margin:0 0 14px">เงินที่แบ่งให้คุณใช้ส่วนตัวในรอบนี้ (ไม่ปนกับเงินบ้านและเงินเก็บ) แอปจะบอกว่าแต่ละวันใช้ได้อีกกี่บาท จนครบรอบ</p>
+        <button class="btn btn-primary" type="button" data-open-budget>ตั้งงบรอบนี้</button>
+      </div>
+      <div id="pMain">
+        <div class="hero">
+          <div class="label"><span>วันนี้ใช้ได้อีก</span><span id="pPeriod" class="pill"></span></div>
+          <div id="pToday" class="big num">฿0</div>
+          <div id="pTodaySub" class="verdict"></div>
+          <div class="cols">
+            <div><span>งบที่เหลือทั้งรอบ</span><strong id="pLeft" class="num">฿0</strong></div>
+            <div><span id="pPerDayLbl">ต่อจากพรุ่งนี้ วันละ</span><strong id="pPerDay" class="num">฿0</strong></div>
+          </div>
+        </div>
+        <section>
+          <div class="stats">
+            <div class="stat"><span>งบรอบนี้</span><b id="pBudget" class="num">฿0</b></div>
+            <div class="stat"><span>ใช้ไปแล้ว</span><b id="pSpent" class="num">฿0</b></div>
+            <div class="stat"><span>เหลือ (วัน)</span><b id="pDaysLeft" class="num">0</b></div>
+            <div class="stat"><span>เฉลี่ยที่ใช้</span><b id="pAvg" class="num">฿0</b></div>
+          </div>
+        </section>
+        <div class="slip-att" style="margin-top:12px">
+          <button class="btn btn-primary btn-sm" type="button" id="btnPAdd">+ บันทึกการใช้วันนี้</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-open-budget>⚙️ ตั้งงบรอบนี้</button>
+        </div>
+        <section>
+          <div class="sec-head"><h2>ใช้ไปแต่ละวัน</h2><small id="pIdealTxt"></small></div>
+          <div class="card"><div class="legend-row"><span><i style="background:var(--income)"></i>อยู่ในงบต่อวัน</span><span><i style="background:var(--expense)"></i>เกินงบต่อวัน</span><span><i style="background:var(--muted);height:2px;border-radius:0"></i>งบเฉลี่ยต่อวัน</span></div>
+            <div id="chartPDaily" class="chart"></div><div id="tipPDaily" class="tip"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>งบคงเหลือ เทียบ แผน</h2><small>ต่ำกว่าเส้นแผน = ใช้เร็วไป</small></div>
+          <div class="card"><div class="legend-row"><span><i style="background:var(--brand)"></i>เหลือจริง</span><span><i style="background:var(--muted)"></i>ตามแผน</span></div>
+            <div id="chartPBurn" class="chart"></div><div id="tipPBurn" class="tip"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>รายละเอียดแต่ละวัน</h2><small>แตะรายการเพื่อแก้ไข</small></div>
+          <div class="card" id="pDays"></div>
+        </section>
+        <div style="text-align:center;margin-top:16px">
+          <button class="btn btn-ghost btn-sm" type="button" id="btnPClear" style="color:var(--expense);border-color:color-mix(in srgb,var(--expense) 40%,var(--line))">🗑 ล้างข้อมูลการใช้ของรอบนี้</button>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- ===== tab: settings ===== -->
+    <div id="tabSettings" class="hidden">
+      <h2 style="margin:0 0 14px;font-size:22px">ตั้งค่า</h2>
+    <div class="set-block">
+      <h3>ธีม</h3>
+      <div class="seg seg3" role="group" aria-label="ธีม" style="margin:0">
+        <button type="button" data-theme-opt="auto">ตามเครื่อง</button>
+        <button type="button" data-theme-opt="light">สว่าง</button>
+        <button type="button" data-theme-opt="dark">มืด</button>
+      </div>
+      <h3 style="margin:14px 0 8px">สีธีม</h3>
+      <div class="swatches" role="group" aria-label="สีธีม">
+        <button type="button" class="swatch" data-palette="forest"><i style="background:linear-gradient(135deg,#1A6B57,#0D3B31)"></i>ป่าเขียว</button>
+        <button type="button" class="swatch" data-palette="ocean"><i style="background:linear-gradient(135deg,#1C86F2,#0B3F86)"></i>ทะเลฟ้า</button>
+        <button type="button" class="swatch" data-palette="grape"><i style="background:linear-gradient(135deg,#8B55F0,#43198F)"></i>ม่วงองุ่น</button>
+        <button type="button" class="swatch" data-palette="sunset"><i style="background:linear-gradient(135deg,#F2762A,#9C3208)"></i>ส้มสดใส</button>
+        <button type="button" class="swatch" data-palette="sakura"><i style="background:linear-gradient(135deg,#EE5A96,#8E1A4D)"></i>ชมพูซากุระ</button>
+      </div>
+    </div>
+    <div class="card set-block">
+      <h3>บ้าน</h3>
+      <div class="prof"><div id="setFamAv" class="avatar avatar-lg" aria-hidden="true"></div>
+        <div class="field"><label for="inFamName">ชื่อบ้าน</label><input id="inFamName" maxlength="60"></div></div>
+      <div class="prof-actions" id="famEditActions">
+        <label class="btn btn-ghost btn-sm" for="inFamPhoto">เปลี่ยนรูปบ้าน</label><input id="inFamPhoto" type="file" accept="image/*" hidden>
+        <button id="btnRmFamPhoto" class="linkbtn" type="button">ลบรูป</button>
+        <span style="flex:1"></span>
+        <button id="btnSaveFam" class="btn btn-primary btn-sm" type="button">บันทึก</button>
+      </div>
+      <p id="famReadonly" class="muted hidden" style="font-size:13px;margin:0">เฉพาะเจ้าของบ้านที่แก้ชื่อและรูปบ้านได้ · สมาชิก <span id="setMembers"></span></p>
+    </div>
+    <div class="card set-block">
+      <h3>โปรไฟล์ของฉัน <small class="muted" id="setRole" style="font-weight:400"></small></h3>
+      <div class="prof"><div id="setMyAv" class="avatar avatar-lg" aria-hidden="true"></div>
+        <div class="field"><label for="inMyName">ชื่อที่คนในบ้านเห็น</label><input id="inMyName" maxlength="40"></div></div>
+      <div class="prof-actions">
+        <label class="btn btn-ghost btn-sm" for="inMyPhoto">เปลี่ยนรูปโปรไฟล์</label><input id="inMyPhoto" type="file" accept="image/*" hidden>
+        <button id="btnRmMyPhoto" class="linkbtn" type="button">ลบรูป</button>
+        <span style="flex:1"></span>
+        <button id="btnSaveMe" class="btn btn-primary btn-sm" type="button">บันทึก</button>
+      </div>
+      <div id="profErr" class="err" role="alert"></div>
+    </div>
+    <div class="card set-block">
+      <h3>ชวนคนในบ้าน</h3>
+      <div class="invite"><div><small class="muted">รหัสเชิญ</small><br><code id="txtInvite" class="num"></code></div>
+        <button id="btnCopyInvite" class="btn btn-soft" type="button">คัดลอก</button></div>
+    </div>
+    <div class="set-block">
+      <h3 style="display:flex;justify-content:space-between">สมาชิกและสิทธิ์ <small id="txtMemberCount" class="muted" style="font-weight:400"></small></h3>
+      <div id="memberList" class="ledger"></div>
+      <div id="addKidRow" class="addkid hidden">
+        <input id="inKidName" class="input" maxlength="40" placeholder="ชื่อเด็ก เช่น น้องมะลิ" aria-label="ชื่อเด็ก">
+        <button id="btnAddKid" class="btn btn-soft" type="button">🎒 เพิ่มเด็ก</button>
+        <small class="muted">เด็กไม่ต้องมีบัญชีเข้าระบบ ผู้ใหญ่ในบ้านบันทึกเงินไปโรงเรียนให้ได้ · ถ้าเด็กมีบัญชีแล้ว กด “เป็นเด็ก” ที่ชื่อของเขา</small>
+      </div>
+    </div>
+    <div class="card set-block">
+      <h3>ฟังก์ชันที่ใช้ในบ้านนี้</h3>
+      <p class="muted" id="featHint" style="font-size:13px;margin:-4px 0 4px"></p>
+      <div id="featList"></div>
+    </div>
+    <div class="card set-block" id="setRecurring">
+      <h3>รายการประจำอัตโนมัติ</h3>
+      <p class="muted" style="font-size:13px;margin:-4px 0 6px">ตั้งได้จากปุ่ม + แล้วเปิด “ทำซ้ำทุกเดือน”</p>
+      <div id="recurList"></div>
+    </div>
+    <div class="card set-block">
+      <h3>แอปบนมือถือ</h3>
+      <p class="muted" id="installTxt" style="font-size:13.5px;margin:0 0 10px"></p>
+      <div class="prof-actions">
+        <button class="btn btn-primary btn-sm hidden" type="button" id="btnInstall">📲 ติดตั้งแอป</button>
+        <button class="btn btn-ghost btn-sm" type="button" id="btnWizard">🧭 เปิดตัวช่วยตั้งค่าอีกครั้ง</button>
+      </div>
+    </div>
+    <div class="card set-block">
+      <h3>บัญชีของคุณ</h3>
+      <p id="txtEmail" class="muted" style="margin:0 0 12px"></p>
+      <button class="btn btn-ghost btn-block" type="button" data-action="logout">ออกจากระบบ</button>
+    </div>
+    <span id="setFamName" class="hidden"></span>
+    <form id="formReset" novalidate>
+    <div class="danger">
+      <h3>ล้างข้อมูลทั้งหมดในบ้าน</h3>
+      <p>ลบรายรับรายจ่าย วันทำงาน OT ค่ากะ การตั้งค่าเงินเดือน รายจ่ายหลัก และยอดจริงตามสลิปของทุกคนในบ้าน <b>กู้คืนไม่ได้</b> บ้านและสมาชิกยังอยู่เหมือนเดิม</p>
+      <div id="resetOwnerOnly">
+        <div class="field"><label for="inResetConfirm" id="resetLabel">พิมพ์ชื่อบ้านเพื่อยืนยัน</label>
+          <input id="inResetConfirm" autocomplete="off" placeholder=""></div>
+        <div id="resetErr" class="err" role="alert"></div>
+        <button id="btnReset" class="btn btn-danger btn-block" type="submit" disabled>ล้างข้อมูลทั้งหมด</button>
+      </div>
+      <p id="resetNotOwner" class="hidden" style="margin:0">เฉพาะเจ้าของบ้านที่ล้างข้อมูลได้</p>
+    </div>
+    </form>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="เมนูหลัก">
+    <div class="nav-inner">
+      <button class="tab" data-tab="overview" aria-current="page"><svg class="i"><use href="#i-home"/></svg>ภาพรวม</button>
+      <button class="tab" data-tab="list"><svg class="i"><use href="#i-list"/></svg>รับ–จ่าย</button>
+      <button id="btnAdd" class="fab" type="button" aria-label="บันทึกรายรับรายจ่าย"><svg class="i"><use href="#i-plus"/></svg></button>
+      <button class="tab" data-tab="salary"><svg class="i"><use href="#i-wallet"/></svg>เงินเดือน</button>
+      <button class="tab" data-tab="personal"><svg class="i"><use href="#i-users"/></svg>ส่วนตัว</button>
+    </div>
+  </nav>
+</div>
+
+<!-- ============ SHEET: add transaction ============ -->
+<div id="sheetTx" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="txTitle">
+  <form class="sheet" id="formTx" novalidate>
+    <h2 id="txTitle">บันทึกรายการ</h2>
+    <div class="seg seg4" role="group" aria-label="ประเภท">
+      <button type="button" class="exp" data-type="expense" aria-pressed="true">รายจ่าย</button>
+      <button type="button" class="inc" data-type="income" aria-pressed="false">รายรับ</button>
+      <button type="button" class="loan" data-type="loan" aria-pressed="false">กู้ยืม</button>
+      <button type="button" class="adv" data-type="advance" aria-pressed="false">ออกให้ก่อน</button>
+    </div>
+    <div id="quickRow" class="quick" role="group" aria-label="รายการที่ใช้บ่อย"></div>
+    <label class="amount-box" for="txAmount"><span>฿</span>
+      <input id="txAmount" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" aria-label="จำนวนเงิน"></label>
+    <div id="flowBox">
+      <div class="lbl" id="whoLabel">ใครใช้จ่าย</div>
+      <div id="whoGrid" class="who-grid" role="group" aria-labelledby="whoLabel"></div>
+      <div id="catGrid" class="cat-grid" role="group" aria-label="หมวด"></div>
+    </div>
+    <div id="loanBox" class="hidden">
+      <div class="seg" role="group" aria-label="ให้ยืมหรือรับคืน">
+        <button type="button" data-loan-action="borrow" aria-pressed="true">ให้ยืม / มีคนกู้</button>
+        <button type="button" data-loan-action="repay" aria-pressed="false">รับเงินคืน</button>
+      </div>
+      <div class="lbl" id="loanWhoLbl">ใครกู้</div>
+      <div id="loanWho" class="who-grid" role="group" aria-labelledby="loanWhoLbl"></div>
+      <div class="field" id="loanNameField"><label for="loanFrom" id="loanFromLbl">ชื่อคนกู้ (คนนอกบ้าน)</label>
+        <input id="loanFrom" list="lenderList" maxlength="40" placeholder="เช่น ลุงชัย, เพื่อนที่ทำงาน"><datalist id="lenderList"></datalist></div>
+      <div class="lbl" id="loanSplitLbl">กู้จากบัญชีไหน เท่าไร (เลือกได้หลายบัญชี)</div>
+      <div id="loanSplit" class="split"></div>
+      <div class="split-total"><span>รวม</span><span id="loanTotal" class="num">฿0</span></div>
+      <div id="loanHint" class="hint hidden"></div>
+    </div>
+    <div id="advBox" class="hidden">
+      <div class="seg" role="group" aria-label="ออกให้ก่อนหรือคืน">
+        <button type="button" data-adv-action="pay" aria-pressed="true">ออกให้ก่อน</button>
+        <button type="button" data-adv-action="settle" aria-pressed="false">คืนเงิน</button>
+      </div>
+      <div class="lbl" id="advPayLbl">ใครออกเงิน</div>
+      <div id="advPayer" class="who-grid" role="group" aria-labelledby="advPayLbl"></div>
+      <div class="lbl" id="advToLbl">ออกให้ใคร</div>
+      <div id="advTo" class="who-grid" role="group" aria-labelledby="advToLbl"></div>
+      <div id="advHint" class="hint hidden"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="txDate">วันที่</label><input id="txDate" type="date"></div>
+      <div class="field"><label for="txNote">โน้ต</label><input id="txNote" maxlength="200" placeholder="ไม่ใส่ก็ได้"></div>
+    </div>
+    <div class="switch-row" id="recurRow">
+      <div><b>ทำซ้ำทุกเดือน</b><small id="recurTxt">บันทึกให้อัตโนมัติทุกเดือนในวันเดียวกัน</small></div>
+      <button type="button" id="swRecur" class="switch brand" role="switch" aria-checked="false" aria-label="ทำซ้ำทุกเดือน"></button>
+    </div>
+    <div id="txHint" class="hint hidden"></div>
+    <div id="txErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost hidden" id="btnDelInSheet" style="color:var(--expense)">ลบ</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="btnSaveTx">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ SHEET: work day ============ -->
+<div id="sheetDay" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="dayTitle">
+  <form class="sheet" id="formDay" novalidate>
+    <h2 id="dayTitle">บันทึกวันทำงาน</h2>
+    <div id="statusGrid" class="status-grid" role="group" aria-label="สถานะ"></div>
+    <div class="switch-row" id="shiftRow">
+      <div><b>มีค่ากะวันนี้</b><small id="shiftRateTxt"></small></div>
+      <button type="button" id="swShift" class="switch" role="switch" aria-checked="false" aria-label="มีค่ากะวันนี้"></button>
+    </div>
+    <div class="grid3" id="otFields"></div>
+    <div class="field" style="margin-top:14px"><label for="dayNote">โน้ต (ไม่ใส่ก็ได้)</label><input id="dayNote" maxlength="200" placeholder="เช่น เข้ากะดึก"></div>
+    <div id="dayEarn" class="hint num"></div>
+    <div id="dayErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="button" class="btn btn-ghost" id="btnClearDay" style="color:var(--expense)">ล้างวันนี้</button>
+      <button type="submit" class="btn btn-primary" id="btnSaveDay">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ SHEET: pay settings ============ -->
+<div id="sheetPay" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="payTitle">
+  <form class="sheet" id="formPay" novalidate>
+    <h2 id="payTitle">ตั้งค่าเงินเดือน</h2>
+    <div class="hint" id="payHint"></div>
+    <div class="lbl">รูปแบบค่าจ้าง</div>
+    <div class="seg" role="group" aria-label="รูปแบบค่าจ้าง">
+      <button type="button" data-paytype="monthly" aria-pressed="true">รายเดือน</button>
+      <button type="button" data-paytype="daily" aria-pressed="false">รายวัน</button>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="psBase" id="psBaseLabel">ฐานเงินเดือน (บาท)</label><input id="psBase" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+      <div class="field"><label for="psShift">ค่ากะ (บาท/วัน)</label><input id="psShift" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="psStart">ตัดรอบ เริ่มวันที่</label><select id="psStart"></select></div>
+      <div class="field"><label for="psEnd">ถึงวันที่</label><select id="psEnd"></select></div>
+    </div>
+    <div class="hint num" id="psRangePreview" style="margin-top:-4px"></div>
+    <div class="hint" id="psTypeHint"></div>
+    <div class="subhead">อัตรา OT ต่อชั่วโมง <small class="muted" style="font-weight:400">เว้นว่าง = คำนวณให้</small></div>
+    <div class="grid3">
+      <div class="field"><label for="psOt15">1.5 เท่า</label><input id="psOt15" class="num" type="number" inputmode="decimal" min="0" step="0.01"></div>
+      <div class="field"><label for="psOt20">2 เท่า</label><input id="psOt20" class="num" type="number" inputmode="decimal" min="0" step="0.01"></div>
+      <div class="field"><label for="psOt30">3 เท่า</label><input id="psOt30" class="num" type="number" inputmode="decimal" min="0" step="0.01"></div>
+    </div>
+    <div class="subhead">รายรับประจำต่อรอบ <button type="button" class="linkbtn" data-add-line="incomes">+ เพิ่ม</button></div>
+    <div id="lines-incomes" class="list-edit"></div>
+    <div class="subhead">รายรับรายวัน <button type="button" class="linkbtn" data-add-line="dailyIncomes">+ เพิ่ม</button></div>
+    <div class="muted" style="font-size:13px;margin:-4px 0 8px">จ่ายตามจำนวนวันที่ “มาทำงาน” เช่น ค่าอาหาร ค่าทักษะ (ใส่ยอดต่อวัน)</div>
+    <div id="lines-dailyIncomes" class="list-edit"></div>
+    <div class="subhead">รายการหัก <button type="button" class="linkbtn" data-add-line="deductions">+ เพิ่ม</button></div>
+    <div id="lines-deductions" class="list-edit"></div>
+    <div id="payErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="btnSavePay">บันทึกการตั้งค่า</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ SHEET: household bills ============ -->
+<div id="sheetBills" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="billsTitle">
+  <form class="sheet" id="formBills" novalidate>
+    <h2 id="billsTitle">รายจ่ายหลักประจำเดือน</h2>
+    <div class="hint" id="billsHint"></div>
+    <div class="subhead">รายการ <button type="button" class="linkbtn" data-add-line="bills">+ เพิ่ม</button></div>
+    <div id="lines-bills" class="list-edit"></div>
+    <div class="bill-total num" style="margin-bottom:12px"><span>รวมต่อเดือน</span><span id="billsDraftTotal">฿0</span></div>
+    <div id="billsErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="btnSaveBills">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetPerms" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="permTitle">
+  <form class="sheet" id="formPerms" novalidate>
+    <h2 id="permTitle">สิทธิ์ของสมาชิก</h2>
+    <p class="muted" style="font-size:13.5px;margin:-6px 0 8px">ทุกคนดูข้อมูลในบ้านได้ และแก้ข้อมูลของตัวเองได้อยู่แล้ว ติ๊กเพื่ออนุญาตเพิ่ม</p>
+    <div id="permList"></div>
+    <div id="permErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="btnSavePerms">บันทึกสิทธิ์</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetBudget" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="budTitle">
+  <form class="sheet" id="formBudget" novalidate>
+    <h2 id="budTitle">ตั้งงบใช้ส่วนตัว</h2>
+    <div class="hint" id="budHint"></div>
+    <label class="amount-box" for="budAmount"><span>฿</span>
+      <input id="budAmount" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" aria-label="งบที่ใช้ได้ทั้งรอบ"></label>
+    <div class="grid2">
+      <div class="field"><label for="budStart">ใช้ตั้งแต่วันที่</label><input id="budStart" type="date"></div>
+      <div class="field"><label for="budEnd">ถึงวันที่</label><input id="budEnd" type="date"></div>
+    </div>
+    <div class="hint num" id="budPreview"></div>
+    <div id="budErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="btnSaveBudget">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetPSpend" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="psTitle">
+  <form class="sheet" id="formPSpend" novalidate>
+    <h2 id="psTitle">บันทึกการใช้ส่วนตัว</h2>
+    <p class="muted" style="font-size:13px;margin:-8px 0 10px">เงินส่วนตัวของคุณ ไม่นับรวมรายรับรายจ่ายของบ้าน และเห็นได้เฉพาะคุณ</p>
+    <div class="seg" role="group" aria-label="เงินออกหรือเงินเข้า">
+      <button type="button" class="exp" data-ps-kind="spend" aria-pressed="true">ใช้ไป</button>
+      <button type="button" class="inc" data-ps-kind="income" aria-pressed="false">เงินเข้า</button>
+    </div>
+    <div id="psQuick" class="quick"></div>
+    <label class="amount-box" for="psAmount"><span>฿</span>
+      <input id="psAmount" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" aria-label="จำนวนเงิน"></label>
+    <div id="psCats" class="cat-grid" role="group" aria-label="หมวด"></div>
+    <div class="grid2">
+      <div class="field"><label for="psDate">วันที่</label><input id="psDate" type="date"></div>
+      <div class="field"><label for="psNote">ใช้ไปกับอะไร</label><input id="psNote" maxlength="200" placeholder="เช่น ข้าวกลางวัน"></div>
+    </div>
+    <div id="psErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost hidden" id="psDelete" style="color:var(--expense)">ลบ</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="psSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetMoney" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="mnTitle">
+  <form class="sheet" id="formMoney" novalidate>
+    <h2 id="mnTitle">ฝาก / ถอน</h2>
+    <div class="seg" id="mnKind" role="group" aria-label="ฝากหรือถอน">
+      <button type="button" data-mn-kind="deposit" aria-pressed="true">ฝากเข้า</button>
+      <button type="button" data-mn-kind="withdraw" aria-pressed="false">ถอนออก</button>
+    </div>
+    <div class="field" id="mnAcctField"><label for="mnAcct">บัญชี</label><select id="mnAcct"></select></div>
+    <div id="mnAcctPickWrap" class="hidden"><div class="subhead" style="margin:0 0 6px">ฝากเข้าบัญชีไหน</div>
+      <div id="mnAcctPick" class="acct-pick" role="group" aria-label="ฝากเข้าบัญชี"></div></div>
+    <div id="mnHint" class="hint"></div>
+    <label class="amount-box" for="mnAmount"><span>฿</span>
+      <input id="mnAmount" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" aria-label="จำนวนเงิน"></label>
+    <div class="seg hidden" id="mnDir" role="group" aria-label="ทิศทาง">
+      <button type="button" data-mn-dir="in" aria-pressed="true">ออมเข้า</button>
+      <button type="button" data-mn-dir="out" aria-pressed="false">ดึงออก</button>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="mnDate">วันที่</label><input id="mnDate" type="date"></div>
+      <div class="field"><label for="mnNote">โน้ต</label><input id="mnNote" maxlength="200" placeholder="ไม่ใส่ก็ได้"></div>
+    </div>
+    <div class="slip-att" id="mnSlipRow">
+      <label class="btn btn-ghost btn-sm" for="mnSlip" id="mnSlipLbl">📷 แนบสลิป (ถ้ามี)</label>
+      <input id="mnSlip" type="file" accept="image/*" hidden>
+    </div>
+    <div id="mnErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="mnSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetAcct" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="acTitle">
+  <form class="sheet" id="formAcct" novalidate>
+    <h2 id="acTitle">บัญชีเงินเก็บ</h2>
+    <div id="acEmojis" class="emojis" role="group" aria-label="ไอคอน"></div>
+    <div class="field"><label for="acName">ชื่อบัญชี</label><input id="acName" maxlength="60" placeholder="เช่น ออมทรัพย์ กสิกร, กระปุกลูก"></div>
+    <div class="switch-row hidden" id="acShareRow">
+      <div><b>ให้คนในบ้านดูได้</b><small>คนอื่นเห็นยอดในหน้าเงินเก็บ (ดูได้อย่างเดียว ไม่นับรวมเงินเก็บของบ้าน)</small></div>
+      <button type="button" id="swShare" class="switch brand" role="switch" aria-checked="false" aria-label="ให้คนในบ้านดูได้"></button>
+    </div>
+    <div class="field" id="acOpenField"><label for="acOpen">ยอดเงินเริ่มต้น (บาท)</label><input id="acOpen" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+    <div id="acErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost hidden" id="acDelete" style="color:var(--expense)">ลบบัญชี</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="acSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetGoal" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="glTitle">
+  <form class="sheet" id="formGoal" novalidate>
+    <h2 id="glTitle">เป้าหมายการออม</h2>
+    <div id="glEmojis" class="emojis" role="group" aria-label="ไอคอน"></div>
+    <div class="field"><label for="glName">ชื่อเป้าหมาย</label><input id="glName" maxlength="60" placeholder="เช่น เที่ยวญี่ปุ่น, เงินสำรองฉุกเฉิน"></div>
+    <div class="grid2">
+      <div class="field"><label for="glTarget">เป้าหมาย (บาท)</label><input id="glTarget" class="num" type="number" inputmode="decimal" min="0" step="0.01"></div>
+      <div class="field"><label for="glDeadline">อยากได้ภายใน</label><input id="glDeadline" type="date"></div>
+    </div>
+    <div class="field"><label for="glAcct">เก็บเงินไว้ในบัญชี</label><select id="glAcct"></select></div>
+    <div id="glErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost hidden" id="glDelete" style="color:var(--expense)">ลบ</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="glSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetCatBud" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="cbTitle">
+  <form class="sheet" id="formCatBud" novalidate>
+    <h2 id="cbTitle">งบรายหมวด</h2>
+    <div class="hint" id="cbHint"></div>
+    <div id="cbList"></div>
+    <div class="bill-total num" style="margin:8px 0 12px"><span>รวมงบต่อเดือน</span><span id="cbTotal">฿0</span></div>
+    <div id="cbErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="cbSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetWizard" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="wzTitle">
+  <form class="sheet" id="formWizard" novalidate>
+    <div id="wzSteps" class="wiz-steps" aria-hidden="true"></div>
+    <div id="wzBody"></div>
+    <div id="wzErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" id="wzBack">ย้อนกลับ</button>
+      <button type="button" class="btn btn-ghost" id="wzSkip">ข้าม</button>
+      <button type="submit" class="btn btn-primary" id="wzNext">ถัดไป</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetActual" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="actTitle">
+  <form class="sheet" id="formActual" novalidate>
+    <h2 id="actTitle">ยอดจริงตามสลิป</h2>
+    <div class="cmp">
+      <div><span>คำนวณ</span><b id="actEst" class="num">฿0</b></div>
+      <div><span>ได้จริง</span><b id="actNow" class="num">—</b></div>
+      <div><span>ส่วนต่าง</span><b id="actDiff" class="num">—</b></div>
+    </div>
+    <div class="field"><label for="inActual">เงินเดือนสุทธิที่ได้จริง (บาท)</label>
+      <input id="inActual" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 20450"></div>
+    <div class="lbl">รูปสลิปเงินเดือน</div>
+    <div class="slip-att">
+      <button id="actViewSlip" class="btn btn-soft btn-sm hidden" type="button">🧾 ดูรูป</button>
+      <label id="actLblSlip" class="btn btn-ghost btn-sm" for="inSlip">📷 แนบรูปสลิป</label>
+      <input id="inSlip" type="file" accept="image/*" hidden>
+      <button id="actDelSlip" class="linkbtn hidden" type="button" style="color:var(--expense)">ลบรูป</button>
+    </div>
+    <div id="actErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" id="actDelAmount" style="color:var(--expense)">ลบยอด</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="actSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetSlip" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="slipTitle">
+  <div class="sheet">
+    <h2 id="slipTitle">รูปสลิปเงินเดือน</h2>
+    <div id="slipLoading" class="empty">กำลังโหลดรูป…</div>
+    <img id="slipImg" class="slip-img hidden" alt="รูปสลิปเงินเดือน">
+    <div class="actions" style="margin-top:14px">
+      <a id="slipOpen" class="btn btn-ghost" target="_blank" rel="noopener" href="#">เปิดเต็มจอ</a>
+      <button type="button" class="btn btn-primary" data-close>ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SHEET: รายละเอียดการใช้จ่ายของวัน ============ -->
+<div id="sheetDayList" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="ddTitle">
+  <div class="sheet">
+    <h2 id="ddTitle">รายละเอียดวัน</h2>
+    <div id="ddSum" class="cmp"></div>
+    <div id="ddCats"></div>
+    <div id="ddList" class="ledger" style="margin-top:12px"></div>
+    <div class="actions" style="margin-top:14px">
+      <button type="button" class="btn btn-ghost" data-close>ปิด</button>
+      <button type="button" class="btn btn-primary" id="ddAdd">+ เพิ่มรายการวันนี้</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SHEET: เงินไปโรงเรียน (รายวัน) ============ -->
+<div id="sheetKidDay" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="kdTitle">
+  <form class="sheet" id="formKidDay" novalidate>
+    <h2 id="kdTitle">เงินไปโรงเรียน</h2>
+    <div class="grid2">
+      <div class="field"><label for="kdGiven">ให้ไปโรงเรียน (บาท)</label><input id="kdGiven" class="input num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+      <div class="field"><label for="kdSpent">ใช้ไป (บาท)</label><input id="kdSpent" class="input num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+    </div>
+    <div id="kdRemember" class="hint"></div>
+    <div class="quick" style="margin-top:8px">
+      <button type="button" data-kd-quick="all"><b>ใช้หมด</b>ไม่เหลือ</button>
+      <button type="button" data-kd-quick="half"><b>ใช้ครึ่งเดียว</b>เหลือครึ่ง</button>
+      <button type="button" data-kd-quick="none"><b>ไม่ได้ใช้</b>เหลือทั้งหมด</button>
+    </div>
+    <div id="kdLeft" class="kd-left"></div>
+    <div class="field"><label for="kdNote">โน้ต (ไม่ใส่ก็ได้)</label><input id="kdNote" maxlength="200" placeholder="เช่น ซื้อขนม, ค่ารถ"></div>
+    <div id="kdErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="button" class="btn btn-ghost hidden" id="kdClear" style="color:var(--expense)">ลบวันนี้</button>
+      <button type="submit" class="btn btn-primary" id="kdSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ SHEET: ใช้เงินเก็บของเด็ก ============ -->
+<div id="sheetKidBuy" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="kbTitle">
+  <form class="sheet" id="formKidBuy" novalidate>
+    <h2 id="kbTitle">ใช้เงินเก็บของน้อง</h2>
+    <p id="kbHint" class="muted" style="font-size:13px;margin:-8px 0 10px"></p>
+    <label class="amount-box" for="kbAmount"><span>฿</span>
+      <input id="kbAmount" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" aria-label="จำนวนเงิน"></label>
+    <div class="quick">
+      <button type="button" data-kb-quick="ซื้อของเล่น"><b>🧸 ของเล่น</b>ซื้อของเล่น</button>
+      <button type="button" data-kb-quick="ซื้อขนม"><b>🍭 ขนม</b>ซื้อขนม</button>
+      <button type="button" data-kb-quick="อุปกรณ์การเรียน"><b>✏️ การเรียน</b>อุปกรณ์</button>
+      <button type="button" data-kb-quick="หยอดกระปุก"><b>🐷 กระปุก</b>หยอดกระปุก</button>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="kbDate">วันที่</label><input id="kbDate" type="date"></div>
+      <div class="field"><label for="kbNote">ใช้ไปกับอะไร</label><input id="kbNote" maxlength="200" placeholder="เช่น ซื้อของเล่น"></div>
+    </div>
+    <div id="kbErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="kbSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast" class="toast hidden" role="status"></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
