@@ -169,6 +169,14 @@ function makeSupabaseApi() {
     },
     async signIn(email, password) { return must(await sb.auth.signInWithPassword({ email, password })).user; },
     async signOut() { await sb.auth.signOut(); },
+    async ledgerAccess() {
+      const { data, error } = await sb.rpc("ext_ledger_access");
+      if (error) {
+        if (/Could not find the function|does not exist/i.test(error.message || "")) return { ok: true, reason: "not_installed" };
+        throw error;
+      }
+      return data || { ok: true };
+    },
     async getMyFamily(userId) {
       // ลองดึงคอลัมน์ใหม่ก่อน ถ้าฐานข้อมูลยังไม่อัปเดต ค่อยถอยไปใช้ชุดที่เล็กลง
       const levels = [[", avatar_url, permissions, member_kind", ", avatar_url, features"], [", avatar_url, permissions", ", avatar_url, features"], [", avatar_url", ", avatar_url"], ["", ""]];
@@ -776,7 +784,7 @@ function ringSVG(pct) {
 /* =========================================================
    BOOT / ROUTE / LOAD
    ========================================================= */
-function show(view) { ["viewAuth", "viewOnboard", "viewApp"].forEach(v => $(v).classList.toggle("hidden", v !== view)); }
+function show(view) { ["viewAuth", "viewOnboard", "viewApp", "viewGate"].forEach(v => $(v).classList.toggle("hidden", v !== view)); }
 async function boot() {
   if (DEMO) { api = makeDemoApi(); $("demoNoteAuth").classList.remove("hidden"); $("demoNoteApp").classList.remove("hidden"); }
   else { await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"); api = makeSupabaseApi(); }
@@ -785,6 +793,7 @@ async function boot() {
 }
 async function route() {
   if (!state.user) return show("viewAuth");
+  if (!(await accessOk())) return;
   const fam = await api.getMyFamily(state.user.id);
   if (!fam) { show("viewOnboard"); $("obName").focus(); return; }
   Object.assign(state, { family: fam.family, me: fam.me, members: fam.members });
@@ -825,7 +834,52 @@ async function runRecurring() { // สร้างรายการประจ
   catch (e) { console.warn(e); return false; }
   finally { recurBusy = false; }
 }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.family) reload(); });
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || !state.family) return;
+  if (await accessOk()) reload();
+});
+
+/* ---------- สิทธิ์ใช้สมุดบ้าน (ส่วนขยายใน DarkChat) ----------
+   ตัวกันจริงอยู่ที่ฐานข้อมูล (supabase-v6-gate.sql) หน้านี้บอกผู้ใช้ว่าต้องทำอะไร */
+const GATE = { last: 0 };
+async function accessOk() {
+  if (!api.ledgerAccess || !state.user) return true;
+  let acc;
+  try { acc = await api.ledgerAccess(); }
+  catch (e) { console.warn("ledger access", e); return true; }   // เน็ตมีปัญหา: ฐานข้อมูลยังกันให้อยู่
+  GATE.last = Date.now();
+  if (acc.ok) return true;
+  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  state.family = null;
+  if (PIN.mode) pinHide();
+  paintGate(acc);
+  show("viewGate");
+  return false;
+}
+function paintGate(acc) {
+  const name = acc.ext_name || "สมุดบ้าน";
+  $("gateTitle").textContent = acc.reason === "trial_expired" ? `หมดช่วงทดลองใช้${name}แล้ว` : `ใช้${name}ได้เมื่อเปิดส่วนขยายใน DarkChat`;
+  const lines = [];
+  if (acc.reason === "trial_expired") lines.push("ช่วงทดลองใช้ฟรีหมดแล้ว ซื้อส่วนขยายใน DarkChat เพื่อใช้ต่อ ข้อมูลของบ้านยังอยู่ครบ");
+  else lines.push(`บัญชีนี้ยังไม่มีสิทธิ์ใช้${name} เปิด DarkChat ด้วยอีเมลเดียวกัน แล้วไปที่ "🧩 ส่วนขยาย" เพื่อ` + (acc.trial_used ? "ซื้อ" : `ทดลองใช้ฟรี ${acc.trial_days || 0} วัน หรือซื้อ`));
+  const price = [];
+  if (acc.price) price.push(`คนเดียว ฿${acc.price}`);
+  if (acc.family_price) price.push(`ครอบครัว ฿${acc.family_price} (ทุกคนในครอบครัว DarkChat ใช้ได้)`);
+  if (price.length) lines.push("ราคา: " + price.join(" · ") + " ซื้อครั้งเดียวใช้ได้ตลอด");
+  lines.push("ถ้าเคยใช้ผ่านครอบครัวแล้วออกจากครอบครัวไป จะใช้ไม่ได้จนกว่าจะเข้าครอบครัวอีกครั้งหรือซื้อเอง");
+  $("gateText").innerHTML = lines.map(l => `<p>${esc(l)}</p>`).join("");
+  $("gateEmail").textContent = state.user?.email || "";
+  $("gateOpenDc").href = acc.darkchat_url || "https://bossrachun9696-stack.github.io/darkchat/";
+}
+$("gateRecheck").onclick = async () => {
+  const b = $("gateRecheck"); b.disabled = true;
+  try {
+    if (await accessOk()) { toast("ใช้ได้แล้ว"); await route(); }
+    else toast("ยังไม่มีสิทธิ์ ถ้าเพิ่งซื้อ รอแอดมินเปิดให้ก่อน");
+  } finally { b.disabled = false; }
+};
+// ตรวจซ้ำทุก 10 นาทีระหว่างเปิดแอป (เช่น ออกจากครอบครัว / หมดช่วงทดลอง)
+setInterval(() => { if (state.family && document.visibilityState === "visible" && Date.now() - GATE.last > 10 * 60 * 1000) accessOk(); }, 60 * 1000);
 
 /* ---------- auth ---------- */
 function setAuthMode(mode) {
