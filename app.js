@@ -205,6 +205,14 @@ function makeSupabaseApi() {
     },
     async updateMe(mid, patch) { must(await sb.from("family_members").update(patch).eq("id", mid)); },
     async uploadSlip(path, blob) { must(await sb.storage.from("payslips").upload(path, blob, { contentType: "image/jpeg", upsert: true })); return path; },
+    async uploadFile(path, blob, type) { must(await sb.storage.from("payslips").upload(path, blob, { contentType: type || "application/octet-stream", upsert: false })); return path; },
+    async removeFiles(paths) { if (paths.length) await sb.storage.from("payslips").remove(paths); },
+    async saveDoc(row) {
+      const { id, ...rest } = row;
+      return id ? must(await sb.from("member_docs").update({ ...rest, updated_at: new Date().toISOString() }).eq("id", id).select().single())
+                : must(await sb.from("member_docs").insert(rest).select().single());
+    },
+    async deleteDoc(id) { must(await sb.from("member_docs").delete().eq("id", id)); },
     async slipUrl(path) { return must(await sb.storage.from("payslips").createSignedUrl(path, 3600)).signedUrl; },
     async deleteSlip(path) { await sb.storage.from("payslips").remove([path]); },
     async createFamily(name, displayName) { must(await sb.rpc("create_family", { p_name: name, p_display_name: displayName })); },
@@ -212,7 +220,7 @@ function makeSupabaseApi() {
     async loadAll(fid) {
       const missing = [];
       const opt = (p, name) => p.catch(e => { missing.push(name); console.warn(e); return []; });
-      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks] = await Promise.all([
+      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs] = await Promise.all([
         fetchAll("transactions", fid, "tx_date"),
         opt(fetchAll("work_days", fid, "work_date"), "work_days"),
         opt(fetchAll("member_pay_settings", fid, "effective_month"), "member_pay_settings"),
@@ -233,9 +241,10 @@ function makeSupabaseApi() {
         opt(fetchAll("child_days", fid, "day_date"), "child_days"),
         opt(fetchAll("child_spends", fid, "spend_date"), "child_spends"),
         opt(fetchAll("due_lists", fid, "effective_month"), "due_lists"),
-        opt(fetchAll("bill_checks", fid, "cycle_month"), "bill_checks")
+        opt(fetchAll("bill_checks", fid, "cycle_month"), "bill_checks"),
+        opt(fetchAll("member_docs", fid, "created_at"), "member_docs")
       ]);
-      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, missing };
+      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, missing };
     },
     async addTx(tx) { return must(await sb.from("transactions").insert(tx).select().single()); },
     async addDebt(row) { return must(await sb.from("debts").insert(row).select().single()); },
@@ -292,7 +301,7 @@ function makeSupabaseApi() {
     },
     subscribe(fid, onChange, onStatus) {
       const ch = sb.channel("family-" + fid);
-      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "due_lists", "bill_checks"].forEach(t => {
+      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "due_lists", "bill_checks", "member_docs"].forEach(t => {
         ch.on("postgres_changes", { event: "*", schema: "public", table: t, filter: `family_id=eq.${fid}` }, onChange);
         ch.on("postgres_changes", { event: "DELETE", schema: "public", table: t }, onChange); // การลบกรองตาม family ไม่ได้
       });
@@ -303,7 +312,7 @@ function makeSupabaseApi() {
 }
 
 function makeDemoApi() {
-  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], dues: [], checks: [], files: {} };
+  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], dues: [], checks: [], docs: [], files: {} };
   let session = null;
   const uid = () => Math.random().toString(36).slice(2, 10);
   const wait = () => new Promise(r => setTimeout(r, 100));
@@ -412,7 +421,12 @@ function makeDemoApi() {
         pspends: famRows(db.pspends, fid).filter(b => b.member_id === me?.id), recurring: famRows(db.recurring, fid), goals: famRows(db.goals, fid),
         contribs: famRows(db.contribs, fid), catbud: famRows(db.catbud, fid), accounts: famRows(db.accounts, fid), moves: famRows(db.moves, fid),
         paccts: famRows(db.paccts, fid).filter(a => a.member_id === me?.id || a.shared), pmoves: famRows(db.pmoves, fid).filter(m => { const a = db.paccts.find(x => x.id === m.account_id); return a && (a.member_id === me?.id || a.shared); }),
-        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), dues: famRows(db.dues, fid), checks: famRows(db.checks, fid), missing: [] }; },
+        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), dues: famRows(db.dues, fid), checks: famRows(db.checks, fid), docs: famRows(db.docs, fid), missing: [] }; },
+    async uploadFile(path, blob) { db.files[path] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); return path; },
+    async removeFiles(paths) { paths.forEach(p => delete db.files[p]); },
+    async saveDoc(row) { if (row.id) { const d = db.docs.find(x => x.id === row.id); Object.assign(d, row, { updated_at: new Date().toISOString() }); return d; }
+      const r = { ...row, id: uid(), created_by: session.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }; db.docs.push(r); return r; },
+    async deleteDoc(id) { db.docs = db.docs.filter(d => d.id !== id); },
     async saveDues(row) { return upsert(db.dues, row, ["family_id", "effective_month"]); },
     async checkBill(row) { db.checks = db.checks.filter(r => !(r.family_id === row.family_id && r.cycle_month === row.cycle_month && r.item_key === row.item_key)); db.checks.push({ ...row, paid_by: session.id, paid_at: new Date().toISOString() }); },
     async uncheckBill(fid, month, key) { db.checks = db.checks.filter(r => !(r.family_id === fid && r.cycle_month === month && r.item_key === key)); },
@@ -814,7 +828,8 @@ async function route() {
 async function reload() {
   try { state.data = await api.loadAll(state.family.id); }
   catch (err) { toast(friendlyError(err)); }
-  const miss = (state.data.missing || []).filter(x => x !== "due_lists" && x !== "bill_checks");
+  const miss = (state.data.missing || []).filter(x => x !== "due_lists" && x !== "bill_checks" && x !== "member_docs");
+  state.docsMissing = (state.data.missing || []).includes("member_docs");
   state.duesMissing = (state.data.missing || []).includes("due_lists");
   $("schemaNote").classList.toggle("hidden", !miss.length);
   $("schemaNote").textContent = miss.length ? `ฐานข้อมูลยังไม่อัปเดต (${miss.join(", ")}) ให้รันไฟล์ schema ที่ยังไม่ได้รันใน Supabase (ล่าสุดคือ schema_phase11.sql)` : "";
@@ -1993,9 +2008,14 @@ function renderSalaryChips() {
   $("salMembers").innerHTML = `<button class="chip" type="button" data-sal-member="all" aria-pressed="${all}">🏠 ทั้งบ้าน</button>`
     + state.members.map(m => `<button class="chip" type="button" data-sal-member="${esc(m.id)}" aria-pressed="${m.id === state.salMember}">${avatarHTML(m)}${esc(m.display_name)}${isChild(m) ? " 🎒" : ""}</button>`).join("");
   const kid = !all && isChild(state.salMember);
+  const docs = !all && state.salView === "docs";
+  $("salViewTabs").classList.toggle("hidden", all);
+  document.querySelectorAll("[data-sal-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.salView === (docs ? "docs" : "pay"))));
   $("salAll").classList.toggle("hidden", !all);
-  $("salOne").classList.toggle("hidden", all || kid);
-  $("salKid").classList.toggle("hidden", !kid);
+  $("salOne").classList.toggle("hidden", all || kid || docs);
+  $("salKid").classList.toggle("hidden", !kid || docs);
+  $("salDocs").classList.toggle("hidden", !docs);
+  if (docs) renderDocs();
 }
 const depositNote = (M) => `เงินเหลือรอบ ${monthLabel(M)}`;
 function depositHTML(M, left) {
@@ -3383,3 +3403,159 @@ document.addEventListener("click", async (e) => {
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 boot().catch(err => { show("viewAuth"); $("authErr").textContent = "เริ่มระบบไม่สำเร็จ: " + friendlyError(err); });
+
+/* =========================================================
+   📁 ข้อมูลของแต่ละคน (รูป / ไฟล์ / โน้ต) — อยู่ในแท็บเงินเดือน เลือกคนแล้วกด "📁 ข้อมูล"
+   ========================================================= */
+const DOC_MAX_FILES = 20, DOC_MAX_BYTES = 20 * 1024 * 1024;
+const DOC = { id: null, mid: null, files: [], adds: [], removes: [], busy: false };
+const docSize = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round((n || 0) / 1024)) + " KB";
+const docIsImg = (f) => /^image\//.test(f.mime || f.type || "");
+const docDate = (s) => new Date(s).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+const docsOf = (mid) => (state.data.docs || []).filter(d => d.member_id === mid).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+
+document.addEventListener("click", (e) => {
+  const v = e.target.closest("[data-sal-view]"); if (v) { state.salView = v.dataset.salView; renderSalaryChips(); return; }
+  const o = e.target.closest("[data-doc-open]"); if (o) openDocView(o.dataset.docOpen);
+});
+
+function renderDocs() {
+  const mid = state.salMember, list = docsOf(mid), editable = canEditMember(mid);
+  $("docsTitle").textContent = `ข้อมูลของ ${memberName(mid)}`;
+  $("btnAddDoc").classList.toggle("hidden", !editable || !!state.docsMissing);
+  if (state.docsMissing) {
+    $("docList").innerHTML = `<div class="empty">ยังไม่ได้เปิดใช้: รันไฟล์ supabase-sb-docs.sql ใน Supabase ก่อน</div>`;
+    $("docsNote").textContent = "";
+    return;
+  }
+  $("docList").innerHTML = list.length ? list.map(d => {
+    const fs = d.files || [], imgs = fs.filter(docIsImg).length;
+    const icon = !fs.length ? "📝" : imgs === fs.length ? "🖼️" : "📄";
+    return `<button type="button" class="doc-row" data-doc-open="${esc(d.id)}">
+      <span class="doc-ico" aria-hidden="true">${icon}</span>
+      <span class="doc-main"><b>${esc(d.title)}</b><small>${fs.length ? `${fs.length} ไฟล์` : "ไม่มีไฟล์"} · ${docDate(d.created_at)}</small></span>
+      <span class="doc-go" aria-hidden="true">›</span></button>`;
+  }).join("") : `<div class="empty">${editable ? "ยังไม่มีข้อมูล กด “＋ เพิ่มข้อมูล” เพื่อเก็บรูปหรือไฟล์ เช่น บัตรประชาชน สัญญา ใบรับรอง" : "ยังไม่มีข้อมูล"}</div>`;
+  $("docsNote").textContent = editable ? "ทุกคนในบ้านเปิดดูได้ · เพิ่ม แก้ ลบ ได้เฉพาะเจ้าตัว เจ้าของบ้าน หรือคนที่มีสิทธิ์แก้เงินเดือนของทุกคน" : "ดูได้อย่างเดียว";
+}
+
+// ---------- เพิ่ม / แก้ไข ----------
+$("btnAddDoc").onclick = () => openDocEdit(null);
+function openDocEdit(id) {
+  const d = id ? (state.data.docs || []).find(x => x.id === id) : null;
+  Object.assign(DOC, { id: d?.id || null, mid: d?.member_id || state.salMember, files: [...(d?.files || [])], adds: [], removes: [], busy: false });
+  $("docSheetTitle").textContent = d ? "แก้ไขข้อมูล" : `เพิ่มข้อมูลของ ${memberName(DOC.mid)}`;
+  $("docName").value = d?.title || "";
+  $("docNote").value = d?.note || "";
+  $("docErr").textContent = "";
+  $("docFiles").value = "";
+  renderDocFiles();
+  openSheet("sheetDoc");
+  setTimeout(() => $("docName").focus(), 50);
+}
+function renderDocFiles() {
+  const rows = [
+    ...DOC.files.map((f, i) => ({ k: "old", i, name: f.name, size: f.size, img: docIsImg(f) })),
+    ...DOC.adds.map((f, i) => ({ k: "new", i, name: f.name, size: f.size, img: docIsImg(f) }))
+  ];
+  $("docFileList").innerHTML = rows.length ? rows.map(r => `<div class="doc-file">
+      <span>${r.img ? "🖼️" : "📄"}</span><span class="doc-fname">${esc(r.name)}</span><small>${docSize(r.size)}${r.k === "new" ? " · ใหม่" : ""}</small>
+      <button type="button" class="rm-btn" data-doc-rm="${r.k}|${r.i}" aria-label="เอา ${esc(r.name)} ออก">ลบ</button></div>`).join("")
+    : `<div class="muted" style="font-size:13px">ยังไม่ได้แนบ (แนบรูปหรือไฟล์ได้หลายไฟล์ ไฟล์ละไม่เกิน 20 MB)</div>`;
+}
+$("docFiles").onchange = () => {
+  const picked = [...$("docFiles").files];
+  for (const f of picked) {
+    if (f.size > DOC_MAX_BYTES) { toast(`${f.name} ใหญ่เกิน 20 MB`); continue; }
+    if (DOC.files.length + DOC.adds.length >= DOC_MAX_FILES) { toast(`แนบได้ไม่เกิน ${DOC_MAX_FILES} ไฟล์ต่อรายการ`); break; }
+    DOC.adds.push(f);
+  }
+  $("docFiles").value = "";
+  renderDocFiles();
+};
+$("docFileList").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-doc-rm]"); if (!b) return;
+  const [k, i] = b.dataset.docRm.split("|");
+  if (k === "old") DOC.removes.push(DOC.files.splice(+i, 1)[0].path);
+  else DOC.adds.splice(+i, 1);
+  renderDocFiles();
+});
+$("formDoc").onsubmit = async (e) => {
+  e.preventDefault();
+  if (DOC.busy) return;
+  const title = $("docName").value.trim();
+  if (!title) { $("docErr").textContent = "ตั้งชื่อข้อมูลก่อน"; $("docName").focus(); return; }
+  DOC.busy = true;
+  const btn = $("btnSaveDoc"); btn.disabled = true;
+  const uploaded = [];
+  try {
+    const out = [...DOC.files];
+    for (let i = 0; i < DOC.adds.length; i++) {
+      const f = DOC.adds[i];
+      btn.textContent = `กำลังอัปโหลด ${i + 1}/${DOC.adds.length}…`;
+      let blob = f, type = f.type || "application/octet-stream", name = f.name || "ไฟล์";
+      // รูปทั่วไปย่อเป็น JPEG ให้เล็กลง (GIF/SVG/HEIC ที่เบราว์เซอร์เปิดไม่ได้ เก็บไฟล์เดิม)
+      if (/^image\/(jpeg|png|webp)$/.test(type)) {
+        try { blob = await slipBlob(f); type = "image/jpeg"; name = name.replace(/\.[^.]+$/, "") + ".jpg"; } catch (x) { blob = f; }
+      }
+      const ext = (name.match(/\.([A-Za-z0-9]{1,8})$/) || [, "bin"])[1].toLowerCase();
+      const path = `${state.family.id}/${DOC.mid}/doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      await api.uploadFile(path, blob, type);
+      uploaded.push(path);
+      out.push({ path, name, mime: type, size: blob.size || f.size || 0 });
+    }
+    btn.textContent = "กำลังบันทึก…";
+    await api.saveDoc({ id: DOC.id || undefined, family_id: state.family.id, member_id: DOC.mid, title, note: $("docNote").value.trim(), files: out });
+    if (DOC.removes.length) { try { await api.removeFiles(DOC.removes); } catch (x) { console.warn(x); } }
+    closeSheet("sheetDoc");
+    toast(DOC.id ? "บันทึกการแก้ไขแล้ว" : "เพิ่มข้อมูลแล้ว");
+    await reload();
+  } catch (err) {
+    if (uploaded.length) { try { await api.removeFiles(uploaded); } catch (x) { /* ไม่เป็นไร */ } }
+    const m = String(err?.message || err);
+    $("docErr").textContent = /mime|not allowed|invalid_mime/i.test(m) ? "ถังเก็บไฟล์ยังรับไฟล์ชนิดนี้ไม่ได้ ให้รัน supabase-sb-docs.sql ก่อน"
+      : /size|too large|Payload/i.test(m) ? "ไฟล์ใหญ่เกินที่ระบบรับได้" : friendlyError(err);
+  } finally {
+    DOC.busy = false; btn.disabled = false; btn.textContent = "บันทึก";
+  }
+};
+
+// ---------- เปิดดู ----------
+async function openDocView(id) {
+  const d = (state.data.docs || []).find(x => x.id === id); if (!d) return;
+  const editable = canEditMember(d.member_id);
+  $("dvTitle").textContent = d.title;
+  $("dvMeta").textContent = `ของ ${memberName(d.member_id)} · เพิ่มเมื่อ ${docDate(d.created_at)}${d.updated_at && d.updated_at !== d.created_at ? ` · แก้ไข ${docDate(d.updated_at)}` : ""}`;
+  $("dvNote").textContent = d.note || "";
+  $("dvNote").classList.toggle("hidden", !d.note);
+  $("dvEdit").classList.toggle("hidden", !editable);
+  $("dvDel").classList.toggle("hidden", !editable);
+  $("dvEdit").onclick = () => { closeSheet("sheetDocView"); openDocEdit(d.id); };
+  $("dvDel").onclick = async () => {
+    if (!confirm(`ลบ "${d.title}" และไฟล์ทั้งหมดในรายการนี้?\nกู้คืนไม่ได้`)) return;
+    try {
+      await api.deleteDoc(d.id);
+      try { await api.removeFiles((d.files || []).map(f => f.path)); } catch (x) { console.warn(x); }
+      closeSheet("sheetDocView"); toast("ลบแล้ว"); await reload();
+    } catch (err) { toast(friendlyError(err)); }
+  };
+  const box = $("dvFiles");
+  const fs = d.files || [];
+  box.innerHTML = fs.length ? fs.map((f, i) => docIsImg(f)
+    ? `<a class="dv-img" data-dv="${i}" target="_blank" rel="noopener"><span class="muted">กำลังโหลดรูป…</span></a>`
+    : `<a class="dv-file" data-dv="${i}" target="_blank" rel="noopener"><span>📄</span><span class="doc-fname">${esc(f.name)}</span><small>${docSize(f.size)} · เปิด</small></a>`).join("")
+    : `<div class="muted" style="font-size:13px">ไม่มีไฟล์แนบ</div>`;
+  openSheet("sheetDocView");
+  fs.forEach(async (f, i) => {
+    const a = box.querySelector(`[data-dv="${i}"]`); if (!a) return;
+    try {
+      const url = await api.slipUrl(f.path);
+      a.href = url;
+      if (docIsImg(f)) a.innerHTML = `<img src="${esc(url)}" alt="${esc(f.name)}" loading="lazy">`;
+      else a.setAttribute("download", f.name);
+    } catch (err) { a.innerHTML = `<span class="muted">เปิดไฟล์ไม่ได้: ${esc(f.name)}</span>`; }
+  });
+}
+
+// ล็อกไม่ให้ซูม: iPhone ไม่สนค่า user-scalable จึงกันท่าถ่างนิ้วเอง (แตะสองครั้งกันด้วย CSS touch-action)
+["gesturestart", "gesturechange", "gestureend"].forEach(ev => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
