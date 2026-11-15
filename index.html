@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#16614F">
 <title>สมุดบ้าน — บัญชีรายรับรายจ่ายครอบครัว</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -382,6 +382,18 @@
     <!-- ===== tab: salary ===== -->
     <div id="tabSalary" class="hidden">
       <div id="salMembers" class="chips" role="group" aria-label="เลือกสมาชิก"></div>
+      <div id="salViewTabs" class="subtabs hidden" role="group" aria-label="ดูของคนนี้">
+        <button type="button" data-sal-view="pay" aria-pressed="true">💰 เงินเดือน</button>
+        <button type="button" data-sal-view="docs" aria-pressed="false">📁 ข้อมูล</button>
+      </div>
+      <!-- ข้อมูลของแต่ละคน -->
+      <div id="salDocs" class="hidden">
+        <section>
+          <div class="sec-head"><h2 id="docsTitle">ข้อมูล</h2><button id="btnAddDoc" class="linkbtn" type="button">＋ เพิ่มข้อมูล</button></div>
+          <div id="docList" class="doc-list"></div>
+          <p id="docsNote" class="muted" style="font-size:12.5px;margin:8px 2px 0"></p>
+        </section>
+      </div>
 
       <!-- ภาพรวมทั้งบ้าน -->
       <div id="salAll">
@@ -891,6 +903,38 @@
       <button type="submit" class="btn btn-primary" id="btnSaveDue">บันทึก</button>
     </div>
   </form>
+</div>
+
+<!-- ============ SHEET: เพิ่ม/แก้ข้อมูลของสมาชิก ============ -->
+<div id="sheetDoc" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="docSheetTitle">
+  <form class="sheet" id="formDoc" novalidate>
+    <h2 id="docSheetTitle">เพิ่มข้อมูล</h2>
+    <div class="field"><label for="docName">ชื่อข้อมูล</label><input id="docName" maxlength="80" placeholder="เช่น บัตรประชาชน, สัญญาเช่า, ใบรับรองแพทย์"></div>
+    <div class="field"><label for="docNote">รายละเอียด (ไม่ใส่ก็ได้)</label><textarea id="docNote" class="input" rows="3" maxlength="2000" placeholder="เช่น เลขที่ วันหมดอายุ ที่เก็บตัวจริง"></textarea></div>
+    <div class="subhead">รูป / ไฟล์ <label class="linkbtn" for="docFiles" style="cursor:pointer">＋ แนบรูปหรือไฟล์</label></div>
+    <input id="docFiles" type="file" multiple class="hidden">
+    <div id="docFileList" class="doc-files"></div>
+    <div id="docErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="btnSaveDoc">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ SHEET: เปิดดูข้อมูล ============ -->
+<div id="sheetDocView" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="dvTitle">
+  <div class="sheet">
+    <h2 id="dvTitle">ข้อมูล</h2>
+    <div id="dvMeta" class="hint"></div>
+    <div id="dvNote" class="dv-note"></div>
+    <div id="dvFiles" class="dv-files"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ปิด</button>
+      <button type="button" class="btn btn-danger hidden" id="dvDel">ลบ</button>
+      <button type="button" class="btn btn-primary hidden" id="dvEdit">แก้ไข</button>
+    </div>
+  </div>
 </div>
 
 <!-- ============ ล็อกด้วย PIN ============ -->
