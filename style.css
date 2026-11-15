@@ -589,3 +589,6 @@ img.av-img{object-fit:cover;padding:0;background:var(--surface-2)}
 .gate-card { display: flex; flex-direction: column; gap: 10px; }
 .gate-card p { margin: 0; line-height: 1.6; }
 .gate-card a.btn { text-decoration: none; text-align: center; }
+
+.ob-home { margin-bottom: 14px; border-color: var(--danger, #e5484d); display: flex; flex-direction: column; gap: 8px; }
+.ob-home h2, .ob-home p { margin: 0; }
