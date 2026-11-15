@@ -169,6 +169,12 @@ function makeSupabaseApi() {
     },
     async signIn(email, password) { return must(await sb.auth.signInWithPassword({ email, password })).user; },
     async signOut() { await sb.auth.signOut(); },
+    async homeStatus() {
+      const { data, error } = await sb.rpc("sb_home_status");
+      if (error) return null;   // ยังไม่ได้รัน supabase-v6b-home.sql
+      return data;
+    },
+    async leaveHome() { return must(await sb.rpc("sb_leave_home")); },
     async ledgerAccess() {
       const { data, error } = await sb.rpc("ext_ledger_access");
       if (error) {
@@ -795,7 +801,7 @@ async function route() {
   if (!state.user) return show("viewAuth");
   if (!(await accessOk())) return;
   const fam = await api.getMyFamily(state.user.id);
-  if (!fam) { show("viewOnboard"); $("obName").focus(); return; }
+  if (!fam) { show("viewOnboard"); $("obName").focus(); paintObHome(); return; }
   Object.assign(state, { family: fam.family, me: fam.me, members: fam.members });
   if (state.salMember !== "all" && !state.members.some(m => m.id === state.salMember)) state.salMember = "all";
   show("viewApp");
@@ -918,8 +924,37 @@ async function onboard(kind) {
     if (kind === "create") { const fam = $("obFamily").value.trim(); if (!fam) { $("obErr").textContent = "ตั้งชื่อบ้านก่อน"; return; } await api.createFamily(fam, name); }
     else { const code = $("obCode").value.trim(); if (code.length < 6) { $("obErr").textContent = "ใส่รหัสเชิญให้ครบ"; return; } await api.joinFamily(code, name); }
     await route();
-  } catch (err) { $("obErr").textContent = friendlyError(err); }
+  } catch (err) {
+    $("obErr").textContent = friendlyError(err);
+    if (String(err?.message || err).includes("already_in_family")) paintObHome(true);
+  }
   finally { btn.disabled = false; }
+}
+
+// บัญชีนี้ยังผูกอยู่กับบ้านที่มองไม่เห็น: บอกชื่อบ้าน และให้กดออกจากบ้านได้จากหน้านี้
+async function paintObHome(scroll) {
+  const box = $("obHome");
+  if (!box || !api.homeStatus) return;
+  const st = await api.homeStatus();
+  if (!st || !st.in_home) { box.classList.add("hidden"); return; }
+  if (st.gate_ok === false) { await accessOk(); return; }   // ที่มองไม่เห็นเพราะยังไม่มีสิทธิ์สมุดบ้าน
+  const owner = st.role === "owner";
+  box.innerHTML = `<h2>บัญชีนี้ยังอยู่ในบ้าน "${esc(st.family_name)}"</h2>
+    <p>ในบ้านนี้คุณชื่อ "${esc(st.display_name || "-")}"${owner ? " และเป็นเจ้าของบ้าน" : ""} แต่เปิดบ้านนี้ไม่ได้ ลองเปิดอีกครั้งก่อน ถ้ายังไม่ได้ ให้กดออกจากบ้านนี้ แล้วสร้างบ้านใหม่หรือเข้าร่วมบ้านด้วยรหัสเชิญ</p>
+    <p class="muted">ออกจากบ้านแล้ว รายการที่เคยบันทึกยังอยู่กับบ้านเดิม ไม่ถูกลบ${owner ? (st.accounts > 1 ? " ตำแหน่งเจ้าของบ้านจะส่งต่อให้สมาชิกที่เข้าบ้านก่อนสุด" : " บ้านนี้จะไม่มีใครเปิดได้อีก ถ้าจะกลับเข้าไปต้องใช้รหัสเชิญเดิม") : ""}</p>
+    <div class="stack">
+      <button id="obHomeRetry" class="btn btn-soft btn-block" type="button">ลองเปิดบ้านนี้อีกครั้ง</button>
+      <button id="obHomeLeave" class="btn btn-danger btn-block" type="button">ออกจากบ้าน "${esc(st.family_name)}"</button>
+    </div>`;
+  box.classList.remove("hidden");
+  $("obHomeRetry").onclick = () => route();
+  $("obHomeLeave").onclick = async () => {
+    if (!confirm(`ออกจากบ้าน "${st.family_name}"?\nรายการที่เคยบันทึกยังอยู่กับบ้านเดิม แต่คุณจะเปิดบ้านนั้นไม่ได้อีก จนกว่าจะเข้าร่วมใหม่ด้วยรหัสเชิญ`)) return;
+    const b = $("obHomeLeave"); b.disabled = true;
+    try { await api.leaveHome(); toast("ออกจากบ้านแล้ว สร้างบ้านใหม่หรือเข้าร่วมบ้านได้เลย"); $("obErr").textContent = ""; box.classList.add("hidden"); }
+    catch (e) { toast(friendlyError(e)); b.disabled = false; }
+  };
+  if (scroll) box.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 $("btnCreateFamily").onclick = () => onboard("create");
 $("btnJoinFamily").onclick = () => onboard("join");
