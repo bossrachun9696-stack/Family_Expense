@@ -50,6 +50,20 @@
   <p style="text-align:center;margin-top:14px"><button id="btnAuthToggle" class="linkbtn" type="button">ยังไม่มีบัญชี? สมัครใช้งาน</button></p>
 </div>
 
+<!-- ============ ยังไม่มีสิทธิ์ (ส่วนขยายใน DarkChat) ============ -->
+<div id="viewGate" class="gate hidden">
+  <div class="brandmark">
+    <div class="logo" aria-hidden="true"></div>
+    <div><h1 id="gateTitle">ใช้สมุดบ้านได้เมื่อเปิดส่วนขยายใน DarkChat</h1><p>บัญชี <span id="gateEmail"></span></p></div>
+  </div>
+  <div class="card gate-card">
+    <div id="gateText"></div>
+    <a id="gateOpenDc" class="btn btn-primary btn-block" href="https://bossrachun9696-stack.github.io/darkchat/" target="_blank" rel="noopener">🧩 เปิด DarkChat ไปที่ส่วนขยาย</a>
+    <button id="gateRecheck" class="btn btn-soft btn-block" type="button">ซื้อ/ทดลองแล้ว ตรวจสอบอีกครั้ง</button>
+  </div>
+  <p style="text-align:center"><button class="linkbtn" type="button" data-action="logout">ออกจากระบบ (เปลี่ยนบัญชี)</button></p>
+</div>
+
 <!-- ============ ONBOARDING ============ -->
 <div id="viewOnboard" class="gate hidden">
   <div class="brandmark">
