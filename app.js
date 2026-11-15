@@ -102,7 +102,7 @@ function friendlyError(e) {
 /* =========================================================
    PAY MATH
    ========================================================= */
-const DEFAULT_PAY = { pay_type: "monthly", base_salary: 0, shift_rate: 0, start_day: 1, end_day: 31, ot15_rate: null, ot20_rate: null, ot30_rate: null, incomes: [], daily_incomes: [], deductions: [] };
+const DEFAULT_PAY = { pay_type: "monthly", base_salary: 0, shift_rate: 0, start_day: 1, end_day: 31, ot10_rate: null, ot15_rate: null, ot20_rate: null, ot30_rate: null, incomes: [], daily_incomes: [], deductions: [] };
 // รอบของเดือน M: เริ่ม <= สิ้นสุด → ภายในเดือน M; เริ่ม > สิ้นสุด (เช่น 21–20) → เริ่มเดือนก่อน จบเดือน M
 function cycleRange(month, startDay, endDay) {
   const y = month.getFullYear(), m = month.getMonth();
@@ -115,24 +115,24 @@ function otRates(s) {
   // ค่าจ้างต่อชั่วโมง: รายเดือน = เงินเดือน ÷ 30 ÷ 8 · รายวัน = ค่าแรงต่อวัน ÷ 8
   const hourly = (+s.base_salary || 0) / (isDaily(s) ? 8 : 240);
   const pick = (v, mult) => (v !== null && v !== "" && v !== undefined && +v > 0) ? +v : round2(hourly * mult);
-  return { r15: pick(s.ot15_rate, 1.5), r20: pick(s.ot20_rate, 2), r30: pick(s.ot30_rate, 3) };
+  return { r10: pick(s.ot10_rate, 1), r15: pick(s.ot15_rate, 1.5), r20: pick(s.ot20_rate, 2), r30: pick(s.ot30_rate, 3) };
 }
-const dayOtPay = (d, r) => (+d.ot15_hours || 0) * r.r15 + (+d.ot20_hours || 0) * r.r20 + (+d.ot30_hours || 0) * r.r30;
-const dayOtHours = (d) => (+d.ot15_hours || 0) + (+d.ot20_hours || 0) + (+d.ot30_hours || 0);
+const dayOtPay = (d, r) => (+d.ot10_hours || 0) * r.r10 + (+d.ot15_hours || 0) * r.r15 + (+d.ot20_hours || 0) * r.r20 + (+d.ot30_hours || 0) * r.r30;
+const dayOtHours = (d) => (+d.ot10_hours || 0) + (+d.ot15_hours || 0) + (+d.ot20_hours || 0) + (+d.ot30_hours || 0);
 function calcPay(s, days) {
   const rate = +s.base_salary || 0, daily = isDaily(s), rates = otRates(s), shiftRate = +s.shift_rate || 0;
-  let h15 = 0, h20 = 0, h30 = 0, work = 0, leave = 0, unpaid = 0, shifts = 0;
+  let h10 = 0, h15 = 0, h20 = 0, h30 = 0, work = 0, leave = 0, unpaid = 0, shifts = 0;
   const counts = { work: 0, off: 0, sick: 0, personal: 0, vacation: 0, unpaid: 0 };
   days.forEach(d => {
     if (counts[d.status] !== undefined) counts[d.status]++;
-    h15 += +d.ot15_hours || 0; h20 += +d.ot20_hours || 0; h30 += +d.ot30_hours || 0;
+    h10 += +d.ot10_hours || 0; h15 += +d.ot15_hours || 0; h20 += +d.ot20_hours || 0; h30 += +d.ot30_hours || 0;
     if (d.status === "work") work++;
     if (["sick", "personal", "vacation", "unpaid"].includes(d.status)) leave++;
     if (d.status === "unpaid") unpaid++;
     if (d.has_shift) shifts++;
   });
-  const ot15 = round2(h15 * rates.r15), ot20 = round2(h20 * rates.r20), ot30 = round2(h30 * rates.r30);
-  const otTotal = round2(ot15 + ot20 + ot30), shiftPay = round2(shifts * shiftRate);
+  const ot10 = round2(h10 * rates.r10), ot15 = round2(h15 * rates.r15), ot20 = round2(h20 * rates.r20), ot30 = round2(h30 * rates.r30);
+  const otTotal = round2(ot10 + ot15 + ot20 + ot30), shiftPay = round2(shifts * shiftRate);
   // รายวัน: จ่ายเฉพาะวันที่ "มาทำงาน" · รายเดือน: เงินเดือนเต็ม หักวันขาด/ไม่รับเงิน วันละ เงินเดือน ÷ 30
   const base = daily ? round2(work * rate) : rate;
   const unpaidDeduct = daily ? 0 : round2(unpaid * rate / 30);
@@ -141,7 +141,7 @@ function calcPay(s, days) {
   const dailyIncomes = (s.daily_incomes || []).filter(x => +x.amount > 0).map(x => ({ name: x.name, rate: +x.amount, days: work, total: round2(+x.amount * work) }));
   const dailyIncSum = round2(dailyIncomes.reduce((a, x) => a + x.total, 0));
   const net = round2(base - unpaidDeduct + otTotal + shiftPay + incSum + dailyIncSum - dedSum);
-  return { daily, rate, counts, base, ...rates, shiftRate, h15, h20, h30, ot15, ot20, ot30, otTotal, shifts, shiftPay, unpaid, unpaidDeduct, incomes, deductions, incSum, dailyIncomes, dailyIncSum, dedSum, net, work, leave, hours: h15 + h20 + h30 };
+  return { daily, rate, counts, base, ...rates, shiftRate, h10, h15, h20, h30, ot10, ot15, ot20, ot30, otTotal, shifts, shiftPay, unpaid, unpaidDeduct, incomes, deductions, incSum, dailyIncomes, dailyIncSum, dedSum, net, work, leave, hours: h10 + h15 + h20 + h30 };
 }
 
 /* =========================================================
@@ -192,6 +192,11 @@ function makeSupabaseApi() {
           const mine = must(await sb.from("family_members").select(`id, family_id, display_name, role${M}, families(id, name, invite_code, plan${F})`).eq("user_id", userId).maybeSingle());
           if (!mine) return null;
           const members = must(await sb.from("family_members").select(`id, display_name, role, user_id${M}`).eq("family_id", mine.family_id).order("created_at"));
+          try {   // ลำดับที่ตั้งไว้ (ถ้ายังไม่ได้รัน supabase-sb-v8.sql ก็เรียงตามวันที่เข้าบ้าน)
+            const { data: ord, error: oErr } = await sb.from("family_members").select("id, sort_order").eq("family_id", mine.family_id);
+            if (!oErr) { const so = Object.fromEntries((ord || []).map(r => [r.id, r.sort_order])); members.forEach(m => m.sort_order = so[m.id]); }
+          } catch (x) { /* ไม่เป็นไร */ }
+          sortMembers(members);
           return { family: mine.families, me: { id: mine.id, display_name: mine.display_name, role: mine.role }, members };
         } catch (e) { lastErr = e; if (!/avatar_url|permissions|features|member_kind/.test(String(e.message || e))) throw e; }
       }
@@ -251,6 +256,7 @@ function makeSupabaseApi() {
     async deleteDebt(id) { must(await sb.from("debts").delete().eq("id", id)); },
     async saveBudget(row) { return must(await sb.from("personal_budgets").upsert(row, { onConflict: "member_id,cycle_month" }).select().single()); },
     async setPermissions(mid, perms) { must(await sb.rpc("set_member_permissions", { p_member: mid, p_perms: perms })); },
+    async setMemberOrder(ids) { must(await sb.rpc("sb_set_member_order", { p_ids: ids })); },
     async updateTx(id, patch) { must(await sb.from("transactions").update(patch).eq("id", id)); },
     async updateDebt(id, patch) { must(await sb.from("debts").update(patch).eq("id", id)); },
     async addPSpend(row) { return must(await sb.from("personal_spends").insert(row).select().single()); },
@@ -283,7 +289,15 @@ function makeSupabaseApi() {
     async setMemberKind(mid, kind) { must(await sb.rpc("set_member_kind", { p_member: mid, p_kind: kind })); },
     async addChild(fid, name) { must(await sb.rpc("add_child_member", { p_family: fid, p_name: name })); },
     async updateChild(mid, name, avatar) { must(await sb.rpc("update_child_member", { p_member: mid, p_name: name, p_avatar: avatar })); },
-    async savePaySettings(row) { return must(await sb.from("member_pay_settings").upsert(row, { onConflict: "member_id,effective_month" }).select().single()); },
+    async savePaySettings(row) {
+      const go = (r) => sb.from("member_pay_settings").upsert(r, { onConflict: "member_id,effective_month" }).select().single();
+      let res = await go(row);
+      if (res.error && /ot10_rate/.test(res.error.message || "")) {   // ยังไม่ได้รัน supabase-sb-v8.sql
+        if (row.ot10_rate != null) throw new Error("ตั้งอัตรา OT 1 เท่าไม่ได้: ให้รัน supabase-sb-v8.sql ใน Supabase ก่อน");
+        const { ot10_rate, ...rest } = row; res = await go(rest);
+      }
+      return must(res);
+    },
     async saveWorkDay(row) { return must(await sb.from("work_days").upsert(row, { onConflict: "member_id,work_date" }).select().single()); },
     async deleteWorkDay(memberId, date) { must(await sb.from("work_days").delete().eq("member_id", memberId).eq("work_date", date)); },
     async saveBills(row) { return must(await sb.from("family_bills").upsert(row, { onConflict: "family_id,effective_month" }).select().single()); },
@@ -401,7 +415,7 @@ function makeDemoApi() {
     async signOut() { session = null; },
     async getMyFamily(userId) {
       const me = db.members.find(m => m.user_id === userId); if (!me) return null;
-      return { family: { ...db.families.find(f => f.id === me.family_id) }, me: { ...me }, members: db.members.filter(m => m.family_id === me.family_id).map(m => ({ ...m })) };
+      return { family: { ...db.families.find(f => f.id === me.family_id) }, me: { ...me }, members: sortMembers(db.members.filter(m => m.family_id === me.family_id).map(m => ({ ...m }))) };
     },
     async createFamily(name, displayName) {
       await wait();
@@ -465,6 +479,7 @@ function makeDemoApi() {
     async deleteDebt(id) { db.debts = db.debts.filter(d => d.id !== id); },
     async saveBudget(row) { return upsert(db.budgets, row, ["member_id", "cycle_month"]); },
     async setPermissions(mid, perms) { const me = db.members.find(m => m.user_id === session.id); if (me?.role !== "owner") throw new Error("not_owner"); db.members.find(m => m.id === mid).permissions = perms; },
+    async setMemberOrder(ids) { ids.forEach((id, i) => { const m = db.members.find(x => x.id === id); if (m) m.sort_order = i + 1; }); },
     async addTx(tx) { const r = { ...tx, id: uid(), created_by: session.id, created_at: new Date().toISOString() }; db.txs.push(r); return r; },
     async deleteTx(id) { db.txs = db.txs.filter(t => t.id !== id); },
     async savePaySettings(row) { return upsert(db.settings, row, ["member_id", "effective_month"]); },
@@ -541,6 +556,17 @@ const adults = () => state.members.filter(m => !isChild(m));
 const kids = () => state.members.filter(m => isChild(m));
 const canKid = () => !isChild(meMember()); // ผู้ใหญ่ทุกคนในบ้านบันทึกเงินไปโรงเรียนของเด็กได้
 const isOwner = () => state.me?.role === "owner";
+// ลำดับสมาชิก: ตามที่เจ้าของบ้านจัดไว้ (sort_order) ถ้ายังไม่ได้จัด เจ้าของบ้านขึ้นก่อน แล้วตามวันที่เข้าบ้าน
+function sortMembers(list) {
+  const idx = new Map(list.map((m, i) => [m.id, i]));
+  return list.sort((a, b) => {
+    const ao = a.sort_order ?? null, bo = b.sort_order ?? null;
+    if (ao !== null && bo !== null && ao !== bo) return ao - bo;
+    if (ao !== null && bo === null) return -1;
+    if (ao === null && bo !== null) return 1;
+    return idx.get(a.id) - idx.get(b.id);
+  });
+}
 const can = (k) => { if (isOwner()) return true; const v = (meMember().permissions || {})[k]; return v === undefined ? !!PERMS.find(x => x[0] === k)?.[2] : !!v; };
 const feat = (k) => { const v = (state.family?.features || {})[k]; return v === undefined ? !!FEATURES.find(x => x[0] === k)?.[3] : !!v; };
 const canEditMember = (id) => id === state.me.id || can("salary_all");
@@ -1054,6 +1080,8 @@ function renderDashboard(S) {
   renderDebtSummary();
   renderPersonalByMember(S);
   renderBudgetAlerts();
+  state.lastSummary = S;
+  if ($("sheetAll") && !$("sheetAll").classList.contains("hidden")) renderAllSheet();
   const recent = [...S.txs].sort(newest("tx_date")).slice(0, 5);
   $("recentList").innerHTML = ledgerHTML(recent, false) || `<div class="empty">ยังไม่มีรายการในช่วงนี้<br>กดปุ่ม + เพื่อบันทึก</div>`;
 }
@@ -1749,8 +1777,11 @@ function renderHome() {
   const permText = (m) => { if (m.role === "owner") return "ทำได้ทุกอย่าง";
     const on = PERMS.filter(([k, , d]) => { const v = (m.permissions || {})[k]; return v === undefined ? d : v; }).map(x => x[1].split(" (")[0]);
     return on.length ? "ได้สิทธิ์: " + on.join(" · ") : "แก้ได้เฉพาะข้อมูลตัวเอง"; };
-  $("memberList").innerHTML = state.members.map(m => `
-    <div class="member" style="align-items:flex-start"><div class="l" style="align-items:flex-start">${avatarHTML(m, "avatar")}<div><b>${esc(m.display_name)}</b>${m.id === state.me.id ? ` <small class="muted">(คุณ)</small>` : ""}
+  const canOrder = isOwner() || can("family"), nM = state.members.length;
+  $("memberList").innerHTML = state.members.map((m, i) => `
+    <div class="member" style="align-items:flex-start"><div class="l" style="align-items:flex-start">
+      ${canOrder && nM > 1 ? `<div class="mv-col"><button type="button" class="mv-btn" data-mv-member="${i}|-1" ${i === 0 ? "disabled" : ""} aria-label="เลื่อน ${esc(m.display_name)} ขึ้น">▲</button><span class="mv-no num">${i + 1}</span><button type="button" class="mv-btn" data-mv-member="${i}|1" ${i === nM - 1 ? "disabled" : ""} aria-label="เลื่อน ${esc(m.display_name)} ลง">▼</button></div>` : ""}
+      ${avatarHTML(m, "avatar")}<div><b>${esc(m.display_name)}</b>${m.id === state.me.id ? ` <small class="muted">(คุณ)</small>` : ""}
       <div class="muted" style="font-size:12.5px;line-height:1.4">${isChild(m) ? `🎒 เด็ก · บันทึกเงินไปโรงเรียนในแท็บเงินเดือน${m.user_id ? "" : " · ไม่มีบัญชีเข้าระบบ"}` : esc(permText(m))}</div></div></div>
     <div style="display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:6px"><span class="badge${isChild(m) ? " kid" : ""}">${m.role === "owner" ? "เจ้าของบ้าน" : isChild(m) ? "เด็ก" : "ผู้ใหญ่"}</span>
       ${isOwner() && m.role !== "owner" && m.user_id ? `<button type="button" class="iconlink" style="margin:0" data-kind="${esc(m.id)}|${isChild(m) ? "adult" : "child"}">${isChild(m) ? "👤 เป็นผู้ใหญ่" : "🎒 เป็นเด็ก"}</button>` : ""}
@@ -2134,8 +2165,8 @@ function renderPayrollAll() {
   const hMax = Math.max(1, ...set.map(r => r.p.hours));
   $("allOtSub").textContent = `รวม ${fmtH(tot(p => p.hours))} ชม.`;
   $("allOtBars").innerHTML = rows.map(({ m, p }) => !p ? none(m) : `<div class="hbar">${head(m, fmtH(p.hours) + " ชม. · " + bahtR(p.otTotal))}
-    <div class="track">${seg(p.h15, hMax, "#8FC3EC")}${seg(p.h20, hMax, "#2F7FC1")}${seg(p.h30, hMax, "#1B4F86")}</div>
-    <div class="sub num">1.5× ${fmtH(p.h15)} ชม. (${bahtR(p.ot15)}) · 2× ${fmtH(p.h20)} ชม. (${bahtR(p.ot20)}) · 3× ${fmtH(p.h30)} ชม. (${bahtR(p.ot30)})</div></div>`).join("");
+    <div class="track">${seg(p.h10, hMax, "#2BB3A3")}${seg(p.h15, hMax, "#8FC3EC")}${seg(p.h20, hMax, "#2F7FC1")}${seg(p.h30, hMax, "#1B4F86")}</div>
+    <div class="sub num">${p.h10 ? `1× ${fmtH(p.h10)} ชม. (${bahtR(p.ot10)}) · ` : ""}1.5× ${fmtH(p.h15)} ชม. (${bahtR(p.ot15)}) · 2× ${fmtH(p.h20)} ชม. (${bahtR(p.ot20)}) · 3× ${fmtH(p.h30)} ชม. (${bahtR(p.ot30)})</div></div>`).join("");
 
   $("allDayLegend").innerHTML = DAY_COLS.map(c => `<span><i style="background:var(${c[2]})"></i>${c[1]}</span>`).join("");
   const dMax = Math.max(1, ...set.map(r => daysBetween(r.p.range.start, r.p.range.end)));
@@ -2152,6 +2183,7 @@ function renderPayrollAll() {
       ${p ? `<div class="pcard-net"><small class="muted" style="font-size:12px">${p.actual !== null ? "ได้จริง" : "สุทธิ (คำนวณ)"}</small><b class="num">${baht(p.used)}</b></div>` : ""}</div>
     ${p ? `<div class="kv">
       ${kv(p.daily ? `ค่าแรง ${p.counts.work} วัน × ${bahtR(p.rate)}` : "เงินเดือน", baht(p.base))}
+      ${p.h10 ? kv(`OT 1× · ${fmtH(p.h10)} ชม.`, "+" + baht(p.ot10), "plus") : ""}
       ${p.h15 ? kv(`OT 1.5× · ${fmtH(p.h15)} ชม.`, "+" + baht(p.ot15), "plus") : ""}
       ${p.h20 ? kv(`OT 2× · ${fmtH(p.h20)} ชม.`, "+" + baht(p.ot20), "plus") : ""}
       ${p.h30 ? kv(`OT 3× · ${fmtH(p.h30)} ชม.`, "+" + baht(p.ot30), "plus") : ""}
@@ -2185,6 +2217,7 @@ function renderSalary() {
   const row = (label, val, cls = "") => `<div class="slip-row ${cls}"><span>${label}</span><span class="num">${val}</span></div>`;
   let html = !pRaw ? `<div class="empty">ยังไม่ได้ตั้งค่าเงินเดือน${editable ? "<br>กด “ตั้งค่ารอบนี้” เพื่อเริ่ม" : ""}</div>` : "";
   html += p.daily ? row(`ค่าแรงรายวัน · ${p.work} วัน × ${baht(p.rate)}`, baht(p.base)) : row("ฐานเงินเดือน", baht(p.base));
+  if (p.h10) html += row(`OT 1 เท่า · ${p.h10} ชม. × ${baht(p.r10)}`, "+" + baht(p.ot10), "sub plus");
   if (p.h15) html += row(`OT 1.5 เท่า · ${p.h15} ชม. × ${baht(p.r15)}`, "+" + baht(p.ot15), "sub plus");
   if (p.h20) html += row(`OT 2 เท่า · ${p.h20} ชม. × ${baht(p.r20)}`, "+" + baht(p.ot20), "sub plus");
   if (p.h30) html += row(`OT 3 เท่า · ${p.h30} ชม. × ${baht(p.r30)}`, "+" + baht(p.ot30), "sub plus");
@@ -2229,8 +2262,8 @@ function renderCalendar(p, editable) {
     const s = ymd(dt), rec = dayRec(mid, s), st = rec ? statusOf(rec.status) : null;
     const cls = ["day", rec ? "rec" : "", s === todayStr ? "today" : "", s > todayStr ? "future" : ""].join(" ");
     const showMonth = dt.getDate() === 1 || +dt === +start;
-    // ชั่วโมง OT แยกสีตามประเภท: ฟ้า 1.5 เท่า · ส้ม 2 เท่า · ชมพูเข้ม 3 เท่า
-    const ots = rec ? [["ot15_hours", "--ot15"], ["ot20_hours", "--ot20"], ["ot30_hours", "--ot30"]].filter(([k]) => +rec[k]).map(([k, c]) => `<b style="--o:var(${c})">${+rec[k]}</b>`).join("") : "";
+    // ชั่วโมง OT แยกสีตามประเภท: เขียวอมฟ้า 1 เท่า · ฟ้า 1.5 เท่า · ส้ม 2 เท่า · ชมพูเข้ม 3 เท่า
+    const ots = rec ? [["ot10_hours", "--ot10"], ["ot15_hours", "--ot15"], ["ot20_hours", "--ot20"], ["ot30_hours", "--ot30"]].filter(([k]) => +rec[k]).map(([k, c]) => `<b style="--o:var(${c})">${+rec[k]}</b>`).join("") : "";
     html += `<button type="button" class="${cls}" data-day="${s}" ${editable ? "" : "disabled"} ${st ? `style="--c:var(${st[2]})"` : ""}
       aria-label="${esc(dayLabel(s))}${st ? " " + st[1] : ""}${rec && dayOtHours(rec) ? ` OT ${dayOtHours(rec)} ชั่วโมง` : ""}${rec?.has_shift ? " มีค่ากะ" : ""}${s > todayStr && rec ? " (บันทึกล่วงหน้า)" : ""}">
       ${rec?.has_shift ? `<span class="sh" aria-hidden="true"></span>` : ""}
@@ -2239,7 +2272,7 @@ function renderCalendar(p, editable) {
   });
   $("calGrid").innerHTML = html;
   $("calLegend").innerHTML = STATUSES.map(s => `<span><i style="background:var(${s[2]})"></i>${s[1]}</span>`).join("")
-    + `<span><i style="background:var(--ot15);border-radius:3px"></i>OT 1.5×</span><span><i style="background:var(--ot20);border-radius:3px"></i>OT 2×</span><span><i style="background:var(--ot30);border-radius:3px"></i>OT 3×</span>`
+    + `<span><i style="background:var(--ot10);border-radius:3px"></i>OT 1×</span><span><i style="background:var(--ot15);border-radius:3px"></i>OT 1.5×</span><span><i style="background:var(--ot20);border-radius:3px"></i>OT 2×</span><span><i style="background:var(--ot30);border-radius:3px"></i>OT 3×</span>`
     + `<span><i style="background:var(--shift);border-radius:2px;width:16px;height:5px"></i>แถบส้มด้านบน = มีค่ากะ</span><span><i style="border:1.5px dashed var(--brand);border-radius:3px;background:var(--brand-soft)"></i>ลายทาง = บันทึกล่วงหน้า</span>`;
 }
 document.addEventListener("click", (e) => {
@@ -2343,11 +2376,11 @@ async function openSlip(path, mid, M = monthStart(state.anchor)) {
 }
 
 /* ---------- day sheet ---------- */
-const OT_KEYS = [["ot15_hours", "1.5 เท่า", "r15"], ["ot20_hours", "2 เท่า", "r20"], ["ot30_hours", "3 เท่า", "r30"]];
+const OT_KEYS = [["ot10_hours", "1 เท่า", "r10"], ["ot15_hours", "1.5 เท่า", "r15"], ["ot20_hours", "2 เท่า", "r20"], ["ot30_hours", "3 เท่า", "r30"]];
 function setDayStatus(k) { state.day.status = k; document.querySelectorAll("#statusGrid [data-status]").forEach(b => b.setAttribute("aria-pressed", b.dataset.status === k)); updateDayEarn(); }
 function setShift(on) { state.day.shift = on; $("swShift").setAttribute("aria-checked", on); updateDayEarn(); }
 function updateDayEarn() {
-  const p = state.salPay; if (!p || !$("in_ot15_hours")) return;
+  const p = state.salPay; if (!p || !$("in_ot10_hours")) return;
   const ot = OT_KEYS.reduce((a, [k, , rk]) => a + (+$("in_" + k).value || 0) * p[rk], 0);
   const sh = state.day.shift ? p.shiftRate : 0;
   $("dayEarn").textContent = `รายได้เพิ่มของวันนี้: OT ${baht(round2(ot))}${sh ? ` + ค่ากะ ${baht(sh)}` : ""} = ${baht(round2(ot + sh))}`;
@@ -2381,7 +2414,15 @@ $("formDay").onsubmit = async (e) => {
   const row = { family_id: state.family.id, member_id: state.salMember, work_date: state.day.date, status: state.day.status, has_shift: state.day.shift, note: $("dayNote").value.trim() };
   for (const [k] of OT_KEYS) { const v = +$("in_" + k).value || 0; if (v < 0 || v > 24) { $("dayErr").textContent = "ชั่วโมง OT ต้องอยู่ระหว่าง 0–24"; return; } row[k] = Math.round(v * 10) / 10; }
   const btn = $("btnSaveDay"); btn.disabled = true;
-  try { await api.saveWorkDay(row); closeSheet("sheetDay"); toast("บันทึกวันทำงานแล้ว"); await reload(); }
+  try {
+    try { await api.saveWorkDay(row); }
+    catch (err) {   // ยังไม่ได้รัน supabase-sb-v8.sql (ไม่มีช่อง OT 1 เท่า)
+      if (!/ot10/.test(String(err?.message || err))) throw err;
+      if (row.ot10_hours) { $("dayErr").textContent = "บันทึก OT 1 เท่าไม่ได้: ให้รัน supabase-sb-v8.sql ใน Supabase ก่อน"; return; }
+      delete row.ot10_hours; await api.saveWorkDay(row);
+    }
+    closeSheet("sheetDay"); toast("บันทึกวันทำงานแล้ว"); await reload();
+  }
   catch (err) { $("dayErr").textContent = friendlyError(err); }
   finally { btn.disabled = false; }
 };
@@ -2433,7 +2474,7 @@ function updateRangePreview() {
   const f = (d) => d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
   $("psRangePreview").textContent = `รอบ ${monthLabel(M)} = ${f(r.start)} ถึง ${f(r.end)}`;
   const h = (+$("psBase").value || 0) / (state.draft.payType === "daily" ? 8 : 240);
-  $("psOt15").placeholder = h ? round2(h * 1.5) : "อัตโนมัติ"; $("psOt20").placeholder = h ? round2(h * 2) : "อัตโนมัติ"; $("psOt30").placeholder = h ? round2(h * 3) : "อัตโนมัติ";
+  $("psOt10").placeholder = h ? round2(h) : "อัตโนมัติ"; $("psOt15").placeholder = h ? round2(h * 1.5) : "อัตโนมัติ"; $("psOt20").placeholder = h ? round2(h * 2) : "อัตโนมัติ"; $("psOt30").placeholder = h ? round2(h * 3) : "อัตโนมัติ";
 }
 $("btnPaySettings").onclick = () => {
   const s = state.salPay.settings, M = monthStart(state.anchor);
@@ -2441,7 +2482,7 @@ $("btnPaySettings").onclick = () => {
   $("payHint").textContent = `ค่าที่บันทึกจะใช้ตั้งแต่รอบ ${monthLabel(M)} เป็นต้นไป รอบก่อนหน้าไม่เปลี่ยน`;
   $("psBase").value = +s.base_salary || ""; $("psShift").value = +s.shift_rate || "";
   fillDaySelect($("psStart"), s.start_day); fillDaySelect($("psEnd"), s.end_day);
-  $("psOt15").value = s.ot15_rate ?? ""; $("psOt20").value = s.ot20_rate ?? ""; $("psOt30").value = s.ot30_rate ?? "";
+  $("psOt10").value = s.ot10_rate ?? ""; $("psOt15").value = s.ot15_rate ?? ""; $("psOt20").value = s.ot20_rate ?? ""; $("psOt30").value = s.ot30_rate ?? "";
   state.draft.incomes = (s.incomes || []).map(x => ({ ...x })); state.draft.deductions = (s.deductions || []).map(x => ({ ...x }));
   state.draft.dailyIncomes = (s.daily_incomes || []).map(x => ({ ...x }));
   setPayType(s.pay_type === "daily" ? "daily" : "monthly");
@@ -2457,7 +2498,7 @@ $("formPay").onsubmit = async (e) => {
     pay_type: state.draft.payType === "daily" ? "daily" : "monthly",
     base_salary: Math.max(0, round2($("psBase").value)), shift_rate: Math.max(0, round2($("psShift").value)),
     start_day: +$("psStart").value, end_day: +$("psEnd").value,
-    ot15_rate: rate("psOt15"), ot20_rate: rate("psOt20"), ot30_rate: rate("psOt30"),
+    ot10_rate: rate("psOt10"), ot15_rate: rate("psOt15"), ot20_rate: rate("psOt20"), ot30_rate: rate("psOt30"),
     incomes: cleanLines(state.draft.incomes), deductions: cleanLines(state.draft.deductions)
   };
   const di = cleanLines(state.draft.dailyIncomes || []);
@@ -2803,7 +2844,7 @@ $("formWizard").onsubmit = async (e) => {
     if (k === "welcome" && wz.name !== meMember().display_name) { await api.updateMe(state.me.id, { display_name: wz.name }); await refreshFamily(); }
     if (k === "pay" && +wz.base > 0) { // รวมกับค่าที่มีอยู่ ไม่ล้างรายรับ/รายการหักเดิม
       const cur = settingsFor(state.me.id, ymd(monthStart(today0()))) || {};
-      const keep = ["shift_rate", "ot15_rate", "ot20_rate", "ot30_rate", "incomes", "deductions"].reduce((o, k2) => (o[k2] = cur[k2] ?? (k2 === "incomes" || k2 === "deductions" ? [] : k2 === "shift_rate" ? 0 : null), o), {});
+      const keep = ["shift_rate", "ot10_rate", "ot15_rate", "ot20_rate", "ot30_rate", "incomes", "deductions"].reduce((o, k2) => (o[k2] = cur[k2] ?? (k2 === "incomes" || k2 === "deductions" ? [] : k2 === "shift_rate" ? 0 : null), o), {});
       if (cur.daily_incomes?.length) keep.daily_incomes = cur.daily_incomes;
       await api.savePaySettings({ family_id: state.family.id, member_id: state.me.id, effective_month: ymd(monthStart(today0())), ...keep,
         pay_type: wz.payType, base_salary: round2(wz.base), start_day: wz.sd, end_day: wz.ed }); }
@@ -3559,3 +3600,123 @@ async function openDocView(id) {
 
 // ล็อกไม่ให้ซูม: iPhone ไม่สนค่า user-scalable จึงกันท่าถ่างนิ้วเอง (แตะสองครั้งกันด้วย CSS touch-action)
 ["gesturestart", "gesturechange", "gestureend"].forEach(ev => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+
+
+/* ---------- เลื่อนลำดับสมาชิก (ตั้งค่า > สมาชิกและสิทธิ์) ---------- */
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-mv-member]"); if (!b || b.disabled) return;
+  const [i, d] = b.dataset.mvMember.split("|").map(Number), j = i + d;
+  const ids = state.members.map(m => m.id);
+  if (j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  // สลับบนจอทันที แล้วค่อยบันทึก
+  const byId = Object.fromEntries(state.members.map(m => [m.id, m]));
+  state.members = ids.map((id, k) => Object.assign(byId[id], { sort_order: k + 1 }));
+  renderAll();
+  try { await api.setMemberOrder(ids); await refreshFamily(); }
+  catch (err) {
+    toast(/sb_set_member_order|function/.test(String(err?.message || err)) ? "เรียงลำดับไม่ได้: ให้รัน supabase-sb-v8.sql ใน Supabase ก่อน" : friendlyError(err));
+    await refreshFamily();
+  }
+});
+
+/* ---------- ช่องรหัสผ่าน: ปุ่มดวงตา ดู/ซ่อน ---------- */
+const EYE_ON = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.9 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`;
+document.querySelectorAll("[data-eye]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const inp = $(btn.dataset.eye), show = inp.type === "password";
+    inp.type = show ? "text" : "password";
+    btn.setAttribute("aria-pressed", String(show));
+    btn.setAttribute("aria-label", show ? "ซ่อนรหัสผ่าน" : "ดูรหัสผ่าน");
+    btn.innerHTML = show ? EYE_OFF : EYE_ON;
+    inp.focus({ preventScroll: true });
+  });
+});
+
+/* ---------- แถบเมนูล่าง: ไม่ให้ลอยไปกลางจอ (iPhone เวลาหน้าจอถูกซูมค้าง) ---------- */
+(function keepNavPinned() {
+  const vv = window.visualViewport, meta = document.querySelector('meta[name="viewport"]');
+  if (!vv || !meta) return;
+  const base = meta.getAttribute("content");
+  let snapping = false;
+  const fix = () => {
+    if (vv.scale > 1.01 && !snapping) {
+      // ซูมค้าง: สั่งให้กลับเป็นขนาดปกติ
+      snapping = true;
+      meta.setAttribute("content", base.replace(/maximum-scale=[^,]*,?\s*/, "") + ", maximum-scale=1.0001");
+      setTimeout(() => { meta.setAttribute("content", base); snapping = false; }, 60);
+    }
+  };
+  vv.addEventListener("resize", fix);
+  vv.addEventListener("scroll", fix);
+  document.addEventListener("focusout", () => setTimeout(fix, 120));
+})();
+
+/* ---------- ภาพรวม > ล่าสุด > ดูทั้งหมด: ป๊อปอัพทุกรายการ แยกหมวด ---------- */
+const ALL_TABS = [["all", "ทั้งหมด"], ["income", "🟢 รายรับ"], ["expense", "🔴 รายจ่าย"], ["loan", "🏦 กู้ยืม"], ["adv", "🤝 ออกให้ก่อน"], ["kid", "🎒 เด็ก"]];
+state.allTab = "all";
+function allRecords() {
+  const r = periodRange(state.period), s0 = ymd(r.start), e0 = ymd(r.end);
+  const inR = (d) => { const x = String(d || "").slice(0, 10); return x >= s0 && x <= e0; };
+  const txs = (state.data.txs || []).filter(t => inR(t.tx_date)).sort(newest("tx_date"));
+  const debts = (state.data.debts || []).filter(d => inR(d.tx_date)).sort(newest("tx_date"));
+  const kids = state.members.filter(m => isChild(m)).map(m => m.id);
+  const kd = (state.data.cdays || []).filter(x => kids.includes(x.member_id) && inR(x.day_date))
+    .map(x => ({ ...x, _d: String(x.day_date).slice(0, 10), _t: "day" }));
+  const ks = (state.data.cspends || []).filter(x => kids.includes(x.member_id) && inR(x.spend_date))
+    .map(x => ({ ...x, _d: String(x.spend_date).slice(0, 10), _t: "buy" }));
+  return {
+    income: txs.filter(t => t.type === "income"),
+    expense: txs.filter(t => t.type !== "income"),
+    loan: feat("loans") ? debts.filter(d => d.kind === "loan") : [],
+    adv: feat("advances") ? debts.filter(d => d.kind === "advance") : [],
+    kid: [...kd, ...ks].sort((a, b) => b._d.localeCompare(a._d))
+  };
+}
+function kidRowHTML(x) {
+  const name = esc(memberName(x.member_id));
+  if (x._t === "buy") return `<div class="row"><div class="cat-ic" style="background:color-mix(in srgb,#8456C4 15%,var(--surface))" aria-hidden="true">🛍️</div>
+    <div class="what"><b>${name} ใช้เงินเก็บ${x.note ? ": " + esc(x.note) : ""}</b><span>${esc(dayLabel(x._d))}</span></div>
+    <div class="amt num">−${baht(x.amount)}</div><span></span></div>`;
+  const left = (+x.given || 0) - (+x.spent || 0);
+  return `<div class="row"><div class="cat-ic" style="background:color-mix(in srgb,var(--income) 15%,var(--surface))" aria-hidden="true">🎒</div>
+    <div class="what"><b>${name} เงินไปโรงเรียน</b><span>${esc(dayLabel(x._d))} · ให้ ${bahtR(x.given)} · ใช้ ${bahtR(x.spent)}${x.note ? " · " + esc(x.note) : ""}</span></div>
+    <div class="amt num ${left >= 0 ? "in" : ""}">${left >= 0 ? "เหลือ " : "เกิน "}${baht(Math.abs(left))}</div><span></span></div>`;
+}
+function allSectionHTML(key, list) {
+  if (!list.length) return "";
+  const sum = (arr, f) => arr.reduce((a, x) => a + (+f(x) || 0), 0);
+  let total = "";
+  if (key === "income") total = "+" + baht(sum(list, t => t.amount));
+  else if (key === "expense") total = "−" + baht(sum(list, t => t.amount));
+  else if (key === "loan") total = `ยืม ${bahtR(sum(list.filter(d => d.action === "borrow"), d => d.amount))} · คืน ${bahtR(sum(list.filter(d => d.action !== "borrow"), d => d.amount))}`;
+  else if (key === "adv") total = `ออกให้ ${bahtR(sum(list.filter(d => d.action === "pay"), d => d.amount))} · คืน ${bahtR(sum(list.filter(d => d.action !== "pay"), d => d.amount))}`;
+  else if (key === "kid") total = `ให้ ${bahtR(sum(list.filter(x => x._t === "day"), x => x.given))} · ใช้ ${bahtR(sum(list.filter(x => x._t === "day"), x => x.spent) + sum(list.filter(x => x._t === "buy"), x => x.amount))}`;
+  const label = ALL_TABS.find(t => t[0] === key)[1];
+  const rows = key === "income" || key === "expense" ? ledgerHTML(list, true)
+    : key === "kid" ? list.map(kidRowHTML).join("") : list.map(debtRow).join("");
+  return `<div class="all-sec"><div class="all-sec-h"><b>${label}</b><small>${list.length} รายการ · ${total}</small></div><div class="ledger">${rows}</div></div>`;
+}
+function renderAllSheet() {
+  const R = allRecords();
+  const on = { all: true, income: true, expense: true, loan: feat("loans"), adv: feat("advances"), kid: state.members.some(m => isChild(m)) };
+  const tabs = ALL_TABS.filter(([k]) => on[k]);
+  if (!tabs.some(t => t[0] === state.allTab)) state.allTab = "all";
+  $("allTabs").innerHTML = tabs.map(([k, l]) => `<button type="button" data-all-tab="${k}" aria-pressed="${k === state.allTab}">${l}${k !== "all" ? ` <small>${R[k].length}</small>` : ""}</button>`).join("");
+  const keys = state.allTab === "all" ? ["income", "expense", "loan", "adv", "kid"] : [state.allTab];
+  const html = keys.map(k => allSectionHTML(k, R[k])).join("");
+  if (!html && state.allTab !== "all") { $("allBody").innerHTML = `<div class="empty">ไม่มีรายการ${ALL_TABS.find(t => t[0] === state.allTab)[1].replace(/^\S+\s/, "")}ในช่วงนี้</div>`; $("allPeriod").textContent = periodLabel(); return; }
+  $("allBody").innerHTML = html || `<div class="empty">ไม่มีรายการในช่วงนี้</div>`;
+  $("allPeriod").textContent = periodLabel();
+}
+function openAllSheet() { state.allTab = "all"; renderAllSheet(); openSheet("sheetAll"); $("allBody").scrollTop = 0; }
+$("btnSeeAll").onclick = openAllSheet;
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-all-tab]"); if (!t) return;
+  state.allTab = t.dataset.allTab; renderAllSheet();
+});
+// แก้/ลบรายการจากในป๊อปอัพ: ปิดป๊อปอัพก่อน แผ่นแก้ไขจะได้ไม่ซ้อนกัน
+$("allBody").addEventListener("click", (e) => {
+  if (e.target.closest("[data-edit-tx], [data-edit-debt]") && !e.target.closest(".del")) closeSheet("sheetAll");
+}, true);
