@@ -2,7 +2,7 @@
   /* ชุดสีธีม (เปลี่ยนได้ในหน้าตั้งค่า) _l = โหมดสว่าง _d = โหมดมืด */
   --p-brand-l:#16614F; --p-soft-l:#DDF1E8; --p-h1-l:#1A6B57; --p-h2-l:#0D3B31; --p-bg-l:#EDF3EF;
   --p-brand-d:#6CD2B2; --p-soft-d:#173A31; --p-h1-d:#1C5E4D; --p-h2-d:#0B2B24; --p-bg-d:#091412;
-  --ot15:#2F7FC1; --ot20:#E0620F; --ot30:#C2185B;
+  --ot10:#0F9F8F; --ot15:#2F7FC1; --ot20:#E0620F; --ot30:#C2185B;
   --bg:var(--p-bg-l); --surface:#FFFFFF; --surface-2:#F4F8F5; --ink:#0F2621; --muted:#5E716B; --line:#DDE6E1;
   --brand:var(--p-brand-l); --on-brand:#FFFFFF; --brand-soft:var(--p-soft-l);
   --hero-1:var(--p-h1-l); --hero-2:var(--p-h2-l); --hero-ink:#F4FBF8;
@@ -17,7 +17,7 @@
   :root:not([data-theme="light"]){
     --bg:var(--p-bg-d); --surface:color-mix(in srgb,var(--p-brand-d) 5%,#101418); --surface-2:color-mix(in srgb,var(--p-brand-d) 8%,#151a1f); --ink:#E8EEEC; --muted:#9AA8A4; --line:color-mix(in srgb,var(--p-brand-d) 14%,#232a2e);
     --brand:var(--p-brand-d); --on-brand:#0A0E10; --brand-soft:var(--p-soft-d);
-    --hero-1:var(--p-h1-d); --hero-2:var(--p-h2-d); --hero-ink:#F2F7F5; --ot15:#62A9E6; --ot20:#FF9A4D; --ot30:#FF6FA5;
+    --hero-1:var(--p-h1-d); --hero-2:var(--p-h2-d); --hero-ink:#F2F7F5; --ot10:#3FD0BE; --ot15:#62A9E6; --ot20:#FF9A4D; --ot30:#FF6FA5;
     --income:#5DD39A; --expense:#FF8995; --shared:#F0BB4A; --bill:#74AEE8;
     --st-work:#4CC594; --st-off:#73827D; --st-sick:#62A9E6; --st-personal:#B08BEA; --st-vacation:#F0B04E; --st-unpaid:#FF8995;
     --shift:#F2B54A; --grid:color-mix(in srgb,var(--p-brand-d) 10%,#1c2226);
@@ -28,7 +28,7 @@
 :root[data-theme="dark"]{
     --bg:var(--p-bg-d); --surface:color-mix(in srgb,var(--p-brand-d) 5%,#101418); --surface-2:color-mix(in srgb,var(--p-brand-d) 8%,#151a1f); --ink:#E8EEEC; --muted:#9AA8A4; --line:color-mix(in srgb,var(--p-brand-d) 14%,#232a2e);
     --brand:var(--p-brand-d); --on-brand:#0A0E10; --brand-soft:var(--p-soft-d);
-    --hero-1:var(--p-h1-d); --hero-2:var(--p-h2-d); --hero-ink:#F2F7F5; --ot15:#62A9E6; --ot20:#FF9A4D; --ot30:#FF6FA5;
+    --hero-1:var(--p-h1-d); --hero-2:var(--p-h2-d); --hero-ink:#F2F7F5; --ot10:#3FD0BE; --ot15:#62A9E6; --ot20:#FF9A4D; --ot30:#FF6FA5;
     --income:#5DD39A; --expense:#FF8995; --shared:#F0BB4A; --bill:#74AEE8;
     --st-work:#4CC594; --st-off:#73827D; --st-sick:#62A9E6; --st-personal:#B08BEA; --st-vacation:#F0B04E; --st-unpaid:#FF8995;
     --shift:#F2B54A; --grid:color-mix(in srgb,var(--p-brand-d) 10%,#1c2226);
@@ -618,3 +618,26 @@ html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-si
 .dv-img { display: block; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); min-height: 60px; text-align: center; }
 .dv-img img { display: block; width: 100%; height: auto; }
 .dv-img .muted { display: block; padding: 20px; }
+
+/* รอบ 8 */
+.pw-wrap { position: relative; }
+.pw-wrap input { width: 100%; padding-right: 48px; }
+.eye-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; font-size: 18px; }
+.eye-btn[aria-pressed="true"] { color: var(--brand); }
+.mv-col { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-right: 2px; flex: none; }
+.mv-btn { width: 28px; height: 22px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); color: var(--ink); font-size: 10px; cursor: pointer; padding: 0; line-height: 1; }
+.mv-btn:disabled { opacity: .3; cursor: default; }
+.mv-no { font-size: 12px; font-weight: 700; color: var(--brand); }
+.sheet-all { display: flex; flex-direction: column; max-height: 90vh; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.all-head { display: flex; align-items: center; gap: 10px; }
+.all-head h2 { margin: 0; }
+.all-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 10px 0; flex: none; }
+.all-tabs button { flex: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.all-tabs button small { color: var(--muted); font-weight: 500; }
+.all-tabs button[aria-pressed="true"] { background: var(--brand); color: #fff; border-color: var(--brand); }
+.all-tabs button[aria-pressed="true"] small { color: rgba(255,255,255,.8); }
+.all-body { overflow-y: auto; flex: 1; min-height: 120px; overscroll-behavior: contain; }
+.all-sec { margin-bottom: 14px; }
+.all-sec-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 4px 2px 6px; flex-wrap: wrap; }
+.all-sec-h small { color: var(--muted); font-size: 12.5px; }
