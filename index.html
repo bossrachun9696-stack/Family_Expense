@@ -43,7 +43,8 @@
     <div class="field"><label for="authEmail">อีเมล</label>
       <input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></div>
     <div class="field"><label for="authPass">รหัสผ่าน (อย่างน้อย 6 ตัว)</label>
-      <input id="authPass" type="password" autocomplete="current-password" minlength="6" required></div>
+      <div class="pw-wrap"><input id="authPass" type="password" autocomplete="current-password" minlength="6" required>
+        <button type="button" class="eye-btn" data-eye="authPass" aria-label="ดูรหัสผ่าน" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
     <div id="authErr" class="err" role="alert"></div>
     <button id="btnAuth" class="btn btn-primary btn-block" type="submit">เข้าสู่ระบบ</button>
   </form>
@@ -213,7 +214,7 @@
       </section>
 
       <section>
-        <div class="sec-head"><h2>ล่าสุด</h2><button class="linkbtn" type="button" data-goto="list">ดูทั้งหมด</button></div>
+        <div class="sec-head"><h2>ล่าสุด</h2><button id="btnSeeAll" class="linkbtn" type="button">ดูทั้งหมด</button></div>
         <div id="recentList" class="ledger"></div>
       </section>
     </div>
@@ -406,20 +407,20 @@
             <div style="background:rgba(255,224,138,.16);outline:1.5px solid rgba(255,224,138,.5)"><span id="allLeftLabel">คงเหลือ</span><strong id="allLeft" class="num gold">฿0</strong></div>
           </div>
         </div>
-        <section id="secDue">
-          <div class="sec-head"><h2 id="dueTitle">ต้องจ่ายเดือนนี้</h2>
-            <button class="linkbtn" type="button" data-open-due><svg class="i" style="width:16px;height:16px"><use href="#i-edit"/></svg>เพิ่ม / แก้ไข</button></div>
-          <div class="card">
-            <div id="dueSum" class="muted" style="font-size:13.5px"></div>
-            <div id="dueList" class="due-list"></div>
-          </div>
-        </section>
         <section id="secWaterfall">
           <div class="sec-head"><h2>จ่ายตามลำดับความสำคัญ</h2>
             <button id="btnEditBills2" class="linkbtn" type="button"><svg class="i" style="width:16px;height:16px"><use href="#i-edit"/></svg>เพิ่ม / แก้ไข</button></div>
           <div class="card">
             <div id="wfInfo" class="muted" style="font-size:13px"></div>
             <div id="wfBox"></div>
+          </div>
+        </section>
+        <section id="secDue">
+          <div class="sec-head"><h2 id="dueTitle">ต้องจ่ายเดือนนี้</h2>
+            <button class="linkbtn" type="button" data-open-due><svg class="i" style="width:16px;height:16px"><use href="#i-edit"/></svg>เพิ่ม / แก้ไข</button></div>
+          <div class="card">
+            <div id="dueSum" class="muted" style="font-size:13.5px"></div>
+            <div id="dueList" class="due-list"></div>
           </div>
         </section>
         <section>
@@ -437,7 +438,7 @@
         <section>
           <div class="sec-head"><h2>ชั่วโมง OT</h2><small id="allOtSub"></small></div>
           <div class="card"><div class="legend-row">
-            <span><i style="background:#8FC3EC"></i>1.5 เท่า</span><span><i style="background:#2F7FC1"></i>2 เท่า</span><span><i style="background:#1B4F86"></i>3 เท่า</span></div>
+            <span><i style="background:#2BB3A3"></i>1 เท่า</span><span><i style="background:#8FC3EC"></i>1.5 เท่า</span><span><i style="background:#2F7FC1"></i>2 เท่า</span><span><i style="background:#1B4F86"></i>3 เท่า</span></div>
             <div id="allOtBars" class="hbars"></div></div>
         </section>
         <section>
@@ -836,7 +837,7 @@
       <div><b>มีค่ากะวันนี้</b><small id="shiftRateTxt"></small></div>
       <button type="button" id="swShift" class="switch" role="switch" aria-checked="false" aria-label="มีค่ากะวันนี้"></button>
     </div>
-    <div class="grid3" id="otFields"></div>
+    <div class="grid2" id="otFields"></div>
     <div class="field" style="margin-top:14px"><label for="dayNote">โน้ต (ไม่ใส่ก็ได้)</label><input id="dayNote" maxlength="200" placeholder="เช่น เข้ากะดึก"></div>
     <div id="dayEarn" class="hint num"></div>
     <div id="dayErr" class="err" role="alert"></div>
@@ -869,8 +870,11 @@
     <div class="hint num" id="psRangePreview" style="margin-top:-4px"></div>
     <div class="hint" id="psTypeHint"></div>
     <div class="subhead">อัตรา OT ต่อชั่วโมง <small class="muted" style="font-weight:400">เว้นว่าง = คำนวณให้</small></div>
-    <div class="grid3">
+    <div class="grid2">
+      <div class="field"><label for="psOt10">1 เท่า</label><input id="psOt10" class="num" type="number" inputmode="decimal" min="0" step="0.01"></div>
       <div class="field"><label for="psOt15">1.5 เท่า</label><input id="psOt15" class="num" type="number" inputmode="decimal" min="0" step="0.01"></div>
+    </div>
+    <div class="grid2">
       <div class="field"><label for="psOt20">2 เท่า</label><input id="psOt20" class="num" type="number" inputmode="decimal" min="0" step="0.01"></div>
       <div class="field"><label for="psOt30">3 เท่า</label><input id="psOt30" class="num" type="number" inputmode="decimal" min="0" step="0.01"></div>
     </div>
@@ -903,6 +907,16 @@
       <button type="submit" class="btn btn-primary" id="btnSaveDue">บันทึก</button>
     </div>
   </form>
+</div>
+
+<!-- ============ SHEET: ทุกรายการ (ภาพรวม > ดูทั้งหมด) ============ -->
+<div id="sheetAll" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="allSheetTitle">
+  <div class="sheet sheet-all">
+    <div class="all-head"><h2 id="allSheetTitle">ทุกรายการ</h2><small id="allPeriod" class="muted"></small>
+      <button type="button" class="eye-btn" data-close aria-label="ปิด" style="position:static;margin-left:auto">✕</button></div>
+    <div id="allTabs" class="all-tabs" role="group" aria-label="หมวด"></div>
+    <div id="allBody" class="all-body"></div>
+  </div>
 </div>
 
 <!-- ============ SHEET: เพิ่ม/แก้ข้อมูลของสมาชิก ============ -->
