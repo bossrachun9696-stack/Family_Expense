@@ -584,3 +584,8 @@ img.av-img{object-fit:cover;padding:0;background:var(--surface-2)}
 .pin-pad .del{border-color:transparent;background:none}
 .pin-links{display:flex;justify-content:center;gap:28px;margin-top:16px}
 .danger-link{color:var(--expense)!important}
+
+/* หน้ายังไม่มีสิทธิ์ (รอบ 6) */
+.gate-card { display: flex; flex-direction: column; gap: 10px; }
+.gate-card p { margin: 0; line-height: 1.6; }
+.gate-card a.btn { text-decoration: none; text-align: center; }
