@@ -655,3 +655,20 @@ body.kid-mode #salMembers, body.kid-mode #salViewTabs, body.kid-mode #salAll, bo
 
 .rec-warn { margin: 8px 0 4px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.55; font-weight: 600;
   color: #fff; background: #C62F3E; box-shadow: 0 2px 10px rgba(198,47,62,.3); }
+
+/* ดูรายละเอียดวัน (เงินไปโรงเรียน) */
+.kv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0 4px; }
+.kv-grid > div { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+.kv-grid span { font-size: 12px; color: var(--muted); }
+.kv-grid b { font-size: 17px; }
+.kv-note { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); white-space: pre-wrap; }
+.kv-buy { display: flex; justify-content: space-between; gap: 10px; padding: 8px 2px; border-top: 1px solid var(--line); }
+.kv-wallet { margin-top: 14px; padding: 12px; border-radius: 12px; text-align: center; background: color-mix(in srgb, var(--bill) 14%, var(--surface)); }
+.kv-wallet b { font-size: 18px; margin-left: 6px; }
+
+/* ลำดับหัวข้อภาพรวม */
+.ov-order { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.ov-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.ov-no { width: 22px; text-align: center; font-size: 12px; font-weight: 700; color: var(--brand); }
+.ov-name { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-row .mv-btn { width: 32px; height: 28px; }
