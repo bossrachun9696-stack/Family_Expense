@@ -3748,14 +3748,11 @@ $("allBody").addEventListener("click", (e) => {
 }, true);
 
 
-/* ---------- ภาพรวม: ใครใช้จ่ายเท่าไหร่ (เฉพาะรายจ่าย) เดือน / ปี / ทั้งหมด ---------- */
-state.whoP = "month";
+/* ---------- ภาพรวม: ใครใช้จ่ายเท่าไหร่ (เฉพาะรายจ่าย) ตามช่วงที่เลือกด้านบน (เดือน / ปี / ทั้งหมด) ---------- */
 function renderWhoSpent() {
   if (!$("whoSpent")) return;
-  const A = state.anchor, P = state.whoP;
-  let s0 = "", e0 = "9999-12-31", label = "ทั้งหมด";
-  if (P === "month") { const M = monthStart(A); s0 = ymd(M); e0 = mEnd(M); label = monthLabel(M); }
-  else if (P === "year") { s0 = `${A.getFullYear()}-01-01`; e0 = `${A.getFullYear()}-12-31`; label = `ปี ${A.getFullYear() + 543}`; }
+  const P = effPeriod(), r = periodRange(P), s0 = ymd(r.start), e0 = ymd(r.end);
+  const label = P === "all" ? "ทั้งหมด" : periodLabel();
   const who = {}, cnt = {}; let shared = 0, sharedN = 0, total = 0;
   (state.data.txs || []).forEach(t => {
     if (t.type === "income" || !countable(t) || t.tx_date < s0 || t.tx_date > e0) return;
@@ -3768,17 +3765,11 @@ function renderWhoSpent() {
   if (shared || sharedN) rows.push({ html: "🏠 ใช้ร่วมกัน", v: round2(shared), n: sharedN });
   rows.sort((a, b) => b.v - a.v);
   const max = Math.max(1, ...rows.map(r => r.v));
-  document.querySelectorAll("[data-who-p]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.whoP === P)));
   $("whoSpentSub").textContent = `${label} · รวม ${bahtR(total)}`;
   $("whoSpent").innerHTML = total ? rows.map(r => `<div class="hbar"><div class="top"><b>${r.html}</b><span class="num" style="font-weight:700">${bahtR(r.v)} <small class="muted">${Math.round(r.v / total * 100)}%</small></span></div>
     <div class="track"><i style="width:${(r.v / max * 100).toFixed(1)}%;background:var(--expense)"></i></div>
-    <div class="sub">${r.n} รายการ</div></div>`).join("") : `<div class="empty">ยังไม่มีรายจ่ายใน${P === "all" ? "สมุด" : "ช่วงนี้"}</div>`;
+    <div class="sub">${r.n} รายการ</div></div>`).join("") : `<div class="empty">ยังไม่มีรายจ่ายในช่วงนี้</div>`;
 }
-document.addEventListener("click", (e) => {
-  const b = e.target.closest("[data-who-p]"); if (!b) return;
-  state.whoP = b.dataset.whoP; renderWhoSpent();
-});
-
 
 /* ---------- บัญชีเด็ก: เห็นได้แค่หน้าเงินไปโรงเรียน/เงินเก็บของตัวเอง ----------
    ข้อมูลอื่นของบ้านถูกกันที่ฐานข้อมูลด้วย (supabase-sb-v9.sql) ตรงนี้ซ่อนหน้าจอให้ตรงกัน */
