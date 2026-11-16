@@ -142,7 +142,7 @@
 
       <div id="budAlerts" class="alerts"></div>
 
-      <section id="secCarry">
+      <section data-ov="carry" id="secCarry">
         <div class="sec-head"><h2 id="carryTitle">ใช้เงินเดือนก่อนเกินไหม</h2><small id="carrySub"></small></div>
         <div class="card">
           <div id="carryBox"></div>
@@ -151,7 +151,7 @@
         </div>
       </section>
 
-      <section>
+      <section data-ov="cmp">
         <div class="sec-head"><h2 id="cmpTitle">รายรับ–รายจ่าย แต่ละเดือน</h2><small id="cmpSub"></small></div>
         <div class="card">
           <div class="legend-row"><span><i style="background:var(--income)"></i>รายรับ</span><span><i style="background:var(--expense)"></i>รายจ่าย</span></div>
@@ -159,7 +159,7 @@
         </div>
       </section>
 
-      <section>
+      <section data-ov="grow">
         <div class="sec-head"><h2 id="growTitle">เงินเหลือ โตขึ้นหรือลดลง</h2><small id="growSub"></small></div>
         <div class="card">
           <div id="growCmp" class="cmp2"></div>
@@ -167,7 +167,7 @@
         </div>
       </section>
 
-      <section id="secBillPay">
+      <section data-ov="billpay" id="secBillPay">
         <div class="sec-head"><h2>จ่ายประจำ · มากไปน้อย</h2><small id="bpSub"></small></div>
         <div class="card">
           <p class="muted" style="font-size:13px;margin:0 0 8px">รายจ่ายหลัก + รายการหักในสลิป ที่บันทึกตอนกด “ฝากเงินคงเหลือ” · ดูยอดอย่างเดียว ไม่นับรวมในรายรับรายจ่าย</p>
@@ -177,7 +177,7 @@
         </div>
       </section>
 
-      <section id="secKids" class="hidden">
+      <section data-ov="kids" id="secKids" class="hidden">
         <div class="sec-head"><h2>🎒 เงินไปโรงเรียนของน้อง</h2><small>ไม่นับรวมรายรับรายจ่าย</small></div>
         <div class="card">
           <div id="kidsOv" class="hbars"></div>
@@ -186,7 +186,7 @@
         </div>
       </section>
 
-      <section id="secWhoSpent">
+      <section data-ov="who" id="secWhoSpent">
         <div class="sec-head"><h2>ใครใช้จ่ายเท่าไหร่</h2><small id="whoSpentSub" class="muted"></small></div>
         <div class="card">
           <div id="whoSpent" class="hbars"></div>
@@ -194,12 +194,12 @@
         </div>
       </section>
 
-      <section id="secDebts">
+      <section data-ov="debts" id="secDebts">
         <div class="sec-head"><h2>เงินเก็บ · กู้ยืม · ออกให้ก่อน</h2></div>
         <div id="debtSummary"></div>
       </section>
 
-      <section id="secOt">
+      <section data-ov="ot" id="secOt">
         <div class="sec-head"><h2>OT แต่ละคน</h2><small id="otSub"></small></div>
         <div class="card">
           <div id="otLegend" class="legend-row"></div>
@@ -207,7 +207,7 @@
         </div>
       </section>
 
-      <section id="secMemberIncome">
+      <section data-ov="memberinc" id="secMemberIncome">
         <div class="sec-head"><h2>รายได้–รายจ่ายแต่ละคน</h2><small>รวมเงินเดือนและรายการหัก</small></div>
         <div class="card"><div class="legend-row">
           <span><i style="background:var(--income)"></i>เงินเดือน (ก่อนหัก)</span><span><i style="background:#8456C4"></i>รายรับอื่น</span>
@@ -215,7 +215,7 @@
           <div id="memberIncome" class="hbars"></div></div>
       </section>
 
-      <section>
+      <section data-ov="personal">
         <div class="sec-head"><h2>ใช้ส่วนตัวแต่ละคน</h2><small id="pmSub">รายจ่ายส่วนตัวจากปุ่ม +</small></div>
         <div class="card">
           <div id="pmLegend" class="legend-row"></div>
@@ -223,12 +223,12 @@
         </div>
       </section>
 
-      <section>
+      <section data-ov="cats">
         <div class="sec-head"><h2>จ่ายไปกับอะไร</h2><small id="txtTopCat"></small></div>
         <div class="card" id="catBox"></div>
       </section>
 
-      <section>
+      <section data-ov="recent">
         <div class="sec-head"><h2>ล่าสุด</h2><button id="btnSeeAll" class="linkbtn" type="button">ดูทั้งหมด</button></div>
         <div id="recentList" class="ledger"></div>
       </section>
@@ -707,6 +707,11 @@
     <details class="sgroup">
       <summary>🎨 หน้าตาและธีม</summary>
       <div class="sgroup-body">
+    <div class="card set-block">
+      <div class="perm-row"><div><b>📋 ลำดับหัวข้อในหน้าภาพรวม</b><small id="ovOrderHint">ใช้ ▲ ▼ เลือกว่าอะไรขึ้นก่อน · ตั้งครั้งเดียวใช้ได้ทุกเครื่องที่เข้าบัญชีนี้</small></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnOvReset">ค่าเดิม</button></div>
+      <div id="ovOrderList" class="ov-order"></div>
+    </div>
     <div class="set-block">
       <h3>ธีม</h3>
       <div class="seg seg3" role="group" aria-label="ธีม" style="margin:0">
@@ -1253,6 +1258,13 @@
 </div>
 
 <!-- ============ SHEET: เงินไปโรงเรียน (รายวัน) ============ -->
+<div id="sheetKidView" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="kvTitle">
+  <div class="sheet">
+    <h2 id="kvTitle">เงินไปโรงเรียน</h2>
+    <div id="kvBody"></div>
+    <div class="actions"><button type="button" class="btn btn-primary" data-close>ปิด</button></div>
+  </div>
+</div>
 <div id="sheetKidDay" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="kdTitle">
   <form class="sheet" id="formKidDay" novalidate>
     <h2 id="kdTitle">เงินไปโรงเรียน</h2>
