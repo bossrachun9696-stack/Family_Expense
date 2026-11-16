@@ -81,6 +81,7 @@ function friendlyError(e) {
   if (m.includes("Invalid login credentials")) return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
   if (m.includes("already registered") || m.includes("already been registered")) return "อีเมลนี้มีบัญชีแล้ว ลองเข้าสู่ระบบแทน";
   if (m.includes("invalid_code")) return "ไม่พบรหัสเชิญนี้ ตรวจสอบตัวอักษรอีกครั้ง";
+  if (m.includes("bad_recovery_code")) return "รหัสกู้คืนต้องมี 6–64 ตัวอักษร";
   if (m.includes("already_in_family")) return "บัญชีนี้อยู่ในบ้านอื่นแล้ว";
   if (m.includes("Password should be")) return "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร";
   if (m.includes("Failed to fetch")) return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต";
@@ -168,6 +169,13 @@ function makeSupabaseApi() {
       return data.user;
     },
     async signIn(email, password) { return must(await sb.auth.signInWithPassword({ email, password })).user; },
+    async recoveryStatus() {
+      const { data, error } = await sb.rpc("acct_recovery_status");
+      if (error) return /Could not find the function|does not exist/i.test(error.message || "") ? null : { has_code: true };
+      return data;
+    },
+    async setRecovery(code) { must(await sb.rpc("acct_set_recovery", { p_code: code })); },
+    async recover(email, code, password) { return must(await sb.rpc("acct_recover", { p_email: email, p_code: code, p_new_password: password })); },
     async signOut() { await sb.auth.signOut(); },
     async homeStatus() {
       const { data, error } = await sb.rpc("sb_home_status");
@@ -839,6 +847,7 @@ async function boot() {
 }
 async function route() {
   if (!state.user) return show("viewAuth");
+  if (!(await recoveryOk())) return;
   if (!(await accessOk())) return;
   const fam = await api.getMyFamily(state.user.id);
   if (!fam) { show("viewOnboard"); $("obName").focus(); paintObHome(); return; }
@@ -934,6 +943,7 @@ function setAuthMode(mode) {
   $("btnAuth").textContent = reg ? "สมัครใช้งาน" : "เข้าสู่ระบบ";
   $("btnAuthToggle").textContent = reg ? "มีบัญชีแล้ว? เข้าสู่ระบบ" : "ยังไม่มีบัญชี? สมัครใช้งาน";
   $("authPass").autocomplete = reg ? "new-password" : "current-password"; $("authErr").textContent = "";
+  $("authRecWrap").classList.toggle("hidden", !reg || !api.setRecovery); $("authForgotWrap").classList.toggle("hidden", reg || !api.recover);
 }
 $("btnAuthToggle").onclick = () => setAuthMode(state.authMode === "login" ? "register" : "login");
 $("formAuth").onsubmit = async (e) => {
@@ -941,8 +951,14 @@ $("formAuth").onsubmit = async (e) => {
   const email = $("authEmail").value.trim(), pass = $("authPass").value;
   if (!/^\S+@\S+\.\S+$/.test(email)) return ($("authErr").textContent = "กรอกอีเมลให้ถูกรูปแบบ");
   if (pass.length < 6) return ($("authErr").textContent = "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+  const reg = state.authMode === "register", rec = $("authRec").value.trim();
+  if (reg && api.setRecovery && rec.length < 6) { $("authRec").focus(); return ($("authErr").textContent = "ตั้งรหัสกู้คืนอย่างน้อย 6 ตัว แล้วจดเก็บไว้"); }
   const btn = $("btnAuth"); btn.disabled = true; $("authErr").textContent = "";
-  try { state.user = state.authMode === "register" ? await api.signUp(email, pass) : await api.signIn(email, pass); PIN.fresh = true; await route(); }
+  try {
+    state.user = reg ? await api.signUp(email, pass) : await api.signIn(email, pass);
+    if (reg && api.setRecovery) { try { await api.setRecovery(rec); $("authRec").value = ""; } catch (x) { console.warn("recovery", x); } }
+    PIN.fresh = true; await route();
+  }
   catch (err) { $("authErr").textContent = friendlyError(err); }
   finally { btn.disabled = false; }
 };
@@ -1027,6 +1043,7 @@ function applyFeatures() {
 function renderAll() {
   if (!state.family) return;
   applyFeatures();
+  applyKidMode();
   [["overview", "tabOverview"], ["list", "tabList"], ["salary", "tabSalary"], ["personal", "tabPersonal"], ["settings", "tabSettings"]].forEach(([k, id]) => $(id).classList.toggle("hidden", k !== state.tab));
   document.querySelectorAll(".nav [data-tab]").forEach(b => b.dataset.tab === state.tab ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   $("txtFamily").textContent = state.family.name;
@@ -1077,6 +1094,7 @@ function renderDashboard(S) {
   renderOt(S);
   renderMemberIncome(S);
   renderCategories(S);
+  renderWhoSpent();
   renderDebtSummary();
   renderPersonalByMember(S);
   renderBudgetAlerts();
@@ -2085,14 +2103,15 @@ document.addEventListener("click", async (e) => {
 });
 // เอารายได้สุทธิรวมของบ้าน ไล่จ่ายรายจ่ายหลักทีละรายการ ตามลำดับความสำคัญ (บนสุด = สำคัญสุด)
 function renderWaterfall(M, income) {
-  const mStr = ymd(M), b = billsFor(mStr), items = (b?.items || []).filter(x => +x.amount > 0);
+  const mStr = ymd(M), b = billsFor(mStr), items = (b?.items || []).filter(x => +x.amount > 0 && !x.off);
+  const skipped = (b?.items || []).filter(x => x.off).length;
   const from = b && String(b.effective_month).slice(0, 10) !== mStr ? parseYmd(b.effective_month) : null;
   const total = sumItems(items), left = income - total;
   $("allBills").textContent = baht(total);
   $("allLeftLabel").textContent = left >= 0 ? "คงเหลือ" : "ติดลบ";
   $("allLeft").textContent = (left < 0 ? "−" : "") + baht(Math.abs(left));
   $("allLeft").style.color = left < 0 ? "#FFB3BB" : "";
-  $("wfInfo").textContent = `${monthLabel(M)}${from ? ` · ใช้รายการจาก ${monthLabel(from)}` : b ? " · ตั้งรายการรอบนี้" : ""}`;
+  $("wfInfo").textContent = `${monthLabel(M)}${from ? ` · ใช้รายการจาก ${monthLabel(from)}` : b ? " · ตั้งรายการรอบนี้" : ""}${skipped ? ` · ข้ามเดือนนี้ ${skipped} รายการ` : ""}`;
   if (!items.length) {
     $("wfBox").innerHTML = `<div class="empty">ยังไม่มีรายจ่ายหลักของรอบนี้<br><button class="btn btn-soft btn-sm" type="button" data-open-bills style="margin-top:10px" ${can("bills") ? "" : "hidden"}>เพิ่มรายจ่าย</button></div>`;
     return;
@@ -2436,18 +2455,25 @@ function renderLines(kind) {
   const items = state.draft[kind], ph = { incomes: "เช่น ค่าตำแหน่ง", dailyIncomes: "เช่น ค่าอาหาร", deductions: "เช่น ประกันสังคม", bills: "เช่น ค่าเช่าบ้าน", wizBills: "ชื่อรายการ" }[kind];
   const bills = kind === "bills";
   $("lines-" + kind).innerHTML = items.length ? items.map((x, i) => `
-    <div class="li${bills ? " li-bill" : ""}"><input data-line="${kind}" data-i="${i}" data-k="name" maxlength="40" value="${esc(x.name)}" placeholder="${ph}" aria-label="ชื่อรายการ">
+    <div class="li${bills ? " li-bill" + (x.off ? " li-off" : "") : ""}">${bills ? `<input type="checkbox" class="li-on" data-line-on="${i}" ${x.off ? "" : "checked"} aria-label="แสดง ${esc(x.name || "รายการนี้")} ในเดือนนี้" title="ติ๊ก = จ่ายเดือนนี้ · ไม่ติ๊ก = ข้ามไว้ (ไม่ลบ)">` : ""}<input data-line="${kind}" data-i="${i}" data-k="name" maxlength="40" value="${esc(x.name)}" placeholder="${ph}" aria-label="ชื่อรายการ">
     <input data-line="${kind}" data-i="${i}" data-k="amount" class="num" type="number" inputmode="decimal" min="0" step="0.01" value="${x.amount || ""}" placeholder="บาท" aria-label="จำนวนเงิน">
     ${bills ? `<button type="button" data-mv-line="-1" data-i="${i}" aria-label="เลื่อนขึ้น (สำคัญกว่า)" ${i === 0 ? "disabled" : ""}>↑</button>
     <button type="button" data-mv-line="1" data-i="${i}" aria-label="เลื่อนลง" ${i === items.length - 1 ? "disabled" : ""}>↓</button>` : ""}
     <button type="button" data-rm-line="${kind}" data-i="${i}" aria-label="ลบรายการ">×</button></div>`).join("")
     : `<div class="muted" style="font-size:14px">ยังไม่มีรายการ</div>`;
-  if (kind === "bills") $("billsDraftTotal").textContent = baht(sumItems(items));
+  if (kind === "bills") $("billsDraftTotal").textContent = baht(sumItems(items.filter(x => !x.off)));
 }
 document.addEventListener("input", (e) => {
   const l = e.target.closest("[data-line]"); if (!l) return;
   state.draft[l.dataset.line][+l.dataset.i][l.dataset.k] = l.value;
-  if (l.dataset.line === "bills") $("billsDraftTotal").textContent = baht(sumItems(state.draft.bills));
+  if (l.dataset.line === "bills") $("billsDraftTotal").textContent = baht(sumItems(state.draft.bills.filter(x => !x.off)));
+});
+// ติ๊กหน้ารายการจ่ายตามลำดับ: ไม่ติ๊ก = เดือนนี้ไม่จ่าย แต่เก็บรายการไว้ เดือนหน้าติ๊กกลับได้
+document.addEventListener("change", (e) => {
+  const c = e.target.closest("[data-line-on]"); if (!c) return;
+  const x = state.draft.bills[+c.dataset.lineOn]; if (!x) return;
+  if (c.checked) delete x.off; else x.off = true;
+  renderLines("bills");
 });
 document.addEventListener("click", (e) => {
   const a = e.target.closest("[data-add-line]"); if (a) { state.draft[a.dataset.addLine].push({ name: "", amount: "" }); renderLines(a.dataset.addLine); const ins = $("lines-" + a.dataset.addLine).querySelectorAll("input"); ins[ins.length - 2]?.focus(); }
@@ -2455,7 +2481,7 @@ document.addEventListener("click", (e) => {
   if (mv) { const a = state.draft.bills, i = +mv.dataset.i, j = i + +mv.dataset.mvLine; if (j >= 0 && j < a.length) { [a[i], a[j]] = [a[j], a[i]]; renderLines("bills"); } }
   const r = e.target.closest("[data-rm-line]"); if (r) { state.draft[r.dataset.rmLine].splice(+r.dataset.i, 1); renderLines(r.dataset.rmLine); }
 });
-const cleanLines = (arr) => arr.filter(x => String(x.name).trim() || +x.amount > 0).map(x => ({ name: String(x.name).trim() || "ไม่ระบุ", amount: round2(x.amount) }));
+const cleanLines = (arr) => arr.filter(x => String(x.name).trim() || +x.amount > 0).map(x => ({ name: String(x.name).trim() || "ไม่ระบุ", amount: round2(x.amount), ...(x.off ? { off: true } : {}) }));
 
 /* ---------- pay settings sheet ---------- */
 function fillDaySelect(sel, val) { sel.innerHTML = Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1 === 31 ? "31 (สิ้นเดือน)" : i + 1}</option>`).join(""); sel.value = String(val); }
@@ -2513,7 +2539,7 @@ $("formPay").onsubmit = async (e) => {
 function openBills() {
   const M = monthStart(state.anchor), b = billsFor(ymd(M));
   $("billsTitle").textContent = `รายจ่ายหลัก · ${monthLabel(M)}`;
-  $("billsHint").textContent = `เรียงจากสำคัญมากไปน้อย (บนสุดจ่ายก่อน) ใช้ปุ่ม ↑ ↓ จัดลำดับ · ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้า · ไม่ต้องบันทึกซ้ำในปุ่ม +`;
+  $("billsHint").textContent = `ติ๊ก ✓ หน้ารายการ = จ่ายเดือนนี้ · ไม่ติ๊ก = ข้ามเดือนนี้แต่เก็บรายการไว้ · เรียงจากสำคัญมากไปน้อย (บนสุดจ่ายก่อน) ใช้ปุ่ม ↑ ↓ จัดลำดับ · ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้า · ไม่ต้องบันทึกซ้ำในปุ่ม +`;
   state.draft.bills = (b?.items || []).map(x => ({ ...x }));
   if (!state.draft.bills.length) state.draft.bills.push({ name: "", amount: "" });
   renderLines("bills"); $("billsErr").textContent = "";
@@ -2777,7 +2803,7 @@ $("btnWizard").onclick = () => openWizard(true);
 const WZ_KEY = () => "samudbaan-setup-" + state.me.id;
 let wz = null;
 function maybeWizard() {
-  if (wz || !state.me) return;
+  if (wz || !state.me || isChild(meMember())) return;
   let done = false; try { done = !!localStorage.getItem(WZ_KEY()); } catch (e) { done = true; }
   if (done) return;
   const hasPay = (state.data.settings || []).some(x => x.member_id === state.me.id), hasTx = state.data.txs.some(t => t.created_by === state.user.id);
@@ -3188,7 +3214,7 @@ document.addEventListener("keydown", (e) => { if (e.altKey && (e.key === "l" || 
    ========================================================= */
 function billPayRows(M) {
   const mStr = ymd(M), b = billsFor(mStr), t = today0(), endM = new Date(M.getFullYear(), M.getMonth() + 1, 0), pay_date = ymd(t < endM ? t : endM), rows = [];
-  (b?.items || []).filter(x => +x.amount > 0).forEach(x => rows.push({ family_id: state.family.id, cycle_month: mStr, source: "bill", member_id: null, name: String(x.name || "รายจ่ายหลัก").slice(0, 60), amount: round2(x.amount), pay_date }));
+  (b?.items || []).filter(x => +x.amount > 0 && !x.off).forEach(x => rows.push({ family_id: state.family.id, cycle_month: mStr, source: "bill", member_id: null, name: String(x.name || "รายจ่ายหลัก").slice(0, 60), amount: round2(x.amount), pay_date }));
   adults().forEach(m => { const p = payFor(m.id, M); if (!p) return;
     p.deductions.forEach(x => rows.push({ family_id: state.family.id, cycle_month: mStr, source: "deduct", member_id: m.id, name: String(x.name || "รายการหัก").slice(0, 60), amount: round2(x.amount), pay_date })); });
   return rows;
@@ -3720,3 +3746,135 @@ document.addEventListener("click", (e) => {
 $("allBody").addEventListener("click", (e) => {
   if (e.target.closest("[data-edit-tx], [data-edit-debt]") && !e.target.closest(".del")) closeSheet("sheetAll");
 }, true);
+
+
+/* ---------- ภาพรวม: ใครใช้จ่ายเท่าไหร่ (เฉพาะรายจ่าย) เดือน / ปี / ทั้งหมด ---------- */
+state.whoP = "month";
+function renderWhoSpent() {
+  if (!$("whoSpent")) return;
+  const A = state.anchor, P = state.whoP;
+  let s0 = "", e0 = "9999-12-31", label = "ทั้งหมด";
+  if (P === "month") { const M = monthStart(A); s0 = ymd(M); e0 = mEnd(M); label = monthLabel(M); }
+  else if (P === "year") { s0 = `${A.getFullYear()}-01-01`; e0 = `${A.getFullYear()}-12-31`; label = `ปี ${A.getFullYear() + 543}`; }
+  const who = {}, cnt = {}; let shared = 0, sharedN = 0, total = 0;
+  (state.data.txs || []).forEach(t => {
+    if (t.type === "income" || !countable(t) || t.tx_date < s0 || t.tx_date > e0) return;
+    const a = +t.amount || 0; total += a;
+    if (t.scope === "shared" || !t.member_id) { shared += a; sharedN++; }
+    else { who[t.member_id] = (who[t.member_id] || 0) + a; cnt[t.member_id] = (cnt[t.member_id] || 0) + 1; }
+  });
+  const rows = state.members.filter(m => !isChild(m) || who[m.id])
+    .map(m => ({ html: `${avatarHTML(m)}${esc(m.display_name)}`, v: round2(who[m.id] || 0), n: cnt[m.id] || 0 }));
+  if (shared || sharedN) rows.push({ html: "🏠 ใช้ร่วมกัน", v: round2(shared), n: sharedN });
+  rows.sort((a, b) => b.v - a.v);
+  const max = Math.max(1, ...rows.map(r => r.v));
+  document.querySelectorAll("[data-who-p]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.whoP === P)));
+  $("whoSpentSub").textContent = `${label} · รวม ${bahtR(total)}`;
+  $("whoSpent").innerHTML = total ? rows.map(r => `<div class="hbar"><div class="top"><b>${r.html}</b><span class="num" style="font-weight:700">${bahtR(r.v)} <small class="muted">${Math.round(r.v / total * 100)}%</small></span></div>
+    <div class="track"><i style="width:${(r.v / max * 100).toFixed(1)}%;background:var(--expense)"></i></div>
+    <div class="sub">${r.n} รายการ</div></div>`).join("") : `<div class="empty">ยังไม่มีรายจ่ายใน${P === "all" ? "สมุด" : "ช่วงนี้"}</div>`;
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-who-p]"); if (!b) return;
+  state.whoP = b.dataset.whoP; renderWhoSpent();
+});
+
+
+/* ---------- บัญชีเด็ก: เห็นได้แค่หน้าเงินไปโรงเรียน/เงินเก็บของตัวเอง ----------
+   ข้อมูลอื่นของบ้านถูกกันที่ฐานข้อมูลด้วย (supabase-sb-v9.sql) ตรงนี้ซ่อนหน้าจอให้ตรงกัน */
+function applyKidMode() {
+  const kid = isChild(meMember());
+  document.body.classList.toggle("kid-mode", kid);
+  if (!kid) return;
+  if (state.tab !== "settings") state.tab = "salary";
+  state.salMember = state.me.id;
+  state.salView = "pay";
+  document.querySelectorAll("#tabSettings details.sgroup").forEach(d => {
+    const t = d.querySelector("summary")?.textContent || "";
+    d.classList.toggle("hidden", /บ้านและสมาชิก|ฟังก์ชัน|ล้างข้อมูล/.test(t));
+  });
+}
+// ปุ่มย้อนกลับจากตั้งค่าของเด็ก: กลับหน้าเงินเก็บ
+document.addEventListener("click", (e) => {
+  if (!document.body.classList.contains("kid-mode")) return;
+  if (e.target.closest("#btnKidHome")) setTab("salary");
+});
+
+
+/* ---------- รหัสกู้คืนบัญชี (ใช้ร่วมกับ DarkChat · ต้องรัน supabase-v9.sql) ---------- */
+const REC = { forced: false, resolve: null };
+async function recoveryOk() {
+  if (!api.recoveryStatus || !state.user) return true;
+  let st = null;
+  try { st = await api.recoveryStatus(); } catch (e) { return true; }
+  paintRecStatus(st);
+  if (!st || st.has_code) return true;
+  // ยังไม่เคยตั้ง: บังคับตั้งก่อนใช้งาน
+  return new Promise((res) => { REC.forced = true; REC.resolve = res; openRecSet(); });
+}
+function paintRecStatus(st) {
+  if (!$("recStatus")) return;
+  $("recStatus").textContent = !st ? "ยังไม่ได้เปิดใช้ (ต้องรัน supabase-v9.sql)"
+    : st.has_code ? `ตั้งไว้แล้ว${st.updated_at ? " · เปลี่ยนล่าสุด " + new Date(st.updated_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }) : ""} · ใช้ร่วมกับ DarkChat`
+    : "ยังไม่ได้ตั้ง";
+}
+function openRecSet() {
+  $("recSet1").value = ""; $("recSet2").value = ""; $("recSetErr").textContent = "";
+  $("recSetTitle").textContent = REC.forced ? "ตั้งรหัสกู้คืนก่อนใช้งาน" : "ตั้ง / เปลี่ยนรหัสกู้คืนบัญชี";
+  $("btnRecSetCancel").classList.toggle("hidden", REC.forced);
+  $("sheetRecSet").dataset.locked = REC.forced ? "1" : "";
+  openSheet("sheetRecSet");
+  setTimeout(() => $("recSet1").focus(), 60);
+}
+$("btnRecChange").onclick = openRecSet;
+$("formRecSet").onsubmit = async (e) => {
+  e.preventDefault();
+  const a = $("recSet1").value.trim(), b = $("recSet2").value.trim();
+  if (a.length < 6) return ($("recSetErr").textContent = "รหัสกู้คืนต้องมีอย่างน้อย 6 ตัว");
+  if (a !== b) return ($("recSetErr").textContent = "พิมพ์สองช่องไม่ตรงกัน");
+  const btn = $("btnRecSet"); btn.disabled = true;
+  try {
+    await api.setRecovery(a);
+    $("sheetRecSet").dataset.locked = "";
+    closeSheet("sheetRecSet");
+    toast("บันทึกรหัสกู้คืนแล้ว อย่าลืมจดเก็บไว้");
+    paintRecStatus({ has_code: true, updated_at: new Date().toISOString() });
+    if (REC.forced) { REC.forced = false; const r = REC.resolve; REC.resolve = null; r && r(true); }
+  } catch (err) { $("recSetErr").textContent = friendlyError(err); }
+  finally { btn.disabled = false; }
+};
+// ตอนบังคับตั้ง ห้ามปิดแผ่นนี้ (แตะพื้นหลัง / ปุ่ม Esc)
+$("sheetRecSet").addEventListener("click", (e) => { if ($("sheetRecSet").dataset.locked && e.target === $("sheetRecSet")) e.stopImmediatePropagation(); }, true);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("sheetRecSet").dataset.locked) e.stopImmediatePropagation(); }, true);
+
+// ลืมรหัสผ่าน
+$("btnForgot").onclick = () => {
+  $("recEmail").value = $("authEmail").value.trim();
+  ["recCode", "recPass", "recPass2"].forEach(id => $(id).value = "");
+  $("recErr").textContent = "";
+  openSheet("sheetRecover");
+  setTimeout(() => ($("recEmail").value ? $("recCode") : $("recEmail")).focus(), 60);
+};
+$("formRecover").onsubmit = async (e) => {
+  e.preventDefault();
+  const email = $("recEmail").value.trim(), code = $("recCode").value.trim(), p1 = $("recPass").value, p2 = $("recPass2").value;
+  if (!/^\S+@\S+\.\S+$/.test(email)) return ($("recErr").textContent = "กรอกอีเมลให้ถูกรูปแบบ");
+  if (!code) return ($("recErr").textContent = "กรอกรหัสกู้คืน");
+  if (p1.length < 6) return ($("recErr").textContent = "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร");
+  if (p1 !== p2) return ($("recErr").textContent = "รหัสผ่านใหม่สองช่องไม่ตรงกัน");
+  const btn = $("btnRecover"); btn.disabled = true; $("recErr").textContent = "";
+  try {
+    const r = await api.recover(email, code, p1);
+    if (!r || !r.ok) {
+      $("recErr").textContent = r?.reason === "locked" ? `ใส่รหัสกู้คืนผิดหลายครั้ง ลองใหม่ในอีก ${r.minutes || 15} นาที`
+        : r?.reason === "weak_password" ? "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร"
+        : `อีเมลหรือรหัสกู้คืนไม่ถูกต้อง${r?.left !== undefined ? ` (ลองได้อีก ${r.left} ครั้ง)` : ""}`;
+      return;
+    }
+    closeSheet("sheetRecover");
+    toast("ตั้งรหัสผ่านใหม่แล้ว กำลังเข้าสู่ระบบ…");
+    $("authEmail").value = email; $("authPass").value = p1;
+    state.user = await api.signIn(email, p1); PIN.fresh = true; await route();
+  } catch (err) { $("recErr").textContent = friendlyError(err); }
+  finally { btn.disabled = false; }
+};
