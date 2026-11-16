@@ -348,7 +348,7 @@ img.av-img{object-fit:cover;padding:0;background:var(--surface-2)}
 .slip-att{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 6px}
 .slip-tag{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;color:var(--ink)}
 .slip-img{width:100%;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);min-height:120px;display:block}
-.list-edit .li.li-bill{grid-template-columns:1fr 92px 30px 30px 30px}
+.list-edit .li.li-bill{grid-template-columns:26px 1fr 84px 28px 28px 28px}
 .list-edit .li button:disabled{opacity:.3}
 .period-pick{position:relative;display:block}
 .period-pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
@@ -641,3 +641,18 @@ html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-si
 .all-sec { margin-bottom: 14px; }
 .all-sec-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 4px 2px 6px; flex-wrap: wrap; }
 .all-sec-h small { color: var(--muted); font-size: 12.5px; }
+
+/* รอบ 9 */
+.li-on { width: 22px; height: 22px; accent-color: var(--brand); margin: 0; cursor: pointer; }
+.list-edit .li.li-off input:not(.li-on) { opacity: .45; text-decoration: line-through; }
+.set-logout { margin: 18px 0 8px; color: var(--expense); border-color: color-mix(in srgb, var(--expense) 40%, var(--line)); }
+.who-seg{grid-template-columns:1fr 1fr 1fr;margin-bottom:0}
+
+/* บัญชีเด็ก: ซ่อนทุกอย่างที่ไม่ใช่หน้าเงินเก็บของตัวเอง */
+.kid-only { display: none; }
+body.kid-mode .kid-only { display: inline-grid; place-items: center; font-size: 18px; }
+body.kid-mode .nav, body.kid-mode #btnAdd, body.kid-mode #periodBar,
+body.kid-mode #salMembers, body.kid-mode #salViewTabs, body.kid-mode #salAll, body.kid-mode #salOne, body.kid-mode #salDocs { display: none !important; }
+
+.rec-warn { margin: 8px 0 4px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.55; font-weight: 600;
+  color: #fff; background: #C62F3E; box-shadow: 0 2px 10px rgba(198,47,62,.3); }
