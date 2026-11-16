@@ -45,8 +45,14 @@
     <div class="field"><label for="authPass">รหัสผ่าน (อย่างน้อย 6 ตัว)</label>
       <div class="pw-wrap"><input id="authPass" type="password" autocomplete="current-password" minlength="6" required>
         <button type="button" class="eye-btn" data-eye="authPass" aria-label="ดูรหัสผ่าน" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div id="authRecWrap" class="field hidden">
+      <label for="authRec">รหัสกู้คืนบัญชี (อย่างน้อย 6 ตัว)</label>
+      <input id="authRec" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" placeholder="ตั้งเองให้จำได้ เช่น คำ + ตัวเลข">
+      <div class="rec-warn">⚠️ จดรหัสนี้เก็บไว้ให้ดี ใช้ตั้งรหัสผ่านใหม่เมื่อลืมรหัสผ่าน ถ้าลืมทั้งสองอย่างจะเข้าบัญชีนี้ไม่ได้ ใช้รหัสเดียวกันทั้ง DarkChat และสมุดบ้าน</div>
+    </div>
     <div id="authErr" class="err" role="alert"></div>
     <button id="btnAuth" class="btn btn-primary btn-block" type="submit">เข้าสู่ระบบ</button>
+    <div id="authForgotWrap" style="text-align:center;margin-top:12px"><button id="btnForgot" class="linkbtn" type="button">ลืมรหัสผ่าน?</button></div>
   </form>
   <p style="text-align:center;margin-top:14px"><button id="btnAuthToggle" class="linkbtn" type="button">ยังไม่มีบัญชี? สมัครใช้งาน</button></p>
 </div>
@@ -101,6 +107,7 @@
         <label class="period-pick"><span id="txtPeriod" class="num"></span><input id="inJump" type="date" aria-label="เลือกวันที่ที่ต้องการดู"></label>
         <button id="btnNext" type="button" aria-label="ถัดไป"><svg class="i" style="width:18px;height:18px"><use href="#i-right"/></svg></button>
       </div>
+      <button id="btnKidHome" class="iconbtn kid-only" type="button" aria-label="กลับหน้าเงินเก็บ">🎒</button>
       <button id="btnSettings" class="iconbtn" type="button" aria-label="ตั้งค่าบ้าน"><svg class="i"><use href="#i-gear"/></svg></button>
       </div>
     </header>
@@ -176,6 +183,19 @@
           <div id="kidsOv" class="hbars"></div>
           <div class="legend-row" style="margin-top:14px"><span><i style="background:color-mix(in srgb,var(--brand) 40%,transparent)"></i>ให้ไป</span><span><i style="background:var(--expense)"></i>ใช้ไป</span><span><i style="background:var(--income)"></i>เหลือ</span></div>
           <div id="chartKidsOv" class="chart"></div><div id="tipKidsOv" class="tip"></div>
+        </div>
+      </section>
+
+      <section id="secWhoSpent">
+        <div class="sec-head"><h2>ใครใช้จ่ายเท่าไหร่</h2><small id="whoSpentSub" class="muted"></small></div>
+        <div class="card">
+          <div class="seg who-seg" role="group" aria-label="ช่วงเวลา">
+            <button type="button" data-who-p="month" aria-pressed="true">เดือนนี้</button>
+            <button type="button" data-who-p="year" aria-pressed="false">ปีนี้</button>
+            <button type="button" data-who-p="all" aria-pressed="false">ทั้งหมด</button>
+          </div>
+          <div id="whoSpent" class="hbars" style="margin-top:14px"></div>
+          <p class="muted" style="font-size:12.5px;margin:12px 0 0">นับเฉพาะรายจ่าย · "ใช้ร่วมกัน" คือรายจ่ายของบ้านที่ไม่ได้ระบุคน</p>
         </div>
       </section>
 
@@ -618,6 +638,10 @@
       <summary>🔒 ความปลอดภัยและการล็อก</summary>
       <div class="sgroup-body">
     <div class="card set-block">
+      <div class="perm-row"><div><b>🔑 รหัสกู้คืนบัญชี</b><small id="recStatus">ใช้ตั้งรหัสผ่านใหม่เมื่อลืม · ใช้รหัสเดียวกันทั้ง DarkChat และสมุดบ้าน</small></div>
+        <button type="button" class="btn btn-soft btn-sm" id="btnRecChange">ตั้ง / เปลี่ยน</button></div>
+    </div>
+    <div class="card set-block">
       <div class="perm-row"><div><b>ล็อกแอปด้วย PIN</b><small>ใส่ PIN 6 หลักทุกครั้งที่เปิดแอป (ปิดได้ แต่ต้องใส่ PIN เดิมก่อน)</small></div>
         <button type="button" class="switch brand" role="switch" aria-checked="true" aria-label="ล็อกแอปด้วย PIN" id="setPinOn"></button></div>
       <div class="perm-row"><div><b>ล็อกอัตโนมัติเมื่อไม่ได้ใช้งาน</b><small>กลับไปหน้าใส่ PIN เมื่อไม่ได้แตะหรือพิมพ์ตามเวลานี้ หรือสลับไปแอปอื่นนานกว่านี้</small></div>
@@ -753,6 +777,7 @@
     </form>
       </div>
     </details>
+    <button class="btn btn-ghost btn-block set-logout" type="button" data-action="logout">🚪 ออกจากระบบ</button>
     </div>
   </div>
 
@@ -917,6 +942,41 @@
     <div id="allTabs" class="all-tabs" role="group" aria-label="หมวด"></div>
     <div id="allBody" class="all-body"></div>
   </div>
+</div>
+
+<!-- ============ ลืมรหัสผ่าน: ใช้รหัสกู้คืน ============ -->
+<div id="sheetRecover" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="recTitle">
+  <form class="sheet" id="formRecover" novalidate>
+    <h2 id="recTitle">ลืมรหัสผ่าน</h2>
+    <p class="muted" style="margin:0 0 10px;font-size:13.5px">ใส่อีเมลและรหัสกู้คืนที่ตั้งไว้ แล้วตั้งรหัสผ่านใหม่ (ใช้ได้ทั้ง DarkChat และสมุดบ้าน)</p>
+    <div class="field"><label for="recEmail">อีเมล</label><input id="recEmail" type="email" autocomplete="email"></div>
+    <div class="field"><label for="recCode">รหัสกู้คืน</label><input id="recCode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64"></div>
+    <div class="field"><label for="recPass">รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)</label>
+      <div class="pw-wrap"><input id="recPass" type="password" autocomplete="new-password">
+        <button type="button" class="eye-btn" data-eye="recPass" aria-label="ดูรหัสผ่าน" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="field"><label for="recPass2">ยืนยันรหัสผ่านใหม่</label><input id="recPass2" type="password" autocomplete="new-password"></div>
+    <div id="recErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="btnRecover">ตั้งรหัสผ่านใหม่</button>
+    </div>
+    <p class="muted" style="font-size:12.5px;margin:12px 0 0">ยังไม่เคยตั้งรหัสกู้คืน? ให้เจ้าของแอปช่วยตั้งรหัสผ่านใหม่ให้</p>
+  </form>
+</div>
+
+<!-- ============ ตั้ง/เปลี่ยนรหัสกู้คืน ============ -->
+<div id="sheetRecSet" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="recSetTitle">
+  <form class="sheet" id="formRecSet" novalidate>
+    <h2 id="recSetTitle">ตั้งรหัสกู้คืนบัญชี</h2>
+    <div class="rec-warn">⚠️ จดรหัสนี้เก็บไว้ให้ดี ใช้ตั้งรหัสผ่านใหม่เมื่อลืมรหัสผ่าน ถ้าลืมทั้งสองอย่างจะเข้าบัญชีนี้ไม่ได้ ใช้รหัสเดียวกันทั้ง DarkChat และสมุดบ้าน</div>
+    <div class="field"><label for="recSet1">รหัสกู้คืน (อย่างน้อย 6 ตัว)</label><input id="recSet1" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64"></div>
+    <div class="field"><label for="recSet2">พิมพ์อีกครั้ง</label><input id="recSet2" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64"></div>
+    <div id="recSetErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" id="btnRecSetCancel" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="btnRecSet">บันทึกรหัสกู้คืน</button>
+    </div>
+  </form>
 </div>
 
 <!-- ============ SHEET: เพิ่ม/แก้ข้อมูลของสมาชิก ============ -->
