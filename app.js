@@ -265,6 +265,11 @@ function makeSupabaseApi() {
     async saveBudget(row) { return must(await sb.from("personal_budgets").upsert(row, { onConflict: "member_id,cycle_month" }).select().single()); },
     async setPermissions(mid, perms) { must(await sb.rpc("set_member_permissions", { p_member: mid, p_perms: perms })); },
     async setMemberOrder(ids) { must(await sb.rpc("sb_set_member_order", { p_ids: ids })); },
+    async getPrefs() {
+      const { data, error } = await sb.from("sb_user_prefs").select("ov_order").maybeSingle();
+      return error ? null : (data || {});   // null = ยังไม่ได้รัน supabase-sb-prefs.sql
+    },
+    async savePrefs(row) { must(await sb.from("sb_user_prefs").upsert({ user_id: state.user.id, ...row, updated_at: new Date().toISOString() }, { onConflict: "user_id" })); },
     async updateTx(id, patch) { must(await sb.from("transactions").update(patch).eq("id", id)); },
     async updateDebt(id, patch) { must(await sb.from("debts").update(patch).eq("id", id)); },
     async addPSpend(row) { return must(await sb.from("personal_spends").insert(row).select().single()); },
@@ -488,6 +493,8 @@ function makeDemoApi() {
     async saveBudget(row) { return upsert(db.budgets, row, ["member_id", "cycle_month"]); },
     async setPermissions(mid, perms) { const me = db.members.find(m => m.user_id === session.id); if (me?.role !== "owner") throw new Error("not_owner"); db.members.find(m => m.id === mid).permissions = perms; },
     async setMemberOrder(ids) { ids.forEach((id, i) => { const m = db.members.find(x => x.id === id); if (m) m.sort_order = i + 1; }); },
+    async getPrefs() { return { ...(db.prefs || {}) }; },
+    async savePrefs(row) { db.prefs = { ...(db.prefs || {}), ...row }; },
     async addTx(tx) { const r = { ...tx, id: uid(), created_by: session.id, created_at: new Date().toISOString() }; db.txs.push(r); return r; },
     async deleteTx(id) { db.txs = db.txs.filter(t => t.id !== id); },
     async savePaySettings(row) { return upsert(db.settings, row, ["member_id", "effective_month"]); },
@@ -855,6 +862,7 @@ async function route() {
   if (state.salMember !== "all" && !state.members.some(m => m.id === state.salMember)) state.salMember = "all";
   show("viewApp");
   pinGate();
+  await loadPrefs();
   await reload();
   if (unsubscribe) unsubscribe();
   let t = null;
@@ -892,7 +900,7 @@ async function runRecurring() { // สร้างรายการประจ
 }
 document.addEventListener("visibilitychange", async () => {
   if (document.visibilityState !== "visible" || !state.family) return;
-  if (await accessOk()) reload();
+  if (await accessOk()) { await loadPrefs(); reload(); }
 });
 
 /* ---------- สิทธิ์ใช้สมุดบ้าน (ส่วนขยายใน DarkChat) ----------
@@ -970,7 +978,7 @@ async function logout() {
   Object.assign(state, { user: null, family: null, me: null, members: [], salMember: null });
   $("authPass").value = ""; setAuthMode("login"); setTab("overview"); show("viewAuth");
 }
-document.addEventListener("click", (e) => { if (e.target.closest("[data-action='logout']")) logout(); });
+document.addEventListener("click", (e) => { if (e.target.closest("[data-action='logout']") && confirm("ออกจากระบบ?\nครั้งหน้าต้องเข้าสู่ระบบด้วยอีเมลและรหัสผ่านอีกครั้ง")) logout(); });
 
 async function onboard(kind) {
   const name = $("obName").value.trim(); $("obErr").textContent = "";
@@ -1044,6 +1052,7 @@ function renderAll() {
   if (!state.family) return;
   applyFeatures();
   applyKidMode();
+  applyOvOrder();
   [["overview", "tabOverview"], ["list", "tabList"], ["salary", "tabSalary"], ["personal", "tabPersonal"], ["settings", "tabSettings"]].forEach(([k, id]) => $(id).classList.toggle("hidden", k !== state.tab));
   document.querySelectorAll(".nav [data-tab]").forEach(b => b.dataset.tab === state.tab ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   $("txtFamily").textContent = state.family.name;
@@ -3344,14 +3353,14 @@ function renderKid(mid) {
   $("kidWallet").textContent = signed(wallet);
   $("kidBuyMonth").textContent = S.buys ? `เดือนนี้ใช้เงินเก็บไป ${baht(S.buys)}` : "เหลือแต่ละวันสะสมไว้ที่นี่";
   $("btnKidBuy").classList.toggle("hidden", !edit);
-  $("kidCalHint").textContent = edit ? "แตะวันเพื่อบันทึก" : "ดูอย่างเดียว";
+  $("kidCalHint").textContent = edit ? "แตะวันเพื่อบันทึก" : "แตะวันเพื่อดูรายละเอียด";
   // ปฏิทิน
   const rec = {}; kidDays(mid, s0, e0).forEach(r => rec[String(r.day_date).slice(0, 10)] = r);
   let h = WD.map(w => `<div class="cal-wd">${w}</div>`).join("");
   for (let i = 0; i < M.getDay(); i++) h += "<div></div>";
   eachDay(M, parseYmd(e0), d => { const k = ymd(d), r = rec[k], l = r ? +r.given - +r.spent : 0;
     const cls = ["kday", r ? (l < 0 ? "over" : l > 0 ? "save" : "zero") : "", k === tStr ? "today" : "", k > tStr ? "future" : ""].join(" ");
-    h += `<button type="button" class="${cls}" data-kid-day="${k}" ${edit ? "" : "disabled"} aria-label="${esc(dayLabel(k))}${r ? ` ให้ ${baht(r.given)} ใช้ ${baht(r.spent)}` : ""}">
+    h += `<button type="button" class="${cls}" ${edit ? `data-kid-day="${k}"` : `data-kid-view="${k}"`} aria-label="${esc(dayLabel(k))}${r ? ` ให้ ${baht(r.given)} ใช้ ${baht(r.spent)}` : ""}">
       <span class="d num">${d.getDate()}</span>${r ? `<span class="g num">${shortNum(+r.given)}</span><span class="s num">${l > 0 ? "+" + shortNum(l) : l < 0 ? "−" + shortNum(-l) : "0"}</span>` : ""}</button>`; });
   $("kidCal").innerHTML = h;
   // กราฟรายวัน: ใช้ไป + เหลือ
@@ -3377,7 +3386,7 @@ function renderKid(mid) {
   // รายละเอียดรายวัน (ล่าสุดก่อน)
   const dl = Object.values(rec).sort(newest("day_date"));
   $("kidDays").innerHTML = dl.length ? dl.map(r => { const k = String(r.day_date).slice(0, 10), l = +r.given - +r.spent;
-    return `<div class="row${edit ? " tap" : ""}" ${edit ? `data-kid-day="${k}" role="button" tabindex="0"` : ""}><div class="cat-ic" style="background:color-mix(in srgb,${l < 0 ? "var(--expense)" : "var(--income)"} 14%,var(--surface))" aria-hidden="true">🎒</div>
+    return `<div class="row tap" ${edit ? `data-kid-day="${k}"` : `data-kid-view="${k}"`} role="button" tabindex="0"><div class="cat-ic" style="background:color-mix(in srgb,${l < 0 ? "var(--expense)" : "var(--income)"} 14%,var(--surface))" aria-hidden="true">🎒</div>
       <div class="what"><b>${esc(dayLabel(k))}</b><span class="num">ให้ ${baht(r.given)} · ใช้ ${baht(r.spent)}${r.note ? " · " + esc(r.note) : ""}</span></div>
       <div class="amt num" style="color:${l < 0 ? "var(--expense)" : "var(--income)"}">${l >= 0 ? "เหลือ " : "เกิน "}${baht(Math.abs(l))}</div><span></span></div>`; }).join("")
     : `<div class="empty">ยังไม่ได้บันทึกเดือนนี้${edit ? "<br>แตะวันที่ในปฏิทินเพื่อเริ่ม" : ""}</div>`;
@@ -3432,7 +3441,27 @@ $("formKidBuy").onsubmit = async (e) => {
   catch (err) { $("kbErr").textContent = /child_spends/.test(String(err.message || err)) ? "ให้รัน schema_phase11.sql ก่อน" : friendlyError(err); } finally { btn.disabled = false; }
 };
 document.querySelectorAll("[data-kb-quick]").forEach(b => b.onclick = () => { $("kbNote").value = b.dataset.kbQuick; });
+// ดูรายละเอียดวัน (แบบดูอย่างเดียว เช่น บัญชีเด็ก)
+function openKidView(k) {
+  const mid = state.salMember, r = kidDays(mid, k, k)[0] || null;
+  const buys = kidBuys(mid).filter(b => String(b.spend_date).slice(0, 10) === k);
+  const l = r ? round2(+r.given - +r.spent) : 0;
+  // เงินเก็บสะสม ณ สิ้นวันนั้น
+  const upto = kidDays(mid, "0000-01-01", k).reduce((a, x) => a + (+x.given || 0) - (+x.spent || 0), 0)
+    - kidBuys(mid).filter(b => String(b.spend_date).slice(0, 10) <= k).reduce((a, b) => a + (+b.amount || 0), 0);
+  $("kvTitle").textContent = `${memberName(mid)} · ${dayLabel(k)}`;
+  $("kvBody").innerHTML = (r ? `
+    <div class="kv-grid">
+      <div><span>ให้ไปโรงเรียน</span><b class="num">${baht(r.given)}</b></div>
+      <div><span>ใช้ไป</span><b class="num">${baht(r.spent)}</b></div>
+      <div><span>${l >= 0 ? "เหลือเก็บวันนี้" : "ใช้เกิน"}</span><b class="num" style="color:${l >= 0 ? "var(--income)" : "var(--expense)"}">${baht(Math.abs(l))}</b></div>
+    </div>${r.note ? `<div class="kv-note">📝 ${esc(r.note)}</div>` : ""}` : `<div class="empty">วันนี้ยังไม่ได้บันทึกเงินไปโรงเรียน</div>`)
+    + (buys.length ? `<div class="list-title" style="margin-top:12px">🧸 ใช้เงินเก็บวันนี้</div>` + buys.map(b => `<div class="kv-buy"><span>${esc(b.note || "ใช้เงินเก็บ")}</span><b class="num">−${baht(b.amount)}</b></div>`).join("") : "")
+    + `<div class="kv-wallet">💰 เงินเก็บสะสมถึงวันนี้ <b class="num">${signed(round2(upto))}</b></div>`;
+  openSheet("sheetKidView");
+}
 document.addEventListener("click", async (e) => {
+  const v = e.target.closest("[data-kid-view]"); if (v) return openKidView(v.dataset.kidView);
   const d = e.target.closest("[data-kid-day]"); if (d && !d.disabled) return openKidDay(d.dataset.kidDay);
   const x = e.target.closest("[data-kid-buy-del]"); if (x) { if (!confirm("ลบรายการนี้? เงินจะกลับเข้าเงินเก็บของน้อง")) return;
     try { await api.deleteChildSpend(x.dataset.kidBuyDel); toast("ลบแล้ว"); await reload(); } catch (err) { toast(friendlyError(err)); } }
@@ -3868,4 +3897,80 @@ $("formRecover").onsubmit = async (e) => {
     state.user = await api.signIn(email, p1); PIN.fresh = true; await route();
   } catch (err) { $("recErr").textContent = friendlyError(err); }
   finally { btn.disabled = false; }
+};
+
+
+/* ---------- ภาพรวม: จัดลำดับหัวข้อ (ตั้งค่า > หน้าตาและธีม) · เก็บแยกแต่ละเครื่อง ---------- */
+const OV_LABELS = { carry: "ใช้เงินเดือนก่อนเกินไหม", cmp: "รายรับ–รายจ่าย แต่ละเดือน", grow: "เงินเหลือ โตขึ้นหรือลดลง",
+  billpay: "จ่ายประจำ · มากไปน้อย", kids: "🎒 เงินไปโรงเรียนของน้อง", who: "ใครใช้จ่ายเท่าไหร่", debts: "เงินเก็บ · กู้ยืม · ออกให้ก่อน",
+  ot: "OT แต่ละคน", memberinc: "รายได้–รายจ่ายแต่ละคน", personal: "ใช้ส่วนตัวแต่ละคน", cats: "จ่ายไปกับอะไร", recent: "ล่าสุด" };
+const OV_DEFAULT = Object.keys(OV_LABELS);
+const ovKey = () => "samudbaan_ovorder_" + (state.user?.id || "x");
+// ลำดับที่ตั้งไว้: เก็บในบัญชี (ใช้ได้ทุกเครื่อง) และสำรองไว้ในเครื่อง
+async function loadPrefs() {
+  if (!api.getPrefs) return;
+  try {
+    const p = await api.getPrefs();
+    state.prefsReady = p !== null;
+    if (p && Array.isArray(p.ov_order)) {
+      state.ovOrder = p.ov_order;
+      try { localStorage.setItem(ovKey(), JSON.stringify(p.ov_order)); } catch (x) { /* ไม่เป็นไร */ }
+    } else if (p && !p.ov_order) {
+      // ยังไม่เคยเก็บในบัญชี: ย้ายลำดับที่เคยตั้งไว้ในเครื่องนี้ขึ้นไปเก็บ
+      let local = null; try { local = JSON.parse(localStorage.getItem(ovKey()) || "null"); } catch (x) { local = null; }
+      state.ovOrder = Array.isArray(local) ? local : null;
+      if (state.ovOrder) api.savePrefs({ ov_order: state.ovOrder }).catch(() => {});
+    }
+  } catch (e) { console.warn("prefs", e); }
+}
+let ovSaveT = null;
+function saveOvOrder(o) {
+  state.ovOrder = o;
+  try { if (o) localStorage.setItem(ovKey(), JSON.stringify(o)); else localStorage.removeItem(ovKey()); } catch (x) { /* ไม่เป็นไร */ }
+  if (!api.savePrefs || state.prefsReady === false) return;
+  clearTimeout(ovSaveT);
+  ovSaveT = setTimeout(() => api.savePrefs({ ov_order: o }).catch(err => toast("บันทึกลำดับในบัญชีไม่ได้: " + friendlyError(err))), 500);
+}
+function ovOrder() {
+  let saved = [];
+  if (Array.isArray(state.ovOrder)) saved = state.ovOrder;
+  else try { saved = JSON.parse(localStorage.getItem(ovKey()) || "[]"); } catch (x) { saved = []; }
+  const known = saved.filter(k => OV_LABELS[k]);
+  return [...known, ...OV_DEFAULT.filter(k => !known.includes(k))];   // หัวข้อใหม่ที่เพิ่มทีหลังต่อท้าย
+}
+function applyOvOrder() {
+  const secs = [...document.querySelectorAll("#tabOverview section[data-ov]")];
+  if (!secs.length) return;
+  const parent = secs[0].parentNode, after = secs[secs.length - 1].nextSibling;
+  const by = Object.fromEntries(secs.map(s => [s.dataset.ov, s]));
+  // วางตามลำดับที่ตั้งไว้ ต่อจากตำแหน่งเดิมของกลุ่ม
+  const anchor = document.createComment("ov");
+  parent.insertBefore(anchor, secs[0]);
+  ovOrder().forEach(k => { if (by[k]) parent.insertBefore(by[k], after); });
+  anchor.remove();
+  renderOvOrderList();
+}
+function renderOvOrderList() {
+  const box = $("ovOrderList"); if (!box) return;
+  const o = ovOrder();
+  $("ovOrderHint").textContent = state.prefsReady === false
+    ? "ใช้ ▲ ▼ เลือกว่าอะไรขึ้นก่อน · ตอนนี้จำไว้แค่เครื่องนี้ (ให้รัน supabase-sb-prefs.sql เพื่อใช้ได้ทุกเครื่อง)"
+    : "ใช้ ▲ ▼ เลือกว่าอะไรขึ้นก่อน · ตั้งครั้งเดียวใช้ได้ทุกเครื่องที่เข้าบัญชีนี้";
+  box.innerHTML = o.map((k, i) => `<div class="ov-row"><span class="ov-no num">${i + 1}</span><span class="ov-name">${esc(OV_LABELS[k])}</span>
+    <button type="button" class="mv-btn" data-ov-mv="${i}|-1" ${i === 0 ? "disabled" : ""} aria-label="เลื่อน ${esc(OV_LABELS[k])} ขึ้น">▲</button>
+    <button type="button" class="mv-btn" data-ov-mv="${i}|1" ${i === o.length - 1 ? "disabled" : ""} aria-label="เลื่อน ${esc(OV_LABELS[k])} ลง">▼</button></div>`).join("");
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ov-mv]"); if (!b || b.disabled) return;
+  const [i, d] = b.dataset.ovMv.split("|").map(Number), o = ovOrder(), j = i + d;
+  if (j < 0 || j >= o.length) return;
+  [o[i], o[j]] = [o[j], o[i]];
+  saveOvOrder(o);
+  applyOvOrder();
+  const nb = document.querySelector(`[data-ov-mv="${j}|${d}"]`) || document.querySelector(`[data-ov-mv="${j}|${-d}"]`);
+  nb?.focus({ preventScroll: true });
+});
+$("btnOvReset").onclick = () => {
+  saveOvOrder(null);
+  applyOvOrder(); toast("กลับเป็นลำดับเดิมแล้ว");
 };
