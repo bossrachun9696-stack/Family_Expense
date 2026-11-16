@@ -646,7 +646,6 @@ html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-si
 .li-on { width: 22px; height: 22px; accent-color: var(--brand); margin: 0; cursor: pointer; }
 .list-edit .li.li-off input:not(.li-on) { opacity: .45; text-decoration: line-through; }
 .set-logout { margin: 18px 0 8px; color: var(--expense); border-color: color-mix(in srgb, var(--expense) 40%, var(--line)); }
-.who-seg{grid-template-columns:1fr 1fr 1fr;margin-bottom:0}
 
 /* บัญชีเด็ก: ซ่อนทุกอย่างที่ไม่ใช่หน้าเงินเก็บของตัวเอง */
 .kid-only { display: none; }
