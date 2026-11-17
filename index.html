@@ -15,6 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>try{if(Object.keys(localStorage).some(function(k){return /^sb-.+-auth-token$/.test(k)}))document.documentElement.classList.add("has-session")}catch(e){}</script>
 <script>try{var t=localStorage.getItem("samudbaan-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;var p=localStorage.getItem("samudbaan-palette");if(p&&p!=="forest")document.documentElement.dataset.palette=p;}catch(e){}</script>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -32,6 +33,13 @@
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></symbol>
 </svg>
 
+<!-- ============ กำลังเปิดแอป (เคยเข้าสู่ระบบไว้แล้ว) ============ -->
+<div id="bootSplash" class="boot-splash" role="status" aria-live="polite">
+  <div class="logo" aria-hidden="true"></div>
+  <div id="bootText" class="boot-text">กำลังเปิดสมุดบ้าน…</div>
+  <button id="bootRetry" class="btn btn-soft hidden" type="button">ลองเชื่อมต่ออีกครั้ง</button>
+</div>
+
 <!-- ============ AUTH ============ -->
 <div id="viewAuth" class="gate hidden">
   <div class="brandmark">
@@ -39,6 +47,7 @@
     <div><h1>สมุดบ้าน</h1><p>รายรับ รายจ่าย เงินเดือน และ OT ของทั้งบ้านในที่เดียว</p></div>
   </div>
   <div id="demoNoteAuth" class="banner hidden">โหมดทดลอง: ยังไม่ได้เชื่อม Supabase ข้อมูลจะหายเมื่อรีเฟรชหน้า</div>
+  <div id="signoutNote" class="signout-note hidden"></div>
   <form id="formAuth" class="card" novalidate>
     <div class="field"><label for="authEmail">อีเมล</label>
       <input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></div>
