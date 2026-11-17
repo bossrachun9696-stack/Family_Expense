@@ -162,7 +162,8 @@ function makeSupabaseApi() {
     }
   }
   return {
-    async getUser() { const { data } = await sb.auth.getSession(); return data.session?.user || null; },
+    async getUser() { const { data, error } = await sb.auth.getSession(); if (error && !data?.session) throw error; return data.session?.user || null; },
+    onSignedOut(cb) { sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") cb(); }); },
     async signUp(email, password) {
       const data = must(await sb.auth.signUp({ email, password }));
       if (!data.session) throw new Error("ระบบยังเปิดการยืนยันอีเมลอยู่ ให้ปิด Confirm email ใน Supabase");
@@ -176,7 +177,7 @@ function makeSupabaseApi() {
     },
     async setRecovery(code) { must(await sb.rpc("acct_set_recovery", { p_code: code })); },
     async recover(email, code, password) { return must(await sb.rpc("acct_recover", { p_email: email, p_code: code, p_new_password: password })); },
-    async signOut() { await sb.auth.signOut(); },
+    async signOut() { await sb.auth.signOut({ scope: "local" }); },   // ออกเฉพาะเครื่องนี้ (ไม่พา DarkChat / เครื่องอื่นออกไปด้วย)
     async homeStatus() {
       const { data, error } = await sb.rpc("sb_home_status");
       if (error) return null;   // ยังไม่ได้รัน supabase-v6b-home.sql
@@ -846,11 +847,56 @@ function ringSVG(pct) {
    BOOT / ROUTE / LOAD
    ========================================================= */
 function show(view) { ["viewAuth", "viewOnboard", "viewApp", "viewGate"].forEach(v => $(v).classList.toggle("hidden", v !== view)); }
+// เปิดแอป: ถ้าเครื่องนี้เคยเข้าสู่ระบบไว้ ให้รอเปิดบัญชีเดิมก่อน (ลองซ้ำถ้าเน็ตยังไม่พร้อม) ไม่เด้งไปหน้าใส่อีเมล
+const hasStoredSession = () => { try { return Object.keys(localStorage).some(k => /^sb-.+-auth-token$/.test(k)); } catch (e) { return false; } };
+let signingOut = false;
+function bootDone() { document.documentElement.classList.remove("has-session"); $("bootSplash").classList.add("hidden"); }
 async function boot() {
+  $("bootRetry").classList.add("hidden"); $("bootText").textContent = "กำลังเปิดสมุดบ้าน…";
   if (DEMO) { api = makeDemoApi(); $("demoNoteAuth").classList.remove("hidden"); $("demoNoteApp").classList.remove("hidden"); }
-  else { await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"); api = makeSupabaseApi(); }
-  state.user = await api.getUser();
+  else if (!api) {
+    for (let i = 0; i < 3 && !window.supabase; i++) {
+      try { await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"); }
+      catch (e) { $("bootText").textContent = "กำลังเชื่อมต่อ…"; await new Promise(r => setTimeout(r, 1500 * (i + 1))); }
+    }
+    if (!window.supabase) return bootFail();
+    api = makeSupabaseApi();
+    api.onSignedOut(() => {
+      if (signingOut || !state.user) return;
+      noteSignOut("เซสชันหมดอายุหรือถูกยกเลิก (เช่น ตั้งรหัสผ่านใหม่ / ออกจากระบบทุกเครื่อง)");
+      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+      pinHide();
+      Object.assign(state, { user: null, family: null, me: null, members: [] });
+      show("viewAuth");
+    });
+  }
+  for (let i = 0; i < 4; i++) {
+    try { state.user = await api.getUser(); if (state.user || !hasStoredSession()) break; }
+    catch (e) { if (!hasStoredSession()) break; }
+    $("bootText").textContent = i === 0 ? "กำลังเชื่อมต่อ…" : `กำลังเชื่อมต่อ… (ครั้งที่ ${i + 1})`;
+    await new Promise(r => setTimeout(r, 1200 * (i + 1)));
+  }
+  if (!state.user && hasStoredSession()) return bootFail();
+  bootDone();
+  if (!state.user) showSignOutNote();
   await route();
+}
+function bootFail() {
+  $("bootText").textContent = "ยังเชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจอินเทอร์เน็ตแล้วกดลองอีกครั้ง";
+  $("bootRetry").classList.remove("hidden");
+}
+$("bootRetry").onclick = () => boot().catch(err => { bootDone(); show("viewAuth"); $("authErr").textContent = "เริ่มระบบไม่สำเร็จ: " + friendlyError(err); });
+function noteSignOut(reason) {
+  try { localStorage.setItem("samudbaan_signout_note", JSON.stringify({ reason, at: Date.now() })); } catch (e) { /* ไม่เป็นไร */ }
+  showSignOutNote();
+}
+function showSignOutNote() {
+  let n = null;
+  try { n = JSON.parse(localStorage.getItem("samudbaan_signout_note") || "null"); } catch (e) { n = null; }
+  const box = $("signoutNote");
+  if (!n || Date.now() - n.at > 3 * 86400000) return box.classList.add("hidden");
+  box.textContent = `ออกจากระบบเมื่อ ${new Date(n.at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })} · ${n.reason}`;
+  box.classList.remove("hidden");
 }
 async function route() {
   if (!state.user) return show("viewAuth");
@@ -964,6 +1010,7 @@ $("formAuth").onsubmit = async (e) => {
   const btn = $("btnAuth"); btn.disabled = true; $("authErr").textContent = "";
   try {
     state.user = reg ? await api.signUp(email, pass) : await api.signIn(email, pass);
+    try { localStorage.removeItem("samudbaan_signout_note"); } catch (x) { /* ไม่เป็นไร */ } $("signoutNote").classList.add("hidden");
     if (reg && api.setRecovery) { try { await api.setRecovery(rec); $("authRec").value = ""; } catch (x) { console.warn("recovery", x); } }
     PIN.fresh = true; await route();
   }
@@ -974,7 +1021,8 @@ async function logout() {
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
   if (state.user) pinClear(state.user.id);
   pinHide();
-  await api.signOut();
+  signingOut = true;
+  try { await api.signOut(); } finally { signingOut = false; }
   Object.assign(state, { user: null, family: null, me: null, members: [], salMember: null });
   $("authPass").value = ""; setAuthMode("login"); setTab("overview"); show("viewAuth");
 }
@@ -3151,7 +3199,7 @@ async function pinEntered() {
   }
   if (await pinCheck(uid, v)) { PIN.tries = 0; const cb = PIN.onDone; pinHide(); cb?.(); return; }
   PIN.tries++;
-  if (PIN.tries >= 5) { toast("ใส่ PIN ผิด 5 ครั้ง ออกจากระบบแล้ว เข้าสู่ระบบใหม่เพื่อตั้ง PIN ใหม่"); PIN.tries = 0; return logout(); }
+  if (PIN.tries >= 5) { toast("ใส่ PIN ผิด 5 ครั้ง ออกจากระบบแล้ว เข้าสู่ระบบใหม่เพื่อตั้ง PIN ใหม่"); PIN.tries = 0; noteSignOut("ใส่ PIN ผิด 5 ครั้ง"); return logout(); }
   pinShake(`PIN ไม่ถูกต้อง (เหลืออีก ${5 - PIN.tries} ครั้ง)`);
 }
 document.addEventListener("click", (e) => {
@@ -3498,7 +3546,7 @@ document.addEventListener("click", async (e) => {
 });
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
-boot().catch(err => { show("viewAuth"); $("authErr").textContent = "เริ่มระบบไม่สำเร็จ: " + friendlyError(err); });
+boot().catch(err => { bootDone(); show("viewAuth"); $("authErr").textContent = "เริ่มระบบไม่สำเร็จ: " + friendlyError(err); });
 
 /* =========================================================
    📁 ข้อมูลของแต่ละคน (รูป / ไฟล์ / โน้ต) — อยู่ในแท็บเงินเดือน เลือกคนแล้วกด "📁 ข้อมูล"
