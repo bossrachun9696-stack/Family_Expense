@@ -2,7 +2,7 @@
    เปิดแอปเร็ว: ไฟล์ของแอปเก็บไว้ในเครื่อง แล้วอัปเดตเบื้องหลัง
    ข้อมูลจาก Supabase ไม่เก็บ (ดึงสดทุกครั้ง)
    ** ทุกครั้งที่อัปโหลดไฟล์ใหม่ ให้เปลี่ยนเลขเวอร์ชันด้านล่าง ** */
-const VERSION = "samudbaan-v28";
+const VERSION = "samudbaan-v29";
 const APP_SHELL = ["./", "index.html", "style.css", "config.js", "app.js", "manifest.webmanifest",
   "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 const CDN = ["cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com"];
