@@ -318,6 +318,11 @@ function makeSupabaseApi() {
     async saveDues(row) { return must(await sb.from("due_lists").upsert({ ...row, updated_by: state.user.id, updated_at: new Date().toISOString() }, { onConflict: "family_id,effective_month" }).select().single()); },
     async checkBill(row) { must(await sb.from("bill_checks").upsert({ ...row, paid_by: state.user.id }, { onConflict: "family_id,cycle_month,item_key" })); },
     async uncheckBill(fid, month, key) { must(await sb.from("bill_checks").delete().eq("family_id", fid).eq("cycle_month", month).eq("item_key", key)); },
+    async saveBillSlips(fid, month, key, slips) {
+      const r = await sb.from("bill_checks").update({ slips }).eq("family_id", fid).eq("cycle_month", month).eq("item_key", key).select("item_key");
+      if (r.error && /slips/.test(r.error.message || "")) throw new Error("ให้รันไฟล์ supabase-sb-dueslips.sql ใน Supabase ก่อน");
+      if (!must(r).length) throw new Error("บันทึกสลิปไม่ได้ (ไม่มีสิทธิ์แก้ หรือรายการถูกยกเลิกติ๊กไปแล้ว)");
+    },
     async saveActual(row) { return must(await sb.from("actual_pay").upsert(row, { onConflict: "member_id,cycle_month" }).select().single()); },
     async deleteActual(memberId, month) { must(await sb.from("actual_pay").delete().eq("member_id", memberId).eq("cycle_month", month)); },
     async resetFamily(fid, confirmText, memberIds = []) {
@@ -458,6 +463,7 @@ function makeDemoApi() {
     async saveDues(row) { return upsert(db.dues, row, ["family_id", "effective_month"]); },
     async checkBill(row) { db.checks = db.checks.filter(r => !(r.family_id === row.family_id && r.cycle_month === row.cycle_month && r.item_key === row.item_key)); db.checks.push({ ...row, paid_by: session.id, paid_at: new Date().toISOString() }); },
     async uncheckBill(fid, month, key) { db.checks = db.checks.filter(r => !(r.family_id === fid && r.cycle_month === month && r.item_key === key)); },
+    async saveBillSlips(fid, month, key, slips) { const r = db.checks.find(r => r.family_id === fid && r.cycle_month === month && r.item_key === key); if (!r) throw new Error("ไม่พบรายการ"); r.slips = slips; },
     async setBillPays(fid, month, rows) { db.bpays = db.bpays.filter(r => !(r.family_id === fid && r.cycle_month === month)); rows.forEach(r => db.bpays.push({ ...r, id: uid(), created_at: new Date().toISOString() })); },
     async saveChildDay(row) { return upsert(db.cdays, { ...row, created_at: new Date().toISOString() }, ["member_id", "day_date"]); },
     async deleteChildDay(mid, date) { db.cdays = db.cdays.filter(r => !(r.member_id === mid && r.day_date === date)); },
@@ -3076,19 +3082,98 @@ function renderDue(M) {
   $("dueList").innerHTML = items.map(it => `<div class="due-row${it.check ? " due-paid" : ""}">
       <button type="button" class="due-tick" data-due-tick="${esc(it.key)}" data-due-name="${esc(it.name)}" data-due-amt="${it.amount}" aria-pressed="${!!it.check}" aria-label="${it.check ? "ยกเลิกติ๊กจ่ายแล้ว" : "ติ๊กว่าจ่ายแล้ว"}: ${esc(it.name)}">${it.check ? "✓" : ""}</button>
       <div class="due-main"><b>${esc(it.name)}</b><small>${it.due ? `ครบกำหนด ${it.due.getDate()} ${it.due.toLocaleDateString("th-TH", { month: "short" })}` : "ไม่ได้กำหนดวันจ่าย"}${it.check ? " · " + whoPaid(it.check) : ""}</small></div>
-      <div class="due-right"><span class="num">${baht(it.amount)}</span>${dueStatus(it)}</div></div>`).join("");
+      <div class="due-right"><span class="num">${baht(it.amount)}</span>${dueStatus(it)}${dueSlipBtn(it)}</div></div>`).join("");
 }
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-due-tick]"); if (!b) return;
   const M = monthStart(state.anchor), mStr = ymd(M), key = b.dataset.dueTick, on = b.getAttribute("aria-pressed") === "true";
-  if (on && !confirm(`ยกเลิกติ๊ก "${b.dataset.dueName}" ว่าจ่ายแล้ว?\n(ถ้าใกล้หรือเลยกำหนด จะกลับมาเตือนในห้องแชทอีก)`)) return;
+  const oldSlips = on ? dueSlipsOf(mStr, key) : [];
+  if (on && !confirm(`ยกเลิกติ๊ก "${b.dataset.dueName}" ว่าจ่ายแล้ว?\n(ถ้าใกล้หรือเลยกำหนด จะกลับมาเตือนในห้องแชทอีก)` + (oldSlips.length ? `\n\n⚠️ สลิปที่แนบไว้ ${oldSlips.length} รูปจะถูกลบด้วย` : ""))) return;
   b.disabled = true;
   try {
-    if (on) await api.uncheckBill(state.family.id, mStr, key);
+    if (on) { await api.uncheckBill(state.family.id, mStr, key); if (oldSlips.length) { try { await api.removeFiles(oldSlips.map(f => f.path)); } catch (x) { console.warn(x); } } }
     else await api.checkBill({ family_id: state.family.id, cycle_month: mStr, item_key: key, item_name: String(b.dataset.dueName).slice(0, 60), amount: round2(b.dataset.dueAmt) });
     toast(on ? "ยกเลิกแล้ว" : `✓ ${b.dataset.dueName} จ่ายแล้ว`);
     await reload();
   } catch (err) { toast(/bill_checks/.test(String(err.message || err)) ? "ให้รันไฟล์ supabase-ledger.sql ใน Supabase ก่อน" : friendlyError(err)); b.disabled = false; }
+});
+
+/* ---------- สลิปของรายการที่ต้องจ่าย (เก็บแยกแต่ละเดือน) ---------- */
+function dueCheckOf(mStr, key) { return (state.data.checks || []).find(c => String(c.cycle_month).slice(0, 10) === mStr && c.item_key === key) || null; }
+function dueSlipsOf(mStr, key) { const c = dueCheckOf(mStr, key); return Array.isArray(c?.slips) ? c.slips : []; }
+function dueSlipBtn(it) {
+  const n = Array.isArray(it.check?.slips) ? it.check.slips.length : 0;
+  return `<button type="button" class="due-slip${n ? " has" : ""}" data-due-slip="${esc(it.key)}" data-due-name="${esc(it.name)}" data-due-amt="${it.amount}" aria-label="สลิปของ ${esc(it.name)}">${n ? `🧾 สลิป ${n}` : "📎 แนบสลิป"}</button>`;
+}
+const DS = { key: "", name: "", amt: 0, month: "", busy: false };
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-due-slip]"); if (!b) return;
+  DS.key = b.dataset.dueSlip; DS.name = b.dataset.dueName; DS.amt = round2(b.dataset.dueAmt); DS.month = ymd(monthStart(state.anchor));
+  paintDueSlips(); openSheet("sheetDueSlip");
+});
+function paintDueSlips() {
+  const c = dueCheckOf(DS.month, DS.key), fs = Array.isArray(c?.slips) ? c.slips : [];
+  $("dsTitle").textContent = `สลิป · ${DS.name}`;
+  $("dsMeta").innerHTML = `${monthLabel(parseYmd(DS.month))} · <span class="num">${baht(DS.amt)}</span>` + (c ? ` · <span style="color:var(--income)">จ่ายแล้ว ✓</span>` : ` · <span style="color:var(--expense)">ยังไม่ติ๊กจ่าย</span>`)
+    + `<br><small>สลิปเก็บแยกเป็นเดือน ๆ จะใส่หรือไม่ใส่ก็ได้${c ? "" : " · แนบสลิปแล้วระบบจะติ๊กว่าจ่ายแล้วให้"}</small>`;
+  const box = $("dsFiles");
+  box.innerHTML = fs.length ? fs.map((f, i) => `<div class="ds-item">${docIsImg(f)
+      ? `<a class="dv-img" data-ds="${i}" target="_blank" rel="noopener"><span class="muted">กำลังโหลดรูป…</span></a>`
+      : `<a class="dv-file" data-ds="${i}" target="_blank" rel="noopener"><span>📄</span><span class="doc-fname">${esc(f.name)}</span><small>${docSize(f.size)} · เปิด</small></a>`}
+      <button type="button" class="ds-del" data-ds-del="${i}" aria-label="ลบสลิปนี้">✕</button></div>`).join("")
+    : `<div class="empty" style="padding:18px 8px">ยังไม่มีสลิปของเดือนนี้</div>`;
+  $("dsErr").textContent = "";
+  fs.forEach(async (f, i) => {
+    const a = box.querySelector(`[data-ds="${i}"]`); if (!a) return;
+    try { const url = await api.slipUrl(f.path); a.href = url;
+      if (docIsImg(f)) a.innerHTML = `<img src="${esc(url)}" alt="${esc(f.name)}" loading="lazy">`; else a.setAttribute("download", f.name);
+    } catch (err) { a.innerHTML = `<span class="muted">เปิดไฟล์ไม่ได้: ${esc(f.name)}</span>`; }
+  });
+}
+$("dsAdd").onclick = () => { if (!DS.busy) $("dsInput").click(); };
+$("dsInput").onchange = async () => {
+  const files = [...$("dsInput").files]; $("dsInput").value = ""; if (!files.length || DS.busy) return;
+  const fid = state.family.id, mid = state.me?.id; if (!mid) { $("dsErr").textContent = "ไม่พบข้อมูลสมาชิกของคุณ"; return; }
+  let cur = dueSlipsOf(DS.month, DS.key);
+  if (cur.length + files.length > 10) { $("dsErr").textContent = "แนบได้สูงสุด 10 ไฟล์ต่อรายการต่อเดือน"; return; }
+  DS.busy = true; const btn = $("dsAdd"); btn.disabled = true; btn.textContent = "กำลังอัปโหลด…";
+  const uploaded = [];
+  try {
+    if (!dueCheckOf(DS.month, DS.key)) { // ยังไม่ติ๊ก → ติ๊กว่าจ่ายแล้วให้ก่อน
+      await api.checkBill({ family_id: fid, cycle_month: DS.month, item_key: DS.key, item_name: String(DS.name).slice(0, 60), amount: DS.amt });
+    }
+    const safe = String(DS.key).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24) || "x";
+    for (const f of files) {
+      let blob = f, type = f.type || "application/octet-stream", name = f.name || "slip";
+      if (/^image\//.test(type)) { try { blob = await slipBlob(f); type = "image/jpeg"; name = name.replace(/\.[^.]+$/, "") + ".jpg"; } catch (x) { blob = f; } }
+      const ext = type === "image/jpeg" ? "jpg" : (name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "bin";
+      const path = `${fid}/${mid}/due-${DS.month}-${safe}-${Date.now()}${Math.random().toString(36).slice(2, 6)}.${ext}`;
+      await api.uploadFile(path, blob, type);
+      uploaded.push({ path, name: name.slice(0, 80), mime: type, size: blob.size || 0 });
+    }
+    cur = dueSlipsOf(DS.month, DS.key);
+    await api.saveBillSlips(fid, DS.month, DS.key, [...cur, ...uploaded]);
+    toast(`แนบสลิปแล้ว ${uploaded.length} ไฟล์`);
+    await reload(); paintDueSlips();
+  } catch (err) {
+    if (uploaded.length) { try { await api.removeFiles(uploaded.map(u => u.path)); } catch (x) { /* ไม่เป็นไร */ } }
+    const m = String(err?.message || err);
+    $("dsErr").textContent = /mime|not allowed|invalid_mime/i.test(m) ? "ถังเก็บไฟล์ยังรับไฟล์ชนิดนี้ไม่ได้ ให้รัน supabase-sb-docs.sql ก่อน"
+      : /size|too large|Payload/i.test(m) ? "ไฟล์ใหญ่เกินที่ระบบรับได้" : friendlyError(err);
+    await reload().catch(() => {}); paintDueSlips();
+  } finally { DS.busy = false; btn.disabled = false; btn.textContent = "📎 แนบสลิป"; }
+};
+$("dsFiles").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-ds-del]"); if (!b || DS.busy) return;
+  const fs = dueSlipsOf(DS.month, DS.key), f = fs[+b.dataset.dsDel]; if (!f) return;
+  if (!confirm("ลบสลิปนี้? กู้คืนไม่ได้")) return;
+  DS.busy = true; b.disabled = true;
+  try {
+    await api.saveBillSlips(state.family.id, DS.month, DS.key, fs.filter(x => x.path !== f.path));
+    try { await api.removeFiles([f.path]); } catch (x) { console.warn(x); }
+    toast("ลบสลิปแล้ว"); await reload(); paintDueSlips();
+  } catch (err) { $("dsErr").textContent = friendlyError(err); b.disabled = false; }
+  finally { DS.busy = false; }
 });
 
 /* ---------- แก้รายการที่ต้องจ่าย ---------- */
