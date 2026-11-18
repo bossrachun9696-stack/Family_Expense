@@ -1020,6 +1020,20 @@
   </div>
 </div>
 
+<div id="sheetDueSlip" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="dsTitle">
+  <div class="sheet">
+    <h2 id="dsTitle">สลิป</h2>
+    <div id="dsMeta" class="hint"></div>
+    <div id="dsFiles" class="dv-files"></div>
+    <div id="dsErr" class="err" role="alert"></div>
+    <input type="file" id="dsInput" accept="image/*,application/pdf" multiple hidden>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ปิด</button>
+      <button type="button" class="btn btn-primary" id="dsAdd">📎 แนบสลิป</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ ล็อกด้วย PIN ============ -->
 <div id="pinLock" class="pinlock hidden" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
   <div class="pin-box">
