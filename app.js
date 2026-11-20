@@ -219,9 +219,9 @@ function makeSupabaseApi() {
       must(await sb.rpc("remove_member", { p_member: mid }));
     },
     async updateMe(mid, patch) { must(await sb.from("family_members").update(patch).eq("id", mid)); },
-    async uploadSlip(path, blob) { must(await sb.storage.from("payslips").upload(path, blob, { contentType: "image/jpeg", upsert: true })); return path; },
-    async uploadFile(path, blob, type) { must(await sb.storage.from("payslips").upload(path, blob, { contentType: type || "application/octet-stream", upsert: false })); return path; },
-    async removeFiles(paths) { if (paths.length) await sb.storage.from("payslips").remove(paths); },
+    async uploadSlip(path, blob) { must(await sb.storage.from("payslips").upload(path, blob, { contentType: "image/jpeg", upsert: true })); await upThumb(path, blob); return path; },
+    async uploadFile(path, blob, type) { must(await sb.storage.from("payslips").upload(path, blob, { contentType: type || "application/octet-stream", upsert: false })); await upThumb(path, blob); return path; },
+    async removeFiles(paths) { if (paths.length) await sb.storage.from("payslips").remove(withThumbs(paths)); },
     async saveDoc(row) {
       const { id, ...rest } = row;
       return id ? must(await sb.from("member_docs").update({ ...rest, updated_at: new Date().toISOString() }).eq("id", id).select().single())
@@ -237,7 +237,7 @@ function makeSupabaseApi() {
       return must(r);
     },
     async bizDelete(t, id) { must(await sb.from(t).delete().eq("id", id)); },
-    async deleteSlip(path) { await sb.storage.from("payslips").remove([path]); },
+    async deleteSlip(path) { await sb.storage.from("payslips").remove(withThumbs([path])); },
     async createFamily(name, displayName) { must(await sb.rpc("create_family", { p_name: name, p_display_name: displayName })); },
     async joinFamily(code, displayName) { must(await sb.rpc("join_family", { p_code: code, p_display_name: displayName })); },
     async loadAll(fid) {
@@ -466,8 +466,8 @@ function makeDemoApi() {
         contribs: famRows(db.contribs, fid), catbud: famRows(db.catbud, fid), accounts: famRows(db.accounts, fid), moves: famRows(db.moves, fid),
         paccts: famRows(db.paccts, fid).filter(a => a.member_id === me?.id || a.shared), pmoves: famRows(db.pmoves, fid).filter(m => { const a = db.paccts.find(x => x.id === m.account_id); return a && (a.member_id === me?.id || a.shared); }),
         bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), dues: famRows(db.dues, fid), checks: famRows(db.checks, fid), docs: famRows(db.docs, fid), bizJobs: famRows(db.bizJobs, fid), bizItems: famRows(db.bizItems, fid), missing: [] }; },
-    async uploadFile(path, blob) { db.files[path] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); return path; },
-    async removeFiles(paths) { paths.forEach(p => delete db.files[p]); },
+    async uploadFile(path, blob) { db.files[path] = await blobUrl(blob); if (blob.thumb && thumbPathOf(path)) db.files[thumbPathOf(path)] = await blobUrl(blob.thumb); return path; },
+    async removeFiles(paths) { withThumbs(paths).forEach(p => delete db.files[p]); },
     async saveDoc(row) { if (row.id) { const d = db.docs.find(x => x.id === row.id); Object.assign(d, row, { updated_at: new Date().toISOString() }); return d; }
       const r = { ...row, id: uid(), created_by: session.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }; db.docs.push(r); return r; },
     async deleteDoc(id) { db.docs = db.docs.filter(d => d.id !== id); },
@@ -529,14 +529,14 @@ function makeDemoApi() {
       db.members = db.members.filter(m => m.id !== mid);
     },
     async updateMe(mid, patch) { Object.assign(db.members.find(m => m.id === mid), patch); },
-    async uploadSlip(path, blob) { db.files[path] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); return path; },
+    async uploadSlip(path, blob) { db.files[path] = await blobUrl(blob); if (blob.thumb && thumbPathOf(path)) db.files[thumbPathOf(path)] = await blobUrl(blob.thumb); return path; },
     async slipUrl(path) { if (!db.files[path]) throw new Error("ไม่พบไฟล์"); return db.files[path]; },
     async slipUrls(paths) { const o = {}; paths.forEach(p => { if (db.files[p]) o[p] = db.files[p]; }); return o; },
     async bizSave(t, row) { const arr = t === "sb_biz_jobs" ? db.bizJobs : db.bizItems;
       if (row.id) { const r = arr.find(x => x.id === row.id); Object.assign(r, row); return r; }
       const r = { ...row, id: uid(), created_by: session.id, created_at: new Date().toISOString() }; arr.push(r); return r; },
     async bizDelete(t, id) { if (t === "sb_biz_jobs") { db.bizJobs = db.bizJobs.filter(x => x.id !== id); db.bizItems = db.bizItems.filter(x => x.job_id !== id); } else db.bizItems = db.bizItems.filter(x => x.id !== id); },
-    async deleteSlip(path) { delete db.files[path]; },
+    async deleteSlip(path) { withThumbs([path]).forEach(p => delete db.files[p]); },
     async deleteActual(mid, month) { db.actual = db.actual.filter(a => !(a.member_id === mid && a.cycle_month === month)); },
     async resetFamily(fid, confirmText) {
       const f = db.families.find(x => x.id === fid), me = db.members.find(m => m.user_id === session.id && m.family_id === fid);
@@ -630,7 +630,22 @@ async function slipBlob(file) { // ย่อด้านยาวไม่เก
   const img = await loadImage(file), k = Math.min(1, 1800 / Math.max(img.width, img.height)), c = document.createElement("canvas");
   c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
   const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
-  return new Promise(r => c.toBlob(r, "image/jpeg", 0.82));
+  const main = await new Promise(r => c.toBlob(r, "image/jpeg", 0.82));
+  try { // รูปย่อเล็ก ๆ ไว้แสดงในรายการ (ด้านยาว 240px) เปิดดูค่อยโหลดรูปเต็ม
+    const t = 240 / Math.max(c.width, c.height), tc = document.createElement("canvas");
+    tc.width = Math.max(1, Math.round(c.width * Math.min(1, t))); tc.height = Math.max(1, Math.round(c.height * Math.min(1, t)));
+    tc.getContext("2d").drawImage(c, 0, 0, tc.width, tc.height);
+    main.thumb = await new Promise(r => tc.toBlob(r, "image/jpeg", 0.7));
+  } catch (e) { /* ไม่มีรูปย่อก็ใช้รูปเต็มแทน */ }
+  return main;
+}
+// รูปย่อเก็บคู่กับรูปเต็ม: xxx.jpg → xxx.t.jpg (รูปเก่าที่ไม่มีรูปย่อ ระบบใช้รูปเต็มแทนเอง)
+function thumbPathOf(p) { return /\.jpg$/i.test(p) && !/\.t\.jpg$/i.test(p) ? p.replace(/\.jpg$/i, ".t.jpg") : null; }
+function withThumbs(paths) { return [...new Set(paths.flatMap(p => [p, thumbPathOf(p)].filter(Boolean)))]; }
+const blobUrl = (b) => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+async function upThumb(path, blob) {
+  const tp = thumbPathOf(path); if (!blob?.thumb || !tp) return;
+  try { await sb.storage.from("payslips").upload(tp, blob.thumb, { contentType: "image/jpeg", upsert: true }); } catch (e) { console.warn("thumb", e); }
 }
 const countable = (t) => !(t.type === "income" && String(t.note || "").startsWith(LEGACY_SLIP));
 
@@ -4172,6 +4187,7 @@ function makeSlipPicker(pre) {
 const TXSLIP = makeSlipPicker("tx");
 
 const SLIP_URLS = new Map(); // path -> { url, exp }
+const NO_THUMB = new Set();  // รูปย่อที่ไม่มีในระบบ
 function slipThumbHTML(path, title) {
   return `<button type="button" class="tx-slip" data-slip-view="${esc(path)}" data-slip-title="${esc(title || "สลิป")}" aria-label="ดู${esc(title || "สลิป")}"><img data-slip-src="${esc(path)}" alt=""></button>`;
 }
@@ -4181,13 +4197,22 @@ function fillSlipThumbs() {
   requestAnimationFrame(async () => {
     slipFillQueued = false;
     const imgs = [...document.querySelectorAll("img[data-slip-src]:not([data-loaded])")]; if (!imgs.length) return;
-    const now = Date.now(), need = [...new Set(imgs.map(i => i.dataset.slipSrc).filter(p => !(SLIP_URLS.get(p)?.exp > now)))];
+    const now = Date.now(), ok = (p) => SLIP_URLS.get(p)?.exp > now, small = (p) => thumbPathOf(p) || p;
     imgs.forEach(i => i.dataset.loaded = "1");
-    if (need.length) {
-      try { const got = await api.slipUrls(need.slice(0, 100)); Object.entries(got).forEach(([p, u]) => SLIP_URLS.set(p, { url: u, exp: now + 50 * 60e3 })); }
-      catch (e) { console.warn(e); }
-    }
-    imgs.forEach(i => { const u = SLIP_URLS.get(i.dataset.slipSrc)?.url; if (u) i.src = u; else i.closest(".tx-slip")?.classList.add("broken"); });
+    const fetchUrls = async (ps) => { if (!ps.length) return;
+      try { for (let k = 0; k < ps.length; k += 100) Object.entries(await api.slipUrls(ps.slice(k, k + 100))).forEach(([p, u]) => SLIP_URLS.set(p, { url: u, exp: now + 50 * 60e3 })); }
+      catch (e) { console.warn(e); } };
+    const full = [...new Set(imgs.map(i => i.dataset.slipSrc))];
+    await fetchUrls(full.map(small).filter(p => !ok(p) && !NO_THUMB.has(p)));
+    // ไม่มีรูปย่อ (รูปเก่า) → ใช้รูปเต็ม
+    full.forEach(p => { const t = small(p); if (t !== p && !ok(t)) NO_THUMB.add(t); });
+    await fetchUrls(full.filter(p => NO_THUMB.has(small(p)) && !ok(p)));
+    imgs.forEach(i => { const p = i.dataset.slipSrc, t = small(p);
+      const u = (!NO_THUMB.has(t) && SLIP_URLS.get(t)?.url) || SLIP_URLS.get(p)?.url;
+      if (!u) { i.closest(".tx-slip")?.classList.add("broken"); return; }
+      const isThumb = t !== p && u === SLIP_URLS.get(t)?.url;
+      i.onerror = isThumb ? () => { i.onerror = null; NO_THUMB.add(t); delete i.dataset.loaded; i.removeAttribute("src"); fillSlipThumbs(); } : null;
+      i.src = u; });
   });
 }
 new MutationObserver((ms) => { if (ms.some(m => m.addedNodes.length)) fillSlipThumbs(); }).observe(document.body, { childList: true, subtree: true });
