@@ -690,3 +690,42 @@ html.has-session .boot-splash { display: flex; }
 .due-slip.has{border-style:solid;border-color:var(--income);color:var(--income);background:color-mix(in srgb,var(--income) 10%,transparent)}
 .ds-item{position:relative}
 .ds-del{position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:14px;cursor:pointer}
+
+/* สลิปในรายการรับ–จ่าย / ธุรกิจ */
+.slip-pick{display:flex;align-items:center;gap:8px;background:var(--surface-2);border-radius:14px;padding:10px 12px;margin-bottom:14px}
+.slip-pick-l{flex:1;min-width:0}
+.slip-pick-l b{display:block;font-size:14.5px}
+.slip-pick-l small{color:var(--muted);font-size:12.5px}
+.slip-thumb{width:46px;height:46px;border-radius:10px;border:1px solid var(--line);padding:0;overflow:hidden;background:var(--surface);cursor:zoom-in;flex:none}
+.slip-thumb img,.tx-slip img{width:100%;height:100%;object-fit:cover;display:block}
+.amt:has(> .tx-slip){display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.tx-slip{width:30px;height:30px;border-radius:7px;border:1px solid var(--line);padding:0;overflow:hidden;background:var(--surface-2);cursor:zoom-in;flex:none;position:relative}
+.tx-slip img:not([src]){visibility:hidden}
+.tx-slip::before{content:"🧾";position:absolute;inset:0;display:grid;place-items:center;font-size:14px;z-index:-0}
+.tx-slip img[src]{position:relative;z-index:1}
+.tx-slip.broken{opacity:.5}
+#sheetSlip{z-index:60}
+/* ธุรกิจ */
+.subtabs button{font-size:12.5px}
+.bz-bar{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 0;border-top:1px solid var(--line);cursor:pointer;color:inherit;font:inherit}
+.bz-bar:first-child{border-top:0;padding-top:2px}
+.bz-bar-h{display:flex;justify-content:space-between;gap:10px;font-size:14.5px;margin-bottom:6px}
+.bz-bar-h b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bz-bar-h span{font-weight:700;white-space:nowrap}
+.bz-track{height:12px;margin-bottom:4px}
+.bz-track.bz-cost{height:6px;background:transparent;margin-bottom:6px}
+.bz-bar small{font-size:12px;line-height:1.5}
+.bz-sub{display:block;font-size:11px;font-weight:500;color:var(--muted)}
+.amt .bz-sub{display:inline;margin-left:4px}
+.bj-nums{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bj-nums div{background:var(--surface-2);border-radius:12px;padding:9px 11px}
+.bj-nums span{display:block;font-size:12.5px;color:var(--muted)}
+.bj-nums b{font-size:17px}
+.bj-nums .bj-profit{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}
+.bj-list{box-shadow:none}
+.bj-list .row{padding:10px 12px}
+.bz-paid .what b{text-decoration:line-through;opacity:.6}
+.bz-paid .due-tick,#bzOwed .due-tick{width:30px;height:30px}
+.seg3{grid-template-columns:1fr 1fr 1fr}
+.seg3 button{font-size:13px;padding:10px 4px}
+.bz-paid .due-tick{background:var(--income);border-color:var(--income)}
