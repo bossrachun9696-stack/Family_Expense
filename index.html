@@ -250,6 +250,7 @@
         <button data-io-view="loan" aria-pressed="false">🏦 กู้ยืม</button>
         <button data-io-view="save" aria-pressed="false">🎯 เงินเก็บ</button>
         <button data-io-view="adv" aria-pressed="false">🤝 ออกให้ก่อน</button>
+        <button data-io-view="biz" aria-pressed="false" class="hidden">💼 ธุรกิจ</button>
       </div>
       <div id="ioPeriodBar" class="period p3" role="group" aria-label="มุมมองรายรับรายจ่าย">
         <button data-io-period="month" aria-pressed="true">เดือน</button>
@@ -314,6 +315,42 @@
         <section>
           <div class="sec-head"><h2>รายการออกให้ก่อนทั้งหมด</h2></div>
           <div id="avList" class="ledger"></div>
+        </section>
+      </div>
+
+      <!-- 💼 ธุรกิจ -->
+      <div id="ioBiz" class="hidden">
+        <div class="hero">
+          <div class="label"><span>เงินค้างรับ (ยังไม่ได้เงิน)</span><span id="bzPill" class="pill"></span></div>
+          <div id="bzOut" class="big num">฿0</div>
+          <div id="bzBilled" class="verdict"></div>
+          <div class="cols">
+            <div><span>มูลค่างานรวม</span><strong id="bzContract" class="num">฿0</strong></div>
+            <div><span>ได้รับแล้ว</span><strong id="bzGot" class="num">฿0</strong></div>
+            <div><span>เราจ่ายไปแล้ว</span><strong id="bzCost" class="num">฿0</strong></div>
+            <div><span>กำไรตอนนี้</span><strong id="bzProfit" class="num">฿0</strong></div>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12.5px;margin:8px 2px 0">ไม่นับรวมรายรับรายจ่ายของบ้าน ใช้ดูว่าเงินค้างอยู่ที่ไหนบ้าง ได้เงินแล้วค่อยไปลงรายรับเองทีหลัง</p>
+        <div class="chips" role="group" aria-label="แสดงงาน" style="margin-top:12px">
+          <button type="button" class="chip" data-bz-filter="active" aria-pressed="true">กำลังทำ</button>
+          <button type="button" class="chip" data-bz-filter="done" aria-pressed="false">ปิดงานแล้ว</button>
+          <button type="button" class="chip" data-bz-filter="all" aria-pressed="false">ทั้งหมด</button>
+        </div>
+        <section>
+          <div class="sec-head"><h2>แต่ละงาน ได้เงินไปเท่าไหร่</h2><small>กดดูรายละเอียด</small></div>
+          <div class="card">
+            <div class="legend-row"><span><i style="background:var(--income)"></i>ได้แล้ว</span><span><i style="background:#E9A23B"></i>เบิกแล้ว รอเงิน</span><span><i style="background:var(--line)"></i>ยังไม่เบิก</span><span><i style="background:var(--expense)"></i>เราจ่ายไป</span></div>
+            <div id="bzChart"></div>
+          </div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>เงินค้างอยู่ที่ไหนบ้าง</h2><small id="bzOwedSum"></small></div>
+          <div id="bzOwed" class="ledger"></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>งานทั้งหมด</h2><button type="button" class="linkbtn" id="bzAdd">+ เพิ่มงาน</button></div>
+          <div id="bzJobs" class="ledger"></div>
         </section>
       </div>
 
@@ -848,6 +885,13 @@
       <div class="field"><label for="txDate">วันที่</label><input id="txDate" type="date"></div>
       <div class="field"><label for="txNote">โน้ต</label><input id="txNote" maxlength="200" placeholder="ไม่ใส่ก็ได้"></div>
     </div>
+    <div id="txSlipBox" class="slip-pick">
+      <div class="slip-pick-l"><b>🧾 สลิป</b><small>ใส่หรือไม่ใส่ก็ได้</small></div>
+      <button type="button" class="slip-thumb hidden" id="txSlipThumb" aria-label="ดูสลิป"><img alt=""></button>
+      <button type="button" class="btn btn-ghost btn-sm hidden" id="txSlipDel" style="color:var(--expense)">ลบ</button>
+      <button type="button" class="btn btn-soft btn-sm" id="txSlipAdd">📎 แนบสลิป</button>
+      <input type="file" id="txSlipIn" accept="image/*" hidden>
+    </div>
     <div class="switch-row" id="recurRow">
       <div><b>ทำซ้ำทุกเดือน</b><small id="recurTxt">บันทึกให้อัตโนมัติทุกเดือนในวันเดียวกัน</small></div>
       <button type="button" id="swRecur" class="switch brand" role="switch" aria-checked="false" aria-label="ทำซ้ำทุกเดือน"></button>
@@ -1250,6 +1294,96 @@
       <button type="button" class="btn btn-ghost" id="actDelAmount" style="color:var(--expense)">ลบยอด</button>
       <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
       <button type="submit" class="btn btn-primary" id="actSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ ธุรกิจ: รายละเอียดงาน ============ -->
+<div id="sheetBizJob" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="bjTitle">
+  <div class="sheet">
+    <h2 id="bjTitle">งาน</h2>
+    <div id="bjMeta" class="hint"></div>
+    <div id="bjNote" class="dv-note hidden"></div>
+    <div id="bjNums" class="bj-nums"></div>
+    <div id="bjTrack" class="track" style="margin:10px 0 16px"></div>
+    <div class="sec-head"><h2>💰 งวดรับเงิน</h2><small id="bjBillSum"></small></div>
+    <div id="bjBills" class="ledger bj-list"></div>
+    <button type="button" class="btn btn-soft btn-sm" id="bjAddBill" style="margin:10px 0 18px">+ เพิ่มงวด</button>
+    <div class="sec-head"><h2>🧾 เราจ่ายไป (ต้นทุน)</h2><small id="bjCostSum"></small></div>
+    <div id="bjCosts" class="ledger bj-list"></div>
+    <button type="button" class="btn btn-soft btn-sm" id="bjAddCost" style="margin:10px 0 6px">+ เพิ่มค่าใช้จ่าย</button>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ปิด</button>
+      <button type="button" class="btn btn-primary" id="bjEdit">แก้ไขงาน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ธุรกิจ: เพิ่ม/แก้งาน ============ -->
+<div id="sheetBizJobEdit" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="bjeTitle">
+  <form class="sheet" id="formBizJob" novalidate>
+    <h2 id="bjeTitle">เพิ่มงานธุรกิจ</h2>
+    <div class="field"><label for="bjeName">ชื่องาน / โปรเจกต์</label><input id="bjeName" maxlength="80" placeholder="เช่น ต่อเติมครัวบ้านคุณเอ"></div>
+    <div class="field"><label for="bjeClient">ผู้ว่าจ้าง / ลูกค้า (ไม่ใส่ก็ได้)</label><input id="bjeClient" maxlength="80" placeholder="เช่น คุณเอ, บริษัท ABC"></div>
+    <div class="field"><label for="bjeType">ประเภทธุรกิจ</label>
+      <div id="bjeTypes" class="chips" style="flex-wrap:wrap"></div>
+      <input id="bjeType" maxlength="40" placeholder="หรือพิมพ์เอง"></div>
+    <div class="grid2">
+      <div class="field"><label for="bjeContract">มูลค่างานทั้งหมด</label><input id="bjeContract" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ไม่ใส่ก็ได้"></div>
+      <div class="field"><label for="bjeStart">วันที่เริ่ม</label><input id="bjeStart" type="date"></div>
+    </div>
+    <div class="field"><label for="bjeMember">ธุรกิจของใคร</label><select id="bjeMember"></select></div>
+    <div class="field"><label for="bjeNote">โน้ต (ไม่ใส่ก็ได้)</label><input id="bjeNote" maxlength="1000" placeholder="เช่น เงินประกันผลงาน 5% คืนหลัง 1 ปี"></div>
+    <div class="switch-row" id="bjeDoneRow">
+      <div><b>ปิดงานแล้ว</b><small>งานจบแล้ว ย้ายไปอยู่ “ปิดงานแล้ว”</small></div>
+      <button type="button" id="bjeDone" class="switch brand" role="switch" aria-checked="false" aria-label="ปิดงานแล้ว"></button>
+    </div>
+    <div id="bjeErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost hidden" id="bjeDel" style="color:var(--expense)">ลบงาน</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="bjeSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ ธุรกิจ: งวด / ค่าใช้จ่าย ============ -->
+<div id="sheetBizItem" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="biHead">
+  <form class="sheet" id="formBizItem" novalidate>
+    <h2 id="biHead">เพิ่มงวด</h2>
+    <div class="seg" role="group" aria-label="ประเภท">
+      <button type="button" class="inc" data-bi-kind="bill" aria-pressed="true">💰 งวดรับเงิน</button>
+      <button type="button" class="exp" data-bi-kind="cost" aria-pressed="false">🧾 เราจ่ายไป</button>
+    </div>
+    <div class="field"><label for="biTitle">ชื่อรายการ</label><input id="biTitle" maxlength="80"></div>
+    <label class="amount-box" for="biAmount"><span>฿</span>
+      <input id="biAmount" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" aria-label="จำนวนเงิน"></label>
+    <div id="biStatusBox">
+      <div class="lbl">สถานะงวดนี้</div>
+      <div class="seg seg3" role="group" aria-label="สถานะ">
+        <button type="button" data-bi-status="pending" aria-pressed="true">ยังไม่เบิก</button>
+        <button type="button" data-bi-status="billed" aria-pressed="false">เบิกแล้ว รอเงิน</button>
+        <button type="button" class="inc" data-bi-status="paid" aria-pressed="false">ได้เงินแล้ว ✓</button>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="biDate" id="biDateLbl">วันที่</label><input id="biDate" type="date"></div>
+      <div class="field" id="biPaidField"><label for="biPaid">วันที่ได้เงิน</label><input id="biPaid" type="date"></div>
+    </div>
+    <div class="field"><label for="biNote">โน้ต (ไม่ใส่ก็ได้)</label><input id="biNote" maxlength="500" placeholder="ไม่ใส่ก็ได้"></div>
+    <div id="biSlipBox" class="slip-pick">
+      <div class="slip-pick-l"><b>🧾 สลิป / ใบเสร็จ</b><small>ใส่หรือไม่ใส่ก็ได้</small></div>
+      <button type="button" class="slip-thumb hidden" id="biSlipThumb" aria-label="ดูสลิป"><img alt=""></button>
+      <button type="button" class="btn btn-ghost btn-sm hidden" id="biSlipDel" style="color:var(--expense)">ลบ</button>
+      <button type="button" class="btn btn-soft btn-sm" id="biSlipAdd">📎 แนบสลิป</button>
+      <input type="file" id="biSlipIn" accept="image/*" hidden>
+    </div>
+    <button type="button" class="btn btn-soft btn-sm hidden" id="biToIncome" style="width:100%;margin-bottom:12px">➕ ลงเป็นรายรับของบ้านด้วย</button>
+    <div id="biErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost hidden" id="biDel" style="color:var(--expense)">ลบ</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="biSave">บันทึก</button>
     </div>
   </form>
 </div>
