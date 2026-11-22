@@ -855,6 +855,20 @@
       <div class="lbl" id="whoLabel">ใครใช้จ่าย</div>
       <div id="whoGrid" class="who-grid" role="group" aria-labelledby="whoLabel"></div>
       <div id="catGrid" class="cat-grid" role="group" aria-label="หมวด"></div>
+      <div id="catOther" class="cat-other hidden">
+        <div class="co-head"><b>รายการใน “อื่น ๆ”</b><button type="button" class="linkbtn hidden" id="coManage">จัดการ</button></div>
+        <div id="coList" class="co-list"></div>
+        <div id="coForm" class="co-form hidden">
+          <div class="lbl">เลือกไอคอน</div>
+          <div id="coIcons" class="co-icons"></div>
+          <div class="co-row">
+            <input id="coIconOwn" class="co-own" maxlength="8" placeholder="😀" aria-label="หรือพิมพ์อีโมจิเอง" autocomplete="off">
+            <input id="coName" maxlength="30" placeholder="ชื่อรายการ เช่น นมลูก" aria-label="ชื่อรายการ" autocomplete="off">
+            <button type="button" class="btn btn-primary btn-sm" id="coSave">เพิ่ม</button>
+          </div>
+        </div>
+        <div id="coHint" class="hint" style="margin:6px 0 0"></div>
+      </div>
     </div>
     <div id="loanBox" class="hidden">
       <div class="seg" role="group" aria-label="ให้ยืมหรือรับคืน">
@@ -881,9 +895,10 @@
       <div id="advTo" class="who-grid" role="group" aria-labelledby="advToLbl"></div>
       <div id="advHint" class="hint hidden"></div>
     </div>
-    <div class="grid2">
+    <div class="grid2 note-wrap">
       <div class="field"><label for="txDate">วันที่</label><input id="txDate" type="date"></div>
-      <div class="field"><label for="txNote">โน้ต</label><input id="txNote" maxlength="200" placeholder="ไม่ใส่ก็ได้"></div>
+      <div class="field"><label for="txNote">โน้ต</label><input id="txNote" maxlength="200" placeholder="ไม่ใส่ก็ได้" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="txNoteSug" aria-expanded="false"></div>
+      <div id="txNoteSug" class="note-sug hidden" role="listbox" aria-label="โน้ตที่เคยใส่"></div>
     </div>
     <div id="txSlipBox" class="slip-pick">
       <div class="slip-pick-l"><b>🧾 สลิป</b><small>ใส่หรือไม่ใส่ก็ได้</small></div>
@@ -993,6 +1008,9 @@
     <div class="all-head"><h2 id="allSheetTitle">ทุกรายการ</h2><small id="allPeriod" class="muted"></small>
       <button type="button" class="eye-btn" data-close aria-label="ปิด" style="position:static;margin-left:auto">✕</button></div>
     <div id="allTabs" class="all-tabs" role="group" aria-label="หมวด"></div>
+    <div id="allWho" class="all-tabs all-who" role="group" aria-label="กรองตามคน"></div>
+    <div class="all-search"><input id="allSearch" type="search" placeholder="🔍 ค้นหาโน้ตหรือหมวด เช่น ค่ากินลูก" aria-label="ค้นหาตามโน้ต" autocomplete="off"></div>
+    <div id="allNotes" class="all-tabs all-notes" role="group" aria-label="โน้ตที่ใช้บ่อย"></div>
     <div id="allBody" class="all-body"></div>
   </div>
 </div>
