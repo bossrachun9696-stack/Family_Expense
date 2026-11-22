@@ -898,7 +898,7 @@ function ringSVG(pct) {
    ========================================================= */
 function show(view) { ["viewAuth", "viewOnboard", "viewApp", "viewGate"].forEach(v => $(v).classList.toggle("hidden", v !== view)); }
 // เปิดแอป: ถ้าเครื่องนี้เคยเข้าสู่ระบบไว้ ให้รอเปิดบัญชีเดิมก่อน (ลองซ้ำถ้าเน็ตยังไม่พร้อม) ไม่เด้งไปหน้าใส่อีเมล
-const hasStoredSession = () => { try { return Object.keys(localStorage).some(k => /^sb-.+-auth-token$/.test(k)); } catch (e) { return false; } };
+const hasStoredSession = () => { try { return !!localStorage.getItem('sb-ealxfgjuiwoewwxxyppu-auth-token'); } catch (e) { return false; } };
 let signingOut = false;
 function bootDone() { document.documentElement.classList.remove("has-session"); $("bootSplash").classList.add("hidden"); }
 async function boot() {
