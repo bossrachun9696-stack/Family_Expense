@@ -64,7 +64,9 @@ const monthShort = (d) => d.toLocaleDateString("th-TH", { month: "short" });
 const dayLabel = (s) => parseYmd(s).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
 const shortDate = (d) => d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 const initial = (name) => { const c = [...String(name || "").trim()].find(ch => !"เแโใไ".includes(ch)); return c || "?"; };
-const catIcon = (type, name) => (CATEGORIES[type] || []).find(c => c[0] === name)?.[1] || LEGACY_ICONS[name] || (type === "income" ? "✨" : "📦");
+const catIcon = (type, name) => (CATEGORIES[type] || []).find(c => c[0] === name)?.[1] || LEGACY_ICONS[name]
+  || (typeof state !== "undefined" && (state.data?.txCats || []).find(c => c.name === name && (c.type === type || type !== "income" && type !== "expense"))?.icon)
+  || (type === "income" ? "✨" : "📦");
 const avColor = (i) => AV_COLORS[i % AV_COLORS.length];
 const statusOf = (k) => STATUSES.find(s => s[0] === k) || STATUSES[0];
 // เรียงล่าสุดก่อน: วันที่ใหม่สุดขึ้นบน ถ้าวันเดียวกัน อันที่บันทึกทีหลังขึ้นก่อน
@@ -237,13 +239,20 @@ function makeSupabaseApi() {
       return must(r);
     },
     async bizDelete(t, id) { must(await sb.from(t).delete().eq("id", id)); },
+    async addTxCat(row) {
+      const r = await sb.from("sb_tx_cats").insert(row).select().single();
+      if (r.error && /sb_tx_cats|does not exist|schema cache/i.test(r.error.message || "")) throw new Error("ให้รันไฟล์ supabase-sb-cats.sql ใน Supabase ก่อน");
+      if (r.error && /duplicate|unique/i.test(r.error.message || "")) throw new Error("มีรายการชื่อนี้อยู่แล้ว");
+      return must(r);
+    },
+    async delTxCat(id) { must(await sb.from("sb_tx_cats").delete().eq("id", id)); },
     async deleteSlip(path) { await sb.storage.from("payslips").remove(withThumbs([path])); },
     async createFamily(name, displayName) { must(await sb.rpc("create_family", { p_name: name, p_display_name: displayName })); },
     async joinFamily(code, displayName) { must(await sb.rpc("join_family", { p_code: code, p_display_name: displayName })); },
     async loadAll(fid) {
       const missing = [];
       const opt = (p, name) => p.catch(e => { missing.push(name); console.warn(e); return []; });
-      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems] = await Promise.all([
+      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, txCats] = await Promise.all([
         fetchAll("transactions", fid, "tx_date"),
         opt(fetchAll("work_days", fid, "work_date"), "work_days"),
         opt(fetchAll("member_pay_settings", fid, "effective_month"), "member_pay_settings"),
@@ -267,9 +276,10 @@ function makeSupabaseApi() {
         opt(fetchAll("bill_checks", fid, "cycle_month"), "bill_checks"),
         opt(fetchAll("member_docs", fid, "created_at"), "member_docs"),
         opt(fetchAll("sb_biz_jobs", fid, "created_at"), "sb_biz_jobs"),
-        opt(fetchAll("sb_biz_items", fid, "item_date"), "sb_biz_items")
+        opt(fetchAll("sb_biz_items", fid, "item_date"), "sb_biz_items"),
+        opt(fetchAll("sb_tx_cats", fid, "created_at"), "sb_tx_cats")
       ]);
-      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, missing };
+      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, txCats, missing };
     },
     async addTx(tx) { return must(await sb.from("transactions").insert(tx).select().single()); },
     async addDebt(row) { return must(await sb.from("debts").insert(row).select().single()); },
@@ -345,7 +355,7 @@ function makeSupabaseApi() {
     },
     subscribe(fid, onChange, onStatus) {
       const ch = sb.channel("family-" + fid);
-      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "due_lists", "bill_checks", "member_docs", "sb_biz_jobs", "sb_biz_items"].forEach(t => {
+      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "due_lists", "bill_checks", "member_docs", "sb_biz_jobs", "sb_biz_items", "sb_tx_cats"].forEach(t => {
         ch.on("postgres_changes", { event: "*", schema: "public", table: t, filter: `family_id=eq.${fid}` }, onChange);
         ch.on("postgres_changes", { event: "DELETE", schema: "public", table: t }, onChange); // การลบกรองตาม family ไม่ได้
       });
@@ -356,7 +366,7 @@ function makeSupabaseApi() {
 }
 
 function makeDemoApi() {
-  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], dues: [], checks: [], docs: [], bizJobs: [], bizItems: [], files: {} };
+  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], dues: [], checks: [], docs: [], bizJobs: [], bizItems: [], txCats: [], files: {} };
   let session = null;
   const uid = () => Math.random().toString(36).slice(2, 10);
   const wait = () => new Promise(r => setTimeout(r, 100));
@@ -465,7 +475,7 @@ function makeDemoApi() {
         pspends: famRows(db.pspends, fid).filter(b => b.member_id === me?.id), recurring: famRows(db.recurring, fid), goals: famRows(db.goals, fid),
         contribs: famRows(db.contribs, fid), catbud: famRows(db.catbud, fid), accounts: famRows(db.accounts, fid), moves: famRows(db.moves, fid),
         paccts: famRows(db.paccts, fid).filter(a => a.member_id === me?.id || a.shared), pmoves: famRows(db.pmoves, fid).filter(m => { const a = db.paccts.find(x => x.id === m.account_id); return a && (a.member_id === me?.id || a.shared); }),
-        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), dues: famRows(db.dues, fid), checks: famRows(db.checks, fid), docs: famRows(db.docs, fid), bizJobs: famRows(db.bizJobs, fid), bizItems: famRows(db.bizItems, fid), missing: [] }; },
+        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), dues: famRows(db.dues, fid), checks: famRows(db.checks, fid), docs: famRows(db.docs, fid), bizJobs: famRows(db.bizJobs, fid), bizItems: famRows(db.bizItems, fid), txCats: famRows(db.txCats, fid), missing: [] }; },
     async uploadFile(path, blob) { db.files[path] = await blobUrl(blob); if (blob.thumb && thumbPathOf(path)) db.files[thumbPathOf(path)] = await blobUrl(blob.thumb); return path; },
     async removeFiles(paths) { withThumbs(paths).forEach(p => delete db.files[p]); },
     async saveDoc(row) { if (row.id) { const d = db.docs.find(x => x.id === row.id); Object.assign(d, row, { updated_at: new Date().toISOString() }); return d; }
@@ -535,6 +545,9 @@ function makeDemoApi() {
     async bizSave(t, row) { const arr = t === "sb_biz_jobs" ? db.bizJobs : db.bizItems;
       if (row.id) { const r = arr.find(x => x.id === row.id); Object.assign(r, row); return r; }
       const r = { ...row, id: uid(), created_by: session.id, created_at: new Date().toISOString() }; arr.push(r); return r; },
+    async addTxCat(row) { if (db.txCats.some(c => c.family_id === row.family_id && c.type === row.type && c.name === row.name)) throw new Error("มีรายการชื่อนี้อยู่แล้ว");
+      const r = { ...row, id: uid(), created_at: new Date().toISOString() }; db.txCats.push(r); return r; },
+    async delTxCat(id) { db.txCats = db.txCats.filter(c => c.id !== id); },
     async bizDelete(t, id) { if (t === "sb_biz_jobs") { db.bizJobs = db.bizJobs.filter(x => x.id !== id); db.bizItems = db.bizItems.filter(x => x.job_id !== id); } else db.bizItems = db.bizItems.filter(x => x.id !== id); },
     async deleteSlip(path) { withThumbs([path]).forEach(p => delete db.files[p]); },
     async deleteActual(mid, month) { db.actual = db.actual.filter(a => !(a.member_id === mid && a.cycle_month === month)); },
@@ -954,7 +967,7 @@ async function route() {
 async function reload() {
   try { state.data = await api.loadAll(state.family.id); }
   catch (err) { toast(friendlyError(err)); }
-  const miss = (state.data.missing || []).filter(x => x !== "due_lists" && x !== "bill_checks" && x !== "member_docs" && !/^sb_biz/.test(x));
+  const miss = (state.data.missing || []).filter(x => x !== "due_lists" && x !== "bill_checks" && x !== "member_docs" && !/^sb_(biz|tx_cats)/.test(x));
   state.docsMissing = (state.data.missing || []).includes("member_docs");
   state.duesMissing = (state.data.missing || []).includes("due_lists");
   $("schemaNote").classList.toggle("hidden", !miss.length);
@@ -2658,7 +2671,31 @@ $("formBills").onsubmit = async (e) => {
    ========================================================= */
 let lastFocus = null;
 function openSheet(id) { lastFocus = document.activeElement; $(id).classList.remove("hidden"); }
-function closeSheet(id) { $(id).classList.add("hidden"); lastFocus?.focus?.(); }
+function closeSheet(id) { $(id).classList.add("hidden"); try { lastFocus?.focus?.({ preventScroll: true }); } catch (e) { /* ไม่เป็นไร */ } }
+// เปิดแผ่นแล้ว: ล็อกหน้าข้างหลังไม่ให้เลื่อน/โดนแตะ และให้แผ่นเริ่มที่บนสุดเสมอ (แก้อาการบน iPhone)
+(() => {
+  let lockedY = null;
+  const scrims = [...document.querySelectorAll(".scrim")];
+  const sync = () => {
+    const any = scrims.some(sc => !sc.classList.contains("hidden"));
+    const b = document.body;
+    if (any && lockedY === null) {
+      lockedY = window.scrollY || 0;
+      Object.assign(b.style, { position: "fixed", top: `-${lockedY}px`, left: "0", right: "0", width: "100%" });
+      b.classList.add("sheet-open");
+    } else if (!any && lockedY !== null) {
+      const y = lockedY; lockedY = null;
+      Object.assign(b.style, { position: "", top: "", left: "", right: "", width: "" });
+      b.classList.remove("sheet-open"); window.scrollTo(0, y);
+    }
+  };
+  const mo = new MutationObserver((ms) => {
+    ms.forEach(m => { const sc = m.target;
+      if (m.oldValue?.split(/\s+/).includes("hidden") && !sc.classList.contains("hidden")) { const sh = sc.querySelector(".sheet"); if (sh) sh.scrollTop = 0; } });
+    sync();
+  });
+  scrims.forEach(sc => mo.observe(sc, { attributes: true, attributeFilter: ["class"], attributeOldValue: true }));
+})();
 document.querySelectorAll(".scrim").forEach(sc => sc.addEventListener("click", (e) => { if (e.target === sc || e.target.closest("[data-close]")) closeSheet(sc.id); }));
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
@@ -2727,7 +2764,7 @@ function setTxType(type, keepCat = false) {
   $("txHint").classList.add("hidden");
   if (flow) {
     if (!keepCat || !state.tx.category) state.tx.category = CATEGORIES[type][0][0];
-    $("catGrid").innerHTML = CATEGORIES[type].map(([c, e]) => `<button type="button" class="cat-btn" data-cat="${esc(c)}" aria-pressed="${c === state.tx.category}"><span class="e">${e}</span>${esc(c)}</button>`).join("");
+    paintCatGrid();
     $("txNote").placeholder = "ไม่ใส่ก็ได้";
     renderWho();
   } else if (type === "loan") renderLoanBox(); else renderAdvBox();
@@ -2765,7 +2802,12 @@ $("advTo").addEventListener("click", (e) => { const b = e.target.closest("[data-
 $("whoGrid").addEventListener("click", (e) => { const b = e.target.closest("[data-who]"); if (!b) return; state.tx.who = b.dataset.who; renderWho(); });
 $("catGrid").addEventListener("click", (e) => {
   const b = e.target.closest("[data-cat]"); if (!b) return;
-  state.tx.category = b.dataset.cat; $("catGrid").querySelectorAll("[data-cat]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  if (b.dataset.cat === OTHER_CAT) { // "อื่น ๆ": เปิดรายการที่จำไว้ให้เลือก
+    const open = !$("catOther").classList.contains("hidden");
+    if (!isCustomCat(state.tx.type, state.tx.category)) state.tx.category = OTHER_CAT;
+    paintCatGrid(); if (open) closeCatOther(); else openCatOther(); return;
+  }
+  state.tx.category = b.dataset.cat; closeCatOther(); paintCatGrid();
 });
 function openAdd(o = {}) {
   const others = state.members.filter(m => m.id !== state.me.id), ed = o.edit || null, de = o.editDebt || null;
@@ -2773,7 +2815,7 @@ function openAdd(o = {}) {
   Object.assign(state.tx, { who: o.who || "shared", loanAction: o.loanAction || "borrow", loanWho: o.loanWho || "other", splitInit: o.splitInit || null,
     advAction: o.advAction || "pay", advFrom: o.advFrom || state.me.id, advTo: o.advTo || others[0]?.id || null, category: null });
   $("loanFrom").value = o.lender || ""; $("loanSplit").innerHTML = "";
-  $("txAmount").value = o.amount || ""; $("txNote").value = ""; $("txErr").textContent = "";
+  $("txAmount").value = o.amount || ""; $("txNote").value = ""; $("txErr").textContent = ""; closeCatOther();
   const t = today0(), r = periodRange(effPeriod());
   $("txDate").value = o.date || ymd(t >= r.start && t <= r.end ? t : (effPeriod() === "all" ? t : r.start));
   $("swRecur").setAttribute("aria-checked", "false");
@@ -3889,16 +3931,21 @@ document.querySelectorAll("[data-eye]").forEach(btn => {
 
 /* ---------- ภาพรวม > ล่าสุด > ดูทั้งหมด: ป๊อปอัพทุกรายการ แยกหมวด ---------- */
 const ALL_TABS = [["all", "ทั้งหมด"], ["income", "🟢 รายรับ"], ["expense", "🔴 รายจ่าย"], ["loan", "🏦 กู้ยืม"], ["adv", "🤝 ออกให้ก่อน"], ["kid", "🎒 เด็ก"]];
-state.allTab = "all";
-function allRecords() {
+state.allTab = "all"; state.allWho = "all";
+function allRecords(noNote) {
   const r = periodRange(state.period), s0 = ymd(r.start), e0 = ymd(r.end);
   const inR = (d) => { const x = String(d || "").slice(0, 10); return x >= s0 && x <= e0; };
-  const txs = (state.data.txs || []).filter(t => inR(t.tx_date)).sort(newest("tx_date"));
-  const debts = (state.data.debts || []).filter(d => inR(d.tx_date)).sort(newest("tx_date"));
+  const w = state.allWho, q = noNote ? "" : ($("allSearch").value || "").trim().toLowerCase();
+  const nOk = (x) => !q || String(x.note || "").toLowerCase().includes(q) || (x.category && String(x.category).toLowerCase().includes(q));
+  const wTx = (t) => w === "all" || (w === "shared" ? t.scope === "shared" : t.scope !== "shared" && t.member_id === w);
+  const wDebt = (d) => w === "all" || (w !== "shared" && (d.member_id === w || d.other_id === w));
+  const wKid = (x) => w === "all" || x.member_id === w;
+  const txs = (state.data.txs || []).filter(t => inR(t.tx_date) && wTx(t) && nOk(t)).sort(newest("tx_date"));
+  const debts = (state.data.debts || []).filter(d => inR(d.tx_date) && wDebt(d) && nOk(d)).sort(newest("tx_date"));
   const kids = state.members.filter(m => isChild(m)).map(m => m.id);
-  const kd = (state.data.cdays || []).filter(x => kids.includes(x.member_id) && inR(x.day_date))
+  const kd = (state.data.cdays || []).filter(x => kids.includes(x.member_id) && inR(x.day_date) && wKid(x) && nOk(x))
     .map(x => ({ ...x, _d: String(x.day_date).slice(0, 10), _t: "day" }));
-  const ks = (state.data.cspends || []).filter(x => kids.includes(x.member_id) && inR(x.spend_date))
+  const ks = (state.data.cspends || []).filter(x => kids.includes(x.member_id) && inR(x.spend_date) && wKid(x) && nOk(x))
     .map(x => ({ ...x, _d: String(x.spend_date).slice(0, 10), _t: "buy" }));
   return {
     income: txs.filter(t => t.type === "income"),
@@ -3938,18 +3985,44 @@ function renderAllSheet() {
   const tabs = ALL_TABS.filter(([k]) => on[k]);
   if (!tabs.some(t => t[0] === state.allTab)) state.allTab = "all";
   $("allTabs").innerHTML = tabs.map(([k, l]) => `<button type="button" data-all-tab="${k}" aria-pressed="${k === state.allTab}">${l}${k !== "all" ? ` <small>${R[k].length}</small>` : ""}</button>`).join("");
+  // กรองตามคน
+  const whos = [["all", "👥 ทุกคน"], ...(state.members.length > 1 ? [["shared", "🏠 ใช้ร่วมกัน"]] : []), ...sortMembers(state.members).map(m => [m.id, m.display_name])];
+  if (!whos.some(x => x[0] === state.allWho)) state.allWho = "all";
+  $("allWho").innerHTML = whos.length > 2 ? whos.map(([k, l]) => `<button type="button" data-all-who="${esc(k)}" aria-pressed="${k === state.allWho}">${esc(l)}</button>`).join("") : "";
+  // โน้ตที่ใช้บ่อยในช่วงนี้ (กดเพื่อดูแยกเฉพาะโน้ตนั้น)
+  const q = ($("allSearch").value || "").trim(), R0 = q ? allRecords(true) : R;
+  const cnt = new Map();
+  ["income", "expense", "loan", "adv", "kid"].forEach(k => (state.allTab === "all" || state.allTab === k) && R0[k].forEach(x => {
+    const n = String(x.note || "").trim(); if (!n || n.startsWith(LEGACY_SLIP) || /^เงินเหลือรอบ /.test(n)) return;
+    const key = n.toLowerCase(), c = cnt.get(key) || { n, c: 0 }; c.c++; cnt.set(key, c); }));
+  // หมวดที่ตั้งเองใน "อื่น ๆ" ขึ้นก่อน (กดแล้วกรองเฉพาะหมวดนั้น)
+  const cc = new Map();
+  ["income", "expense"].forEach(k => (state.allTab === "all" || state.allTab === k) && R0[k].forEach(x => {
+    if (!isCustomCat(x.type, x.category)) return; const c = cc.get(x.category) || { n: x.category, c: 0, ic: catIcon(x.type, x.category) }; c.c++; cc.set(x.category, c); }));
+  const top = [...[...cc.values()].sort((a, b) => b.c - a.c), ...[...cnt.values()].filter(x => (x.c > 1 || q) && !cc.has(x.n)).sort((a, b) => b.c - a.c)].slice(0, 14);
+  $("allNotes").innerHTML = top.length ? (q ? `<button type="button" data-all-note="" aria-pressed="false">✕ ล้าง</button>` : "")
+    + top.map(x => `<button type="button" data-all-note="${esc(x.n)}" aria-pressed="${x.n.toLowerCase() === q.toLowerCase()}">${x.ic ? x.ic + " " : ""}${esc(x.n)} <small>${x.c}</small></button>`).join("") : "";
   const keys = state.allTab === "all" ? ["income", "expense", "loan", "adv", "kid"] : [state.allTab];
   const html = keys.map(k => allSectionHTML(k, R[k])).join("");
+  if (!html && (q || state.allWho !== "all")) { $("allBody").innerHTML = `<div class="empty">ไม่พบรายการ${q ? ` ที่มีโน้ต “${esc(q)}”` : ""}${state.allWho !== "all" ? ` ของ ${esc(whos.find(x => x[0] === state.allWho)?.[1] || "")}` : ""} ในช่วงนี้</div>`; $("allPeriod").textContent = periodLabel(); return; }
   if (!html && state.allTab !== "all") { $("allBody").innerHTML = `<div class="empty">ไม่มีรายการ${ALL_TABS.find(t => t[0] === state.allTab)[1].replace(/^\S+\s/, "")}ในช่วงนี้</div>`; $("allPeriod").textContent = periodLabel(); return; }
   $("allBody").innerHTML = html || `<div class="empty">ไม่มีรายการในช่วงนี้</div>`;
   $("allPeriod").textContent = periodLabel();
 }
-function openAllSheet() { state.allTab = "all"; renderAllSheet(); openSheet("sheetAll"); $("allBody").scrollTop = 0; }
+function openAllSheet() { state.allTab = "all"; state.allWho = "all"; $("allSearch").value = ""; renderAllSheet(); openSheet("sheetAll"); $("allBody").scrollTop = 0; }
 $("btnSeeAll").onclick = openAllSheet;
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-all-tab]"); if (!t) return;
   state.allTab = t.dataset.allTab; renderAllSheet();
 });
+document.addEventListener("click", (e) => {
+  const w = e.target.closest("[data-all-who]"); if (w) { state.allWho = w.dataset.allWho; renderAllSheet(); return; }
+  const n = e.target.closest("[data-all-note]"); if (!n) return;
+  const cur = ($("allSearch").value || "").trim().toLowerCase();
+  $("allSearch").value = n.dataset.allNote && n.dataset.allNote.toLowerCase() !== cur ? n.dataset.allNote : "";
+  renderAllSheet(); $("allBody").scrollTop = 0;
+});
+$("allSearch").addEventListener("input", () => { clearTimeout($("allSearch")._t); $("allSearch")._t = setTimeout(renderAllSheet, 180); });
 // แก้/ลบรายการจากในป๊อปอัพ: ปิดป๊อปอัพก่อน แผ่นแก้ไขจะได้ไม่ซ้อนกัน
 $("allBody").addEventListener("click", (e) => {
   if (e.target.closest("[data-edit-tx], [data-edit-debt]") && !e.target.closest(".del")) closeSheet("sheetAll");
@@ -4465,4 +4538,113 @@ $("biToIncome").onclick = () => {
   closeSheet("sheetBizItem"); closeSheet("sheetBizJob");
   openAdd({ type: "income", amount: +x.amount, date: x.paid_date || ymd(today0()), who: j.member_id });
   $("txNote").value = `${j.name} · ${x.title}`.slice(0, 200);
+};
+
+/* ---------- โน้ตที่เคยใส่: กดช่องโน้ตแล้วเด้งขึ้นมาให้เลือก พิมพ์แล้วค้นหาให้ ---------- */
+function noteHistory() {
+  const type = state.tx?.type === "income" ? "income" : "expense", m = new Map();
+  (state.data.txs || []).forEach(t => {
+    if ((t.type === "income" ? "income" : "expense") !== type) return;
+    const n = String(t.note || "").trim(); if (!n || n.startsWith(LEGACY_SLIP) || /^เงินเหลือรอบ /.test(n)) return;
+    const k = n.toLowerCase(), x = m.get(k) || { n, c: 0, last: "", cat: t.category, amt: +t.amount };
+    x.c++; const d = String(t.tx_date || "").slice(0, 10); if (d >= x.last) { x.last = d; x.cat = t.category; x.amt = +t.amount; x.n = n; }
+    m.set(k, x);
+  });
+  return [...m.values()];
+}
+function paintNoteSug() {
+  const box = $("txNoteSug"), inp = $("txNote"), q = inp.value.trim().toLowerCase();
+  if (document.activeElement !== inp) { box.classList.add("hidden"); inp.setAttribute("aria-expanded", "false"); return; }
+  let list = noteHistory();
+  if (q) list = list.filter(x => x.n.toLowerCase().includes(q) && x.n.toLowerCase() !== q)
+    .sort((a, b) => (b.n.toLowerCase().startsWith(q) - a.n.toLowerCase().startsWith(q)) || b.c - a.c || b.last.localeCompare(a.last));
+  else list.sort((a, b) => b.last.localeCompare(a.last) || b.c - a.c);
+  list = list.slice(0, 8);
+  box.innerHTML = list.length ? `<div class="note-sug-h">${q ? "เคยใส่ไว้แล้ว" : "โน้ตที่เคยใส่"}</div>` + list.map(x => {
+    return `<button type="button" role="option" data-note-pick="${esc(x.n)}" data-note-cat="${esc(x.cat || "")}"><span aria-hidden="true">${catIcon(state.tx?.type === "income" ? "income" : "expense", x.cat)}</span><b>${esc(x.n)}</b><small>${x.c > 1 ? `${x.c} ครั้ง · ` : ""}ล่าสุด ${bahtR(x.amt)}</small></button>`;
+  }).join("") : "";
+  box.classList.toggle("hidden", !list.length); inp.setAttribute("aria-expanded", String(!!list.length));
+}
+$("txNote").addEventListener("focus", paintNoteSug);
+$("txNote").addEventListener("input", paintNoteSug);
+$("txNote").addEventListener("blur", () => setTimeout(paintNoteSug, 150));
+$("txNoteSug").addEventListener("pointerdown", (e) => e.preventDefault()); // ไม่ให้ช่องโน้ตหลุดโฟกัสก่อนกดเลือก
+$("txNoteSug").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-note-pick]"); if (!b) return;
+  $("txNote").value = b.dataset.notePick;
+  const c = b.dataset.noteCat, T = state.tx.type; // ใช้หมวดเดิมของโน้ตนี้ด้วย
+  if (c && (CATEGORIES[T]?.some(x => x[0] === c) || isCustomCat(T, c))) { state.tx.category = c; closeCatOther(); paintCatGrid(); }
+  $("txNoteSug").classList.add("hidden"); $("txNote").setAttribute("aria-expanded", "false");
+  $("txNote").blur();
+});
+
+/* =====================================================================
+   "อื่น ๆ" ที่ตั้งเอง: ใส่ไอคอน + ชื่อ จำไว้ทั้งบ้าน กดอื่น ๆ แล้วเด้งขึ้นมาให้เลือก
+   (บันทึกเป็นหมวดชื่อนั้นเลย จึงกรอง/ดูกราฟ/ค้นหาแยกได้เหมือนหมวดปกติ)
+   ===================================================================== */
+const OTHER_CAT = "อื่น ๆ";
+const CO_ICONS = ["📦", "🍼", "🧸", "🐶", "🐱", "🎮", "📱", "💻", "👕", "👟", "💄", "💇", "🎂", "🎁", "🙏", "⛽", "🅿️", "🚕", "✈️", "🏨", "🍺", "☕", "🧋", "🍱", "🛒", "🧾", "💳", "🏥", "🦷", "📮", "🔧", "🪴", "🎓", "🏋️", "⚽", "🎵", "💰", "🧧", "🏷️", "✨"];
+const customCats = (type) => (state.data.txCats || []).filter(c => c.type === type);
+const isCustomCat = (type, name) => !!name && name !== OTHER_CAT && !CATEGORIES[type]?.some(c => c[0] === name)
+  && (customCats(type).some(c => c.name === name) || (state.data.txs || []).some(t => t.type === type && t.category === name));
+function paintCatGrid() {
+  const T = state.tx.type, cur = state.tx.category; if (!CATEGORIES[T]) return;
+  const custom = cur && !CATEGORIES[T].some(c => c[0] === cur) ? cur : null;
+  $("catGrid").innerHTML = CATEGORIES[T].map(([c, e]) => {
+    if (c === OTHER_CAT) {
+      const on = c === cur || !!custom, n = customCats(T).length;
+      return `<button type="button" class="cat-btn cat-other-btn" data-cat="${esc(c)}" aria-pressed="${on}" aria-expanded="${!$("catOther").classList.contains("hidden")}">
+        <span class="e">${custom ? catIcon(T, custom) : e}</span>${custom ? esc(custom) : esc(c)}${n && !custom ? `<small class="co-n">${n}</small>` : ""}</button>`;
+    }
+    return `<button type="button" class="cat-btn" data-cat="${esc(c)}" aria-pressed="${c === cur}"><span class="e">${e}</span>${esc(c)}</button>`;
+  }).join("");
+}
+const CO = { adding: false, manage: false, icon: "📦" };
+function openCatOther() { CO.adding = false; CO.manage = false; paintCatOther(); $("catOther").classList.remove("hidden"); paintCatGrid(); }
+function closeCatOther() { if (!$("catOther")) return; $("catOther").classList.add("hidden"); }
+function paintCatOther() {
+  const T = state.tx.type, cur = state.tx.category, list = customCats(T);
+  // รวมชื่อที่เคยใช้จริงแต่ยังไม่ได้จำไว้ (เช่นข้อมูลเก่า) ให้เลือกได้ด้วย
+  const used = [...new Set((state.data.txs || []).filter(t => t.type === T && isCustomCat(T, t.category) && !list.some(c => c.name === t.category)).map(t => t.category))];
+  const missing = state.data.missing?.includes("sb_tx_cats");
+  $("coList").innerHTML = `<button type="button" class="co-chip" data-co="${esc(OTHER_CAT)}" aria-pressed="${cur === OTHER_CAT}">${T === "income" ? "✨" : "📦"} อื่น ๆ (ไม่ระบุ)</button>`
+    + list.map(c => `<span class="co-wrap"><button type="button" class="co-chip" data-co="${esc(c.name)}" aria-pressed="${c.name === cur}">${esc(c.icon)} ${esc(c.name)}</button>${CO.manage ? `<button type="button" class="co-del" data-co-del="${esc(c.id)}" aria-label="ลบ ${esc(c.name)}">✕</button>` : ""}</span>`).join("")
+    + used.map(n => `<button type="button" class="co-chip" data-co="${esc(n)}" aria-pressed="${n === cur}">${catIcon(T, n)} ${esc(n)}</button>`).join("")
+    + (missing ? "" : `<button type="button" class="co-chip co-add" id="coAddBtn" aria-expanded="${CO.adding}">＋ เพิ่มใหม่</button>`);
+  $("coManage").classList.toggle("hidden", !list.length || missing); $("coManage").textContent = CO.manage ? "เสร็จ" : "จัดการ";
+  $("coHint").textContent = missing ? "ยังเพิ่มรายการเองไม่ได้: ให้รันไฟล์ supabase-sb-cats.sql ใน Supabase ก่อน" : list.length ? "" : "ตั้งรายการเองได้ เช่น 🍼 นมลูก 🐶 ค่าอาหารหมา แล้วระบบจะจำไว้ให้";
+  $("coForm").classList.toggle("hidden", !CO.adding);
+  if (CO.adding) $("coIcons").innerHTML = CO_ICONS.map(i => `<button type="button" data-co-icon="${i}" aria-pressed="${i === CO.icon}">${i}</button>`).join("");
+  $("coIconOwn").value = CO_ICONS.includes(CO.icon) ? "" : CO.icon;
+}
+$("catOther").addEventListener("click", async (e) => {
+  const T = state.tx.type;
+  const pick = e.target.closest("[data-co]");
+  if (pick) { state.tx.category = pick.dataset.co; closeCatOther(); paintCatGrid(); return; }
+  if (e.target.closest("#coAddBtn")) { CO.adding = !CO.adding; CO.icon = T === "income" ? "✨" : "📦"; paintCatOther(); if (CO.adding) setTimeout(() => $("coName").focus(), 30); return; }
+  const ic = e.target.closest("[data-co-icon]");
+  if (ic) { CO.icon = ic.dataset.coIcon; $("coIconOwn").value = ""; $("coIcons").querySelectorAll("[data-co-icon]").forEach(b => b.setAttribute("aria-pressed", b === ic)); return; }
+  if (e.target.closest("#coManage")) { CO.manage = !CO.manage; paintCatOther(); return; }
+  const del = e.target.closest("[data-co-del]");
+  if (del) {
+    const c = customCats(T).find(x => x.id === del.dataset.coDel); if (!c) return;
+    if (!confirm(`ลบ "${c.icon} ${c.name}" ออกจากรายการที่จำไว้?\n(รายการที่เคยบันทึกไว้ยังอยู่ครบ)`)) return;
+    try { await api.delTxCat(c.id); state.data.txCats = (state.data.txCats || []).filter(x => x.id !== c.id); paintCatOther(); paintCatGrid(); }
+    catch (err) { $("coHint").textContent = friendlyError(err); }
+  }
+});
+$("coIconOwn").addEventListener("input", () => { const v = [...$("coIconOwn").value.trim()].slice(0, 4).join(""); if (v) { CO.icon = v; $("coIcons").querySelectorAll("[data-co-icon]").forEach(b => b.setAttribute("aria-pressed", "false")); } });
+$("coName").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("coSave").click(); } });
+$("coSave").onclick = async () => {
+  const T = state.tx.type, name = $("coName").value.trim().replace(/\|/g, "/").slice(0, 30);
+  if (!name) { $("coHint").textContent = "ใส่ชื่อรายการ"; $("coName").focus(); return; }
+  if (CATEGORIES[T].some(c => c[0] === name)) { $("coHint").textContent = "ชื่อนี้มีอยู่แล้วในหมวดหลัก"; return; }
+  const ex = customCats(T).find(c => c.name === name);
+  $("coSave").disabled = true;
+  try {
+    if (!ex) { const r = await api.addTxCat({ family_id: state.family.id, type: T, name, icon: CO.icon || "📦" }); state.data.txCats = [...(state.data.txCats || []), r]; }
+    state.tx.category = name; $("coName").value = ""; CO.adding = false;
+    closeCatOther(); paintCatGrid(); toast(`เพิ่ม “${name}” แล้ว ครั้งหน้ากด อื่น ๆ จะเห็นรายการนี้`);
+  } catch (err) { $("coHint").textContent = friendlyError(err); }
+  finally { $("coSave").disabled = false; }
 };
