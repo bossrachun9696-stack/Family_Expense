@@ -729,3 +729,45 @@ html.has-session .boot-splash { display: flex; }
 .seg3{grid-template-columns:1fr 1fr 1fr}
 .seg3 button{font-size:13px;padding:10px 4px}
 .bz-paid .due-tick{background:var(--income);border-color:var(--income)}
+
+/* แผ่นเปิดอยู่: ล็อกหน้าหลัง */
+body.sheet-open{overflow:hidden}
+.sheet{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.scrim{transform:translateZ(0)}
+/* โน้ตที่เคยใส่ (เด้งขึ้นด้านบนช่องโน้ต ไม่โดนคีย์บอร์ดบัง) */
+.note-wrap{position:relative}
+.note-sug{position:absolute;left:0;right:0;bottom:calc(100% - 18px);z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 -8px 28px rgba(0,0,0,.22);max-height:260px;overflow-y:auto;padding:6px;overscroll-behavior:contain}
+.note-sug-h{font-size:12px;color:var(--muted);padding:4px 8px 6px}
+.note-sug button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;color:var(--ink);font:inherit;padding:9px 8px;border-radius:10px;cursor:pointer}
+.note-sug button:hover,.note-sug button:active{background:var(--surface-2)}
+.note-sug button b{flex:1;min-width:0;font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-sug button small{color:var(--muted);font-size:12px;white-space:nowrap}
+/* ดูทั้งหมด: กรองตามคน / โน้ต */
+.all-who{padding-top:0}
+.all-who button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.all-search{flex:none;padding:0 0 8px}
+.all-search input{width:100%;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px}
+.all-notes{padding-top:0}
+.all-notes:empty,.all-who:empty{display:none}
+.all-notes button{font-weight:500;background:transparent;border-style:dashed}
+.all-notes button[aria-pressed="true"]{background:#E9A23B;border-color:#E9A23B;color:#fff;border-style:solid}
+
+/* "อื่น ๆ" ที่ตั้งเอง */
+.cat-other-btn{position:relative}
+.cat-other-btn .co-n{position:absolute;top:4px;right:6px;font-size:10px;font-weight:700;background:var(--brand);color:#fff;border-radius:999px;min-width:16px;height:16px;line-height:16px;padding:0 4px}
+.cat-other{background:var(--surface-2);border-radius:14px;padding:10px 12px;margin:-6px 0 14px;animation:up .18s ease}
+.co-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px}
+.co-list{display:flex;flex-wrap:wrap;gap:6px}
+.co-chip{border:1.5px solid var(--line);background:var(--surface);color:inherit;font:inherit;font-size:13.5px;padding:7px 11px;border-radius:999px;cursor:pointer}
+.co-chip[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-soft);font-weight:700}
+.co-add{border-style:dashed;color:var(--brand);font-weight:700}
+.co-wrap{display:inline-flex;align-items:center;gap:2px}
+.co-del{border:0;background:var(--expense);color:#fff;width:22px;height:22px;border-radius:50%;font-size:11px;cursor:pointer;margin-left:-8px;z-index:1}
+.co-form{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.co-icons{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin:6px 0 10px}
+.co-icons button{border:1.5px solid transparent;background:var(--surface);border-radius:10px;font-size:20px;padding:5px 0;cursor:pointer}
+.co-icons button[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-soft)}
+.co-row{display:flex;gap:6px;align-items:center}
+.co-row input{min-width:0;border:1.5px solid var(--line);background:var(--surface);color:inherit;border-radius:12px;padding:9px 10px;font:inherit;font-size:16px}
+.co-row .co-own{width:54px;flex:none;text-align:center}
+.co-row #coName{flex:1}
