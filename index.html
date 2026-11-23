@@ -18,6 +18,11 @@
 <script>try{if(localStorage.getItem('sb-ealxfgjuiwoewwxxyppu-auth-token'))document.documentElement.classList.add("has-session")}catch(e){}</script>
 <script>try{var t=localStorage.getItem("samudbaan-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;var p=localStorage.getItem("samudbaan-palette");if(p&&p!=="forest")document.documentElement.dataset.palette=p;}catch(e){}</script>
 <link rel="stylesheet" href="style.css">
+<style>
+.cyc-btn{border:0;background:color-mix(in srgb,var(--brand) 16%,transparent);color:inherit;font:inherit;font-size:11px;padding:2px 8px;border-radius:20px;margin-left:4px;cursor:pointer}
+.cyc-note{display:block;font-size:11px;opacity:.8;margin-top:2px}
+.cyc-fixed{padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--brand) 8%,transparent);font-weight:600}
+</style>
 </head>
 <body>
 
@@ -556,7 +561,7 @@
         <div class="label"><span>เงินเดือนสุทธิ (คำนวณ)</span><span id="payInherit" class="pill"></span></div>
         <div id="payNet" class="big num">฿0</div>
         <div class="cols" style="margin-top:12px">
-          <div><span>รอบบัญชี</span><strong id="payPeriod" class="num" style="font-size:15px">—</strong></div>
+          <div><span>รอบบัญชี <button type="button" id="btnCycle" class="cyc-btn" aria-label="ปรับวันตัดรอบ">✏️ ปรับ</button></span><strong id="payPeriod" class="num" style="font-size:15px">—</strong><small id="payCycleNote" class="cyc-note"></small></div>
           <div><span>ได้จริงตามสลิป</span><strong id="payActualHero" class="num">—</strong></div>
         </div>
       </div>
@@ -1144,6 +1149,23 @@
     <div class="actions">
       <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
       <button type="submit" class="btn btn-primary" id="btnSavePerms">บันทึกสิทธิ์</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheetCycle" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="cycTitle">
+  <form class="sheet" id="formCycle" novalidate>
+    <h2 id="cycTitle">ปรับวันตัดรอบเดือนนี้</h2>
+    <div class="hint" id="cycHint"></div>
+    <div class="grid2">
+      <div class="field"><label>เริ่มวันที่</label><div id="cycStart" class="cyc-fixed num">—</div></div>
+      <div class="field"><label for="cycEnd">ตัดรอบ (สิ้นสุด) วันที่</label><input id="cycEnd" type="date"></div>
+    </div>
+    <div class="hint num" id="cycPreview"></div>
+    <div id="cycErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" id="btnCycleReset">ใช้ค่าปกติ</button>
+      <button type="submit" class="btn btn-primary" id="btnSaveCycle">บันทึก</button>
     </div>
   </form>
 </div>

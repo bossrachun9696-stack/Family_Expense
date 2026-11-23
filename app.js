@@ -114,6 +114,15 @@ function cycleRange(month, startDay, endDay) {
   const p = addMonths(month, -1);
   return { start: new Date(p.getFullYear(), p.getMonth(), Math.min(startDay, lastDayOf(p.getFullYear(), p.getMonth()))), end: new Date(y, m, Math.min(endDay, lastDayOf(y, m))) };
 }
+// รอบจริงของคนนี้: ถ้ากำหนดวันสิ้นสุดรอบเดือนไหนไว้ ใช้วันนั้น · รอบถัดไปเริ่มวันถัดจากวันสิ้นสุดรอบก่อน (รอบยาวเกิน 31 วันได้)
+function cycleRangeFor(mid, M, S) {
+  const def = cycleRange(M, +S.start_day, +S.end_day);
+  const ov = IDX.cycles?.get(mid + "|" + ymd(M)), prev = IDX.cycles?.get(mid + "|" + ymd(addMonths(M, -1)));
+  const start = prev ? addDays(prev, 1) : def.start;
+  let end = ov || def.end;
+  if (end < start) end = def.end < start ? addDays(start, 27) : def.end;
+  return { start, end, customEnd: !!ov, fromPrev: !!prev, def };
+}
 const isDaily = (s) => s.pay_type === "daily";
 function otRates(s) {
   // ค่าจ้างต่อชั่วโมง: รายเดือน = เงินเดือน ÷ 30 ÷ 8 · รายวัน = ค่าแรงต่อวัน ÷ 8
@@ -252,7 +261,7 @@ function makeSupabaseApi() {
     async loadAll(fid) {
       const missing = [];
       const opt = (p, name) => p.catch(e => { missing.push(name); console.warn(e); return []; });
-      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, txCats] = await Promise.all([
+      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, txCats, cycles] = await Promise.all([
         fetchAll("transactions", fid, "tx_date"),
         opt(fetchAll("work_days", fid, "work_date"), "work_days"),
         opt(fetchAll("member_pay_settings", fid, "effective_month"), "member_pay_settings"),
@@ -277,9 +286,10 @@ function makeSupabaseApi() {
         opt(fetchAll("member_docs", fid, "created_at"), "member_docs"),
         opt(fetchAll("sb_biz_jobs", fid, "created_at"), "sb_biz_jobs"),
         opt(fetchAll("sb_biz_items", fid, "item_date"), "sb_biz_items"),
-        opt(fetchAll("sb_tx_cats", fid, "created_at"), "sb_tx_cats")
+        opt(fetchAll("sb_tx_cats", fid, "created_at"), "sb_tx_cats"),
+        opt(fetchAll("sb_pay_cycles", fid, "cycle_month"), "sb_pay_cycles")
       ]);
-      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, txCats, missing };
+      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, txCats, cycles, missing };
     },
     async addTx(tx) { return must(await sb.from("transactions").insert(tx).select().single()); },
     async addDebt(row) { return must(await sb.from("debts").insert(row).select().single()); },
@@ -346,6 +356,8 @@ function makeSupabaseApi() {
     },
     async saveActual(row) { return must(await sb.from("actual_pay").upsert(row, { onConflict: "member_id,cycle_month" }).select().single()); },
     async deleteActual(memberId, month) { must(await sb.from("actual_pay").delete().eq("member_id", memberId).eq("cycle_month", month)); },
+    async saveCycle(row) { must(await sb.from("sb_pay_cycles").upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "member_id,cycle_month" })); },
+    async deleteCycle(mid, month) { must(await sb.from("sb_pay_cycles").delete().eq("member_id", mid).eq("cycle_month", month)); },
     async resetFamily(fid, confirmText, memberIds = []) {
       must(await sb.rpc("reset_family_data", { p_family: fid, p_confirm: confirmText }));
       for (const mid of memberIds) { // ลบรูปสลิปที่เก็บไว้ด้วย (ทำต่อแม้บางไฟล์ลบไม่ได้)
@@ -355,7 +367,7 @@ function makeSupabaseApi() {
     },
     subscribe(fid, onChange, onStatus) {
       const ch = sb.channel("family-" + fid);
-      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "due_lists", "bill_checks", "member_docs", "sb_biz_jobs", "sb_biz_items", "sb_tx_cats"].forEach(t => {
+      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "due_lists", "bill_checks", "member_docs", "sb_biz_jobs", "sb_biz_items", "sb_tx_cats", "sb_pay_cycles"].forEach(t => {
         ch.on("postgres_changes", { event: "*", schema: "public", table: t, filter: `family_id=eq.${fid}` }, onChange);
         ch.on("postgres_changes", { event: "DELETE", schema: "public", table: t }, onChange); // การลบกรองตาม family ไม่ได้
       });
@@ -366,7 +378,7 @@ function makeSupabaseApi() {
 }
 
 function makeDemoApi() {
-  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], dues: [], checks: [], docs: [], bizJobs: [], bizItems: [], txCats: [], files: {} };
+  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], dues: [], checks: [], docs: [], bizJobs: [], bizItems: [], txCats: [], cycles: [], files: {} };
   let session = null;
   const uid = () => Math.random().toString(36).slice(2, 10);
   const wait = () => new Promise(r => setTimeout(r, 100));
@@ -475,7 +487,7 @@ function makeDemoApi() {
         pspends: famRows(db.pspends, fid).filter(b => b.member_id === me?.id), recurring: famRows(db.recurring, fid), goals: famRows(db.goals, fid),
         contribs: famRows(db.contribs, fid), catbud: famRows(db.catbud, fid), accounts: famRows(db.accounts, fid), moves: famRows(db.moves, fid),
         paccts: famRows(db.paccts, fid).filter(a => a.member_id === me?.id || a.shared), pmoves: famRows(db.pmoves, fid).filter(m => { const a = db.paccts.find(x => x.id === m.account_id); return a && (a.member_id === me?.id || a.shared); }),
-        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), dues: famRows(db.dues, fid), checks: famRows(db.checks, fid), docs: famRows(db.docs, fid), bizJobs: famRows(db.bizJobs, fid), bizItems: famRows(db.bizItems, fid), txCats: famRows(db.txCats, fid), missing: [] }; },
+        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), dues: famRows(db.dues, fid), checks: famRows(db.checks, fid), docs: famRows(db.docs, fid), bizJobs: famRows(db.bizJobs, fid), bizItems: famRows(db.bizItems, fid), txCats: famRows(db.txCats, fid), cycles: famRows(db.cycles, fid), missing: [] }; },
     async uploadFile(path, blob) { db.files[path] = await blobUrl(blob); if (blob.thumb && thumbPathOf(path)) db.files[thumbPathOf(path)] = await blobUrl(blob.thumb); return path; },
     async removeFiles(paths) { withThumbs(paths).forEach(p => delete db.files[p]); },
     async saveDoc(row) { if (row.id) { const d = db.docs.find(x => x.id === row.id); Object.assign(d, row, { updated_at: new Date().toISOString() }); return d; }
@@ -551,6 +563,8 @@ function makeDemoApi() {
     async bizDelete(t, id) { if (t === "sb_biz_jobs") { db.bizJobs = db.bizJobs.filter(x => x.id !== id); db.bizItems = db.bizItems.filter(x => x.job_id !== id); } else db.bizItems = db.bizItems.filter(x => x.id !== id); },
     async deleteSlip(path) { withThumbs([path]).forEach(p => delete db.files[p]); },
     async deleteActual(mid, month) { db.actual = db.actual.filter(a => !(a.member_id === mid && a.cycle_month === month)); },
+    async saveCycle(row) { db.cycles = db.cycles.filter(c => !(c.member_id === row.member_id && c.cycle_month === row.cycle_month)); db.cycles.push({ ...row, id: uid() }); },
+    async deleteCycle(mid, month) { db.cycles = db.cycles.filter(c => !(c.member_id === mid && c.cycle_month === month)); },
     async resetFamily(fid, confirmText) {
       const f = db.families.find(x => x.id === fid), me = db.members.find(m => m.user_id === session.id && m.family_id === fid);
       if (!me || me.role !== "owner") throw new Error("not_owner");
@@ -594,6 +608,7 @@ function buildIndex() {
   IDX.bills = [...D.bills].sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)));
   IDX.dues = [...D.dues].sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)));
   IDX.actual = new Map(D.actual.map(a => [a.member_id + "|" + String(a.cycle_month).slice(0, 10), a]));
+  IDX.cycles = new Map((D.cycles || []).map(c => [c.member_id + "|" + String(c.cycle_month).slice(0, 10), parseYmd(String(c.end_date).slice(0, 10))]));
 }
 const settingsFor = (mid, mStr) => (IDX.settings[mid] || []).find(s => String(s.effective_month).slice(0, 10) <= mStr) || null;
 const billsFor = (mStr) => IDX.bills.find(b => String(b.effective_month).slice(0, 10) <= mStr) || null;
@@ -667,7 +682,7 @@ function payForRaw(mid, M) {
   const mStr = ymd(M), s = settingsFor(mid, mStr);
   if (!s) return null;
   const S = { ...DEFAULT_PAY, ...s };
-  const range = cycleRange(M, +S.start_day, +S.end_day);
+  const range = cycleRangeFor(mid, M, S);
   const days = []; eachDay(range.start, range.end, d => { const r = dayRec(mid, d); if (r) days.push(r); });
   const p = calcPay(S, days);
   const a = IDX.actual.get(mid + "|" + mStr);
@@ -677,10 +692,10 @@ function payForRaw(mid, M) {
 }
 // รายได้ของ 1 วัน (ใช้กับมุมมองวัน/สัปดาห์): ส่วนคงที่ของรอบเฉลี่ยรายวัน + OT + ค่ากะของวันนั้น
 function dailyEarn(mid, d) {
-  for (const off of [0, 1]) {
+  for (const off of [0, 1, -1]) {
     const M = addMonths(monthStart(d), off), s = settingsFor(mid, ymd(M));
     if (!s) continue;
-    const S = { ...DEFAULT_PAY, ...s }, r = cycleRange(M, +S.start_day, +S.end_day);
+    const S = { ...DEFAULT_PAY, ...s }, r = cycleRangeFor(mid, M, S);
     if (d < r.start || d > r.end) continue;
     const len = daysBetween(r.start, r.end);
     const daily = isDaily(S);
@@ -1980,7 +1995,7 @@ document.addEventListener("click", (e) => { const g = e.target.closest("[data-go
    ========================================================= */
 function defaultBudgetRange(M) {
   const st = feat("salary") ? settingsFor(state.me.id, ymd(M)) : null;
-  return st ? cycleRange(M, +st.start_day, +st.end_day) : { start: monthStart(M), end: new Date(M.getFullYear(), M.getMonth() + 1, 0) };
+  return st ? cycleRangeFor(state.me.id, M, { ...DEFAULT_PAY, ...st }) : { start: monthStart(M), end: new Date(M.getFullYear(), M.getMonth() + 1, 0) };
 }
 function budgetInfo(M) {
   const mStr = ymd(M), rows = (state.data.budgets || []).filter(b => b.member_id === state.me.id)
@@ -2110,6 +2125,46 @@ function budPreview() {
 }
 ["budAmount", "budStart", "budEnd"].forEach(id => $(id).addEventListener("input", budPreview));
 document.addEventListener("click", (e) => { if (e.target.closest("[data-open-budget]")) openBudget(); });
+
+/* ---------- ปรับวันตัดรอบรายเดือน ---------- */
+const thDate = (d) => d.toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+function cyclePreview() {
+  const r = state.cyc, endV = $("cycEnd").value;
+  if (!endV || !r) { $("cycPreview").textContent = ""; return; }
+  const end = parseYmd(endV), len = daysBetween(r.start, end), next = addDays(end, 1);
+  $("cycPreview").textContent = len < 1 ? "" : `รอบนี้ ${len} วัน · รอบเดือนหน้าจะเริ่ม ${thDate(next)}`;
+}
+$("btnCycle").onclick = () => {
+  const p = state.salPay, M = monthStart(state.anchor); if (!p?.range?.def) return;
+  const r = p.range;
+  state.cyc = { mid: state.salMember, M, start: r.start, def: r.def, custom: r.customEnd };
+  $("cycTitle").textContent = `ปรับวันตัดรอบ · ${monthLabel(M)}`;
+  $("cycHint").textContent = `ใช้เมื่อบริษัทตัดรอบไม่ตรงวันเดิมทุกเดือน (รอบยาวกว่า 31 วันได้) · วันเริ่มต่อจากวันตัดรอบของรอบก่อนให้เอง · ค่าปกติตามตั้งค่าเงินเดือน: ${shortDate(r.def.start)} – ${shortDate(r.def.end)}`;
+  $("cycStart").textContent = thDate(r.start) + (r.fromPrev ? " (ต่อจากรอบก่อน)" : "");
+  $("cycEnd").value = ymd(r.end); $("cycEnd").min = ymd(addDays(r.start, 1)); $("cycEnd").max = ymd(addDays(r.start, 45));
+  $("btnCycleReset").classList.toggle("hidden", !r.customEnd);
+  $("cycErr").textContent = ""; cyclePreview(); openSheet("sheetCycle");
+};
+$("cycEnd").addEventListener("input", cyclePreview);
+$("formCycle").onsubmit = async (e) => {
+  e.preventDefault();
+  const c = state.cyc, v = $("cycEnd").value;
+  if (!v) { $("cycErr").textContent = "เลือกวันตัดรอบ"; return; }
+  const end = parseYmd(v), len = daysBetween(c.start, end);
+  if (len < 2 || len > 46) { $("cycErr").textContent = "รอบต้องยาว 2–46 วัน นับจากวันเริ่ม"; return; }
+  $("btnSaveCycle").disabled = true;
+  try {
+    await api.saveCycle({ family_id: state.family.id, member_id: c.mid, cycle_month: ymd(c.M), end_date: v });
+    closeSheet("sheetCycle"); toast("บันทึกวันตัดรอบแล้ว"); await reload();
+  } catch (err) {
+    $("cycErr").textContent = /sb_pay_cycles|does not exist|schema cache/i.test(err.message || "") ? "ยังไม่ได้ติดตั้งฐานข้อมูลรอบนี้ (supabase-sb-cycles.sql)" : (err.message || String(err));
+  } finally { $("btnSaveCycle").disabled = false; }
+};
+$("btnCycleReset").onclick = async () => {
+  const c = state.cyc;
+  try { await api.deleteCycle(c.mid, ymd(c.M)); closeSheet("sheetCycle"); toast("กลับไปใช้วันตัดรอบปกติแล้ว"); await reload(); }
+  catch (err) { $("cycErr").textContent = err.message || String(err); }
+};
 $("formBudget").onsubmit = async (e) => {
   e.preventDefault();
   const amount = round2($("budAmount").value), s0 = $("budStart").value, e0 = $("budEnd").value;
@@ -2338,6 +2393,9 @@ function renderSalary() {
   state.salPay = p;
   $("payNet").textContent = signed(p.net);
   $("payPeriod").textContent = `${shortDate(p.range.start)} – ${shortDate(p.range.end)}`;
+  { const len = daysBetween(p.range.start, p.range.end);
+    $("payCycleNote").textContent = pRaw ? `${len} วัน${p.range.customEnd ? " · ตัดรอบเอง" : ""}${p.range.fromPrev ? " · ต่อจากรอบก่อน" : ""}` : "";
+    $("btnCycle").classList.toggle("hidden", !(pRaw && editable)); }
   $("payActualHero").textContent = p.actual !== null ? baht(p.actual) : "ยังไม่บันทึก";
   $("payInherit").textContent = !pRaw ? "ยังไม่ได้ตั้งค่า" : p.inheritedFrom ? `ใช้ค่าจาก ${monthLabel(p.inheritedFrom)}` : "ตั้งค่ารอบนี้";
   $("statWork").textContent = p.work; $("statLeave").textContent = p.leave;
