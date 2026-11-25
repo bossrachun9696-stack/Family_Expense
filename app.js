@@ -192,6 +192,11 @@ function makeSupabaseApi() {
     async setRecovery(code) { must(await sb.rpc("acct_set_recovery", { p_code: code })); },
     async recover(email, code, password) { return must(await sb.rpc("acct_recover", { p_email: email, p_code: code, p_new_password: password })); },
     async signOut() { await sb.auth.signOut({ scope: "local" }); },   // ออกเฉพาะเครื่องนี้ (ไม่พา DarkChat / เครื่องอื่นออกไปด้วย)
+    async boot() {   // perf-01: ขอข้อมูลตอนเปิดครั้งเดียว (ยังไม่ได้รัน SQL = null แล้วใช้วิธีเดิม)
+      const { data, error } = await sb.rpc("sb_boot");
+      if (error) { if (/Could not find the function|does not exist|schema cache/i.test(error.message || "")) return null; throw error; }
+      return data;
+    },
     async homeStatus() {
       const { data, error } = await sb.rpc("sb_home_status");
       if (error) return null;   // ยังไม่ได้รัน supabase-v6b-home.sql
@@ -933,6 +938,7 @@ async function boot() {
       noteSignOut("เซสชันหมดอายุหรือถูกยกเลิก (เช่น ตั้งรหัสผ่านใหม่ / ออกจากระบบทุกเครื่อง)");
       if (unsubscribe) { unsubscribe(); unsubscribe = null; }
       pinHide();
+      SNAP.clear();
       Object.assign(state, { user: null, family: null, me: null, members: [] });
       show("viewAuth");
     });
@@ -965,24 +971,85 @@ function showSignOutNote() {
   box.textContent = `ออกจากระบบเมื่อ ${new Date(n.at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })} · ${n.reason}`;
   box.classList.remove("hidden");
 }
-async function route() {
-  if (!state.user) return show("viewAuth");
-  if (!(await recoveryOk())) return;
-  if (!(await accessOk())) return;
-  const fam = await api.getMyFamily(state.user.id);
-  if (!fam) { show("viewOnboard"); $("obName").focus(); paintObHome(); return; }
+// ---------- เปิดเร็ว: เก็บภาพข้อมูลล่าสุดไว้ในเครื่อง (IndexedDB) แสดงทันที แล้วค่อยอัปเดตจากเซิร์ฟเวอร์ ----------
+const SNAP = {
+  V: 1, db: null,
+  open() {
+    if (this.db) return this.db;
+    this.db = new Promise((res) => {
+      try {
+        const r = indexedDB.open("samudbaan-snap", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("s");
+        r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onblocked = () => res(null);
+      } catch (e) { res(null); }
+    });
+    return this.db;
+  },
+  async get(k) { const db = await this.open(); if (!db) return null;
+    return new Promise((res) => { try { const q = db.transaction("s").objectStore("s").get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); } catch (e) { res(null); } }); },
+  async put(k, v) { const db = await this.open(); if (!db) return;
+    try { db.transaction("s", "readwrite").objectStore("s").put(v, k); } catch (e) { /* เต็ม / โหมดส่วนตัว */ } },
+  async clear() { clearTimeout(snapT); const db = await this.open(); if (!db) return;
+    try { db.transaction("s", "readwrite").objectStore("s").clear(); } catch (e) { /* ไม่เป็นไร */ } },
+};
+let snapT = null;
+function snapSave() {
+  if (DEMO || !state.user || !state.family || !state.data) return;
+  clearTimeout(snapT);
+  snapT = setTimeout(() => state.user && state.family && SNAP.put(state.user.id, { v: SNAP.V, at: Date.now(), family: state.family, me: state.me, members: state.members,
+    ovOrder: state.ovOrder || null, data: state.data }), 800);
+}
+function applyFamily(fam) {
   Object.assign(state, { family: fam.family, me: fam.me, members: fam.members });
   if (state.salMember !== "all" && !state.members.some(m => m.id === state.salMember)) state.salMember = "all";
-  show("viewApp");
-  pinGate();
-  await loadPrefs();
-  await reload();
+}
+async function route() {
+  if (!state.user) return show("viewAuth");
+  // 1) มีภาพล่าสุดในเครื่อง: แสดงเลย แล้วดึงข้อมูลจริงพร้อมกันเบื้องหลัง
+  let painted = false, dataP = null;
+  const snap = DEMO ? null : await SNAP.get(state.user.id);
+  if (snap && snap.v === SNAP.V && snap.family && snap.data) {
+    try {
+      applyFamily(snap);
+      if (Array.isArray(snap.ovOrder)) state.ovOrder = snap.ovOrder;
+      state.data = snap.data;
+      show("viewApp"); pinGate();
+      buildIndex(); renderAll();
+      painted = true;
+      dataP = api.loadAll(snap.family.id).catch(e => ({ __err: e }));
+    } catch (e) { console.warn("snapshot", e); painted = false; dataP = null; }
+  }
+  // 2) ตรวจรหัสกู้คืน + สิทธิ์ + บ้าน + ค่าตั้งค่า (ครั้งเดียว · ถ้ายังไม่ได้รัน perf-01 ใช้วิธีเดิม)
+  let b = null;
+  if (api.boot) { try { b = await api.boot(); } catch (e) { console.warn("boot", e); b = null; } }
+  let fam;
+  if (b) {
+    if (!(await recoveryOk(b.rec))) return;
+    if (!(await accessOk(b.access || { ok: true }))) return;
+    fam = b.family ? { family: b.family, me: b.me, members: sortMembers(b.members || []) } : null;
+    if (fam) await loadPrefs(b.prefs || {});
+  } else {
+    if (!(await recoveryOk())) return;
+    if (!(await accessOk())) return;
+    fam = await api.getMyFamily(state.user.id);
+    if (fam) await loadPrefs();
+  }
+  if (!fam) { SNAP.clear(); show("viewOnboard"); $("obName").focus(); paintObHome(); return; }
+  if (painted && fam.family.id !== state.family?.id) dataP = null;   // ย้ายบ้านไปแล้ว: ทิ้งข้อมูลเก่า
+  applyFamily(fam);
+  if (!painted || $("viewApp").classList.contains("hidden")) { show("viewApp"); if (!painted) pinGate(); }
+  await reload(dataP);
   if (unsubscribe) unsubscribe();
   let t = null;
   unsubscribe = api.subscribe(state.family.id, () => { clearTimeout(t); t = setTimeout(reload, 500); }, (ok) => $("liveDot").classList.toggle("on", ok));
 }
-async function reload() {
-  try { state.data = await api.loadAll(state.family.id); }
+async function reload(pre) {
+  if (pre && typeof pre.then !== "function") pre = null;
+  try {
+    const d = await (pre || api.loadAll(state.family.id));
+    if (d && d.__err) throw d.__err;
+    state.data = d;
+  }
   catch (err) { toast(friendlyError(err)); }
   const miss = (state.data.missing || []).filter(x => x !== "due_lists" && x !== "bill_checks" && x !== "member_docs" && !/^sb_(biz|tx_cats)/.test(x));
   state.docsMissing = (state.data.missing || []).includes("member_docs");
@@ -992,6 +1059,7 @@ async function reload() {
   buildIndex();
   if (await runRecurring()) return reload();
   renderAll();
+  snapSave();
   maybeWizard();
 }
 let recurBusy = false;
@@ -1019,13 +1087,16 @@ document.addEventListener("visibilitychange", async () => {
 /* ---------- สิทธิ์ใช้สมุดบ้าน (ส่วนขยายใน DarkChat) ----------
    ตัวกันจริงอยู่ที่ฐานข้อมูล (supabase-v6-gate.sql) หน้านี้บอกผู้ใช้ว่าต้องทำอะไร */
 const GATE = { last: 0 };
-async function accessOk() {
-  if (!api.ledgerAccess || !state.user) return true;
-  let acc;
-  try { acc = await api.ledgerAccess(); }
-  catch (e) { console.warn("ledger access", e); return true; }   // เน็ตมีปัญหา: ฐานข้อมูลยังกันให้อยู่
+async function accessOk(pre) {
+  if (!state.user || (!pre && !api.ledgerAccess)) return true;
+  let acc = pre;
+  if (!acc) {
+    try { acc = await api.ledgerAccess(); }
+    catch (e) { console.warn("ledger access", e); return true; }   // เน็ตมีปัญหา: ฐานข้อมูลยังกันให้อยู่
+  }
   GATE.last = Date.now();
   if (acc.ok) return true;
+  SNAP.clear();
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
   state.family = null;
   if (PIN.mode) pinHide();
@@ -1088,6 +1159,7 @@ async function logout() {
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
   if (state.user) pinClear(state.user.id);
   pinHide();
+  SNAP.clear();
   signingOut = true;
   try { await api.signOut(); } finally { signingOut = false; }
   Object.assign(state, { user: null, family: null, me: null, members: [], salMember: null });
@@ -4194,10 +4266,11 @@ document.addEventListener("click", (e) => {
 
 /* ---------- รหัสกู้คืนบัญชี (ใช้ร่วมกับ DarkChat · ต้องรัน supabase-v9.sql) ---------- */
 const REC = { forced: false, resolve: null };
-async function recoveryOk() {
-  if (!api.recoveryStatus || !state.user) return true;
+async function recoveryOk(pre) {
+  if (!state.user || (pre === undefined && !api.recoveryStatus)) return true;
   let st = null;
-  try { st = await api.recoveryStatus(); } catch (e) { return true; }
+  if (pre !== undefined) st = pre;
+  else { try { st = await api.recoveryStatus(); } catch (e) { return true; } }
   paintRecStatus(st);
   if (!st || st.has_code) return true;
   // ยังไม่เคยตั้ง: บังคับตั้งก่อนใช้งาน
@@ -4278,10 +4351,10 @@ const OV_LABELS = { carry: "ใช้เงินเดือนก่อนเ�
 const OV_DEFAULT = Object.keys(OV_LABELS);
 const ovKey = () => "samudbaan_ovorder_" + (state.user?.id || "x");
 // ลำดับที่ตั้งไว้: เก็บในบัญชี (ใช้ได้ทุกเครื่อง) และสำรองไว้ในเครื่อง
-async function loadPrefs() {
+async function loadPrefs(pre) {
   if (!api.getPrefs) return;
   try {
-    const p = await api.getPrefs();
+    const p = pre !== undefined ? pre : await api.getPrefs();
     state.prefsReady = p !== null;
     if (p && Array.isArray(p.ov_order)) {
       state.ovOrder = p.ov_order;
