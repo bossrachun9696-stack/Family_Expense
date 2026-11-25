@@ -771,3 +771,23 @@ body.sheet-open{overflow:hidden}
 .co-row input{min-width:0;border:1.5px solid var(--line);background:var(--surface);color:inherit;border-radius:12px;padding:9px 10px;font:inherit;font-size:16px}
 .co-row .co-own{width:54px;flex:none;text-align:center}
 .co-row #coName{flex:1}
+
+/* ===== จอกว้าง (คอม / แท็บเล็ตแนวนอน): ขยายเต็มจอ จัดการ์ดเป็นหลายคอลัมน์ ===== */
+@media (min-width:900px){
+  .wrap{max-width:min(1280px,calc(100vw - 48px));padding-left:24px;padding-right:24px}
+  #tabOverview,#ioFlow,#ioLoan,#ioAdv,#ioBiz,#ioSave,#salAll,#salKid,#salOne,#salDocs,#pAccts,#pDaily{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px;align-items:start;grid-auto-flow:row dense}
+  #tabOverview.hidden,#ioFlow.hidden,#ioLoan.hidden,#ioAdv.hidden,#ioBiz.hidden,#ioSave.hidden,#salAll.hidden,#salKid.hidden,#salOne.hidden,#salDocs.hidden,#pAccts.hidden,#pDaily.hidden{display:none}
+  :is(#tabOverview,#ioFlow,#ioLoan,#ioAdv,#ioBiz,#ioSave,#salAll,#salKid,#salOne,#salDocs,#pAccts,#pDaily)>*{min-width:0;margin-top:0}
+  :is(#tabOverview,#ioFlow,#ioLoan,#ioAdv,#ioBiz,#ioSave,#salAll,#salKid,#salOne,#salDocs,#pAccts,#pDaily)>:not(section):not(.hero):not(.kpis):not(.card){grid-column:1/-1}
+  :is(#tabOverview,#ioFlow,#ioLoan,#ioAdv,#ioBiz,#ioSave,#salAll,#salKid,#salOne,#salDocs,#pAccts,#pDaily)>.hidden,
+  :is(#tabOverview,#ioFlow,#ioLoan,#ioAdv,#ioBiz,#ioSave,#salAll,#salKid,#salOne,#salDocs,#pAccts,#pDaily)>:empty{display:none}
+  #tabOverview>.kpis{align-self:stretch;grid-auto-rows:1fr}
+  /* รายการยาว (รายการล่าสุด / ตาราง) ใช้เต็มความกว้าง */
+  #tabOverview>section:last-child,#ioFlow>section:last-child,section.wide{grid-column:1/-1}
+  .sheet{max-width:640px}
+}
+@media (min-width:1500px){
+  .wrap{max-width:1560px}
+  #tabOverview,#ioFlow,#ioSave,#salAll,#salOne,#pDaily{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
