@@ -5,7 +5,7 @@ const CATEGORIES = {
             ["การศึกษา","📚"],["สุขภาพ","💊"],["ช้อปปิ้ง","🛍️"],["บันเทิง","🎬"],["อื่น ๆ","📦"]],
   income:  [["เงินเดือน","💼"],["OT","⏱️"],["ค่ากะ","🌙"],["เงินฝากจากเงินเหลือ","🏦"],["โบนัส","🎁"],["รายได้เสริม","💰"],["ขายของ","🏷️"],["เงินให้/ของขวัญ","🧧"],["อื่น ๆ","✨"]]
 };
-const LEGACY_ICONS = { "เงินเดือน": "💼", "OT": "⏱️" };
+const LEGACY_ICONS = { "เงินเดือน": "💼", "OT": "⏱️", "เงินเดือนจ่ายรายจ่ายหลัก": "📌" };
 const CAT_COLORS = ["#16805F","#C23A4A","#D08A1E","#2F7FC1","#8456C4","#5E8C3A","#C2612D","#1F9A8E","#9C6B4E","#7B8794"];
 const AV_COLORS = ["#16805F","#2F7FC1","#C2612D","#8456C4","#C23A4A","#1F9A8E","#D08A1E"];
 const STATUSES = [
@@ -40,7 +40,9 @@ const FEATURES = [
 ];
 const SAVINGS_LENDER = "เงินเก็บ";
 const SALARY_CATS = new Set(["เงินเดือน", "OT", "ค่ากะ"]);
-const SAVE_CAT = "เงินฝากจากเงินเหลือ"; // ย้ายเงินเหลือไปเก็บ ไม่นับเป็นรายได้ซ้ำในภาพรวม
+const SAVE_CAT = "เงินฝากจากเงินเหลือ";
+const BILL_CAT = "เงินเดือนจ่ายรายจ่ายหลัก"; // เงินเดือนส่วนที่จ่ายรายจ่ายหลัก (ลงคู่กับรายจ่ายตอนฝากเงินคงเหลือ) นับแบบเดียวกับ SAVE_CAT
+const isCarryCat = (c) => c === SAVE_CAT || c === BILL_CAT; // ย้ายเงินเหลือไปเก็บ ไม่นับเป็นรายได้ซ้ำในภาพรวม
 const LEGACY_SLIP = "สลิปเงินเดือน รอบ"; // รายรับที่ปุ่มเก่าบันทึกไว้ ไม่นำมานับซ้ำ
 
 /* ---------- helpers ---------- */
@@ -774,7 +776,7 @@ function summarizeRaw(start, end, capToNow = true) {
   // รายการที่บันทึกไว้ล่วงหน้า (เช่น ฝากเงินเหลือลงวันที่ 1 ของเดือนหน้า) นับตามช่วงที่เลือกเสมอ
   const s0 = ymd(start), e0 = ymd(end);
   // ถ้าไม่นับเงินเดือนอัตโนมัติ: ภาพรวมคิดจากรายการรับ–จ่ายทั้งหมด (รวมเงินฝากจากเงินเหลือ) ให้ตรงกับหน้ารับ–จ่าย
-  const txs = state.data.txs.filter(t => countable(t) && (t.category !== SAVE_CAT || !feat("salary_overview")) && t.tx_date >= s0 && t.tx_date <= e0);
+  const txs = state.data.txs.filter(t => countable(t) && (!isCarryCat(t.category) || !feat("salary_overview")) && t.tx_date >= s0 && t.tx_date <= e0);
   let shared = 0, personal = 0, sharedIncome = 0; const cats = {};
   txs.forEach(t => {
     const a = +t.amount;
@@ -1478,7 +1480,7 @@ function renderIO() {
     const max = e[0][1]; return e.map(([c, v], i) => `<div class="hbar"><div class="top"><b>${catIcon(type, c)} ${esc(c)}</b><span class="num" style="font-weight:700">${bahtR(v)} <small class="muted">${Math.round(v / total * 100)}%</small></span></div>
       <div class="track"><i style="width:${(v / max * 100).toFixed(1)}%;background:${color(c, i)}"></i></div></div>`).join(""); };
   $("ioExpCats").innerHTML = catBars(ec, "expense", out || 1, (c, i) => CAT_COLORS[i % CAT_COLORS.length]);
-  $("ioIncCats").innerHTML = catBars(ic, "income", inc || 1, (c) => c === SAVE_CAT ? "var(--bill)" : "var(--income)");
+  $("ioIncCats").innerHTML = catBars(ic, "income", inc || 1, (c) => isCarryCat(c) ? "var(--bill)" : "var(--income)");
   $("ioExpSub").textContent = bahtR(out); $("ioIncSub").textContent = bahtR(inc);
   const wRows = state.members.map(m => ({ html: `${avatarHTML(m)}${esc(m.display_name)}`, v: who[m.id] || 0 })).concat([{ html: "🏠 ใช้ร่วมกัน", v: sharedOut }]);
   const wMax = Math.max(1, ...wRows.map(w => w.v));
@@ -1592,7 +1594,7 @@ function paintMoney() {
   if (mnMode.personal) { $("mnHint").textContent = `บัญชีส่วนตัว · ยอดตอนนี้ ${baht(paBalance($("mnAcct").value))}`; return; }
   const id = $("mnAcct").value, main = id === MAIN, bal = acctBalance(id);
   if (mnMode.depositM) $("mnAcctPick").innerHTML = acctList().map(a => `<button type="button" data-mn-pick="${esc(a.id)}" aria-pressed="${a.id === id}"><span class="e">${esc(a.emoji)}</span><b>${esc(a.name)}</b><small class="num">${signed(acctBalance(a.id))}</small></button>`).join("");
-  if (mnMode.depositM && mnMode.kind === "deposit") { const inM = $("mnDate").value ? monthLabel(parseYmd($("mnDate").value)) : ""; $("mnHint").textContent = `นับเป็นรายรับของ ${inM} (เงินเดือนออกสิ้นเดือน ใช้เดือนถัดไป) · ` + `บันทึกเป็นรายรับหมวด “${SAVE_CAT}” ในหน้ารับ–จ่าย${main ? "" : ` แล้วโอนเข้า ${acctName(id)}`} · พร้อมบันทึกรายจ่ายหลักของรอบนี้ · ลบรายการนี้ในหน้ารับ–จ่าย รายจ่ายประจำของรอบนี้จะหายตาม`; return; }
+  if (mnMode.depositM && mnMode.kind === "deposit") { const inM = $("mnDate").value ? monthLabel(parseYmd($("mnDate").value)) : ""; $("mnHint").textContent = `นับเป็นรายรับของ ${inM} (เงินเดือนออกสิ้นเดือน ใช้เดือนถัดไป) · ` + `บันทึกเป็นรายรับหมวด “${SAVE_CAT}” ในหน้ารับ–จ่าย${main ? "" : ` แล้วโอนเข้า ${acctName(id)}`} · พร้อมลงรายจ่ายหลักของรอบนี้ในหน้ารับ–จ่าย (ของใคร / ใช้ทำอะไร ตามที่ตั้งในจ่ายตามลำดับความสำคัญ) · ลบรายการนี้ในหน้ารับ–จ่าย รายจ่ายหลักที่ลงไว้และรายจ่ายประจำของรอบนี้จะหายตาม`; return; }
   $("mnHint").textContent = main
     ? (mnMode.kind === "deposit" ? `ฝากเข้าบัญชีรายรับรายจ่าย จะบันทึกเป็นรายรับหมวด “${SAVE_CAT}” ในหน้ารับ–จ่าย` : "ถอนจากบัญชีรายรับรายจ่าย (ไม่นับเป็นรายจ่าย)") + ` · ยอดตอนนี้ ${baht(bal)}`
     : `ยอดในบัญชีตอนนี้ ${baht(bal)}`;
@@ -1618,6 +1620,7 @@ $("formMoney").onsubmit = async (e) => {
         // ถ้าเลือกบัญชีเงินเก็บ → โอนจากบัญชีรายรับรายจ่ายเข้าบัญชีนั้นต่อ (ยอดไม่นับซ้ำ)
         const dn = depositNote(mnMode.depositM);
         await api.addTx({ family_id: state.family.id, member_id: state.me.id, type: "income", scope: "shared", amount, category: SAVE_CAT, note: dn, tx_date: $("mnDate").value });
+        try { await removeBillTxs(mnMode.depositM); await postBillTxs(mnMode.depositM, $("mnDate").value); } catch (er) { console.warn(er); toast("ฝากแล้ว แต่ลงรายจ่ายหลักในหน้ารับ–จ่ายไม่สำเร็จ"); }
         if (id !== MAIN) await api.addMoves([
           { family_id: state.family.id, account_id: null, kind: "withdraw", amount, note: dn, move_date: $("mnDate").value, slip_path: null, debt_id: null },
           { family_id: state.family.id, account_id: id, kind: "deposit", amount, note: dn, move_date: $("mnDate").value, slip_path, debt_id: null }]);
@@ -2232,6 +2235,33 @@ function renderSalaryChips() {
   if (docs) renderDocs();
 }
 const depositNote = (M) => `เงินเหลือรอบ ${monthLabel(M)}`;
+// รายจ่ายหลักลงหน้ารับ–จ่าย (ตอนฝากเงินคงเหลือ): รายรับ BILL_CAT 1 รายการ + รายจ่ายทีละรายการ (ของใคร / หมวด ตามที่ตั้งไว้)
+const billNote = (M) => `จ่ายรายจ่ายหลักรอบ ${monthLabel(M)}`;
+const billTag = (M) => ` (รายจ่ายหลักรอบ ${monthLabel(M)})`;
+function billNoteM(note, date) {
+  const n = String(note || ""); if (!/รายจ่ายหลักรอบ /.test(n)) return null;
+  const d = date ? parseYmd(date) : today0();
+  for (let i = -3; i <= 24; i++) { const M = addMonths(monthStart(d), -i); if (n === billNote(M) || n.endsWith(billTag(M))) return M; }
+  return null;
+}
+const billGroupMonth = (t) => !t ? null : (t.type === "income" && t.category === BILL_CAT) || (t.type === "expense" && String(t.note || "").endsWith(")")) ? billNoteM(t.note, t.tx_date) : null;
+const billTxsOf = (M) => state.data.txs.filter(t => (t.type === "income" && t.category === BILL_CAT && t.note === billNote(M)) || (t.type === "expense" && String(t.note || "").endsWith(billTag(M))));
+function billTxRows(M) {
+  if (!feat("bills")) return [];
+  const b = billsFor(ymd(M));
+  return (b?.items || []).filter(x => +x.amount > 0 && !x.off).map(x => {
+    const who = x.who && state.members.some(m => m.id === x.who) ? x.who : null;
+    return { name: String(x.name || "รายจ่ายหลัก").slice(0, 60), amount: round2(x.amount), who, cat: x.cat || guessBillCat(x.name) };
+  });
+}
+async function postBillTxs(M, date) {
+  const rows = billTxRows(M); if (!rows.length) return 0;
+  const fid = state.family.id, me = state.me.id, tot = round2(rows.reduce((a, x) => a + x.amount, 0));
+  await api.addTx({ family_id: fid, member_id: me, type: "income", scope: "shared", amount: tot, category: BILL_CAT, note: billNote(M), tx_date: date });
+  for (const x of rows) await api.addTx({ family_id: fid, member_id: x.who || me, type: "expense", scope: x.who ? "personal" : "shared", amount: x.amount, category: x.cat, note: (x.name + billTag(M)).slice(0, 200), tx_date: date });
+  return rows.length;
+}
+async function removeBillTxs(M) { for (const t of billTxsOf(M)) await api.deleteTx(t.id); }
 function depositHTML(M, left) {
   if (left <= 0 || !feat("deposit")) return "";
   const note = depositNote(M);
@@ -2239,14 +2269,15 @@ function depositHTML(M, left) {
     || (state.data.moves || []).filter(m => m.kind === "deposit" && m.note === note).reduce((a, m) => a + +m.amount, 0);
   const bp = bpaysOf(ymd(M), ymd(M)), bpTot = bp.reduce((a, x) => a + +x.amount, 0);
   const bpLine = `<button class="btn btn-ghost btn-sm" type="button" data-bpay-save="${ymd(M)}">${bp.length ? `📌 บันทึกรายจ่ายหลักแล้ว ${bp.length} รายการ ${baht(bpTot)} · บันทึกใหม่` : "📌 บันทึกรายจ่ายหลักและรายการหักของรอบนี้"}</button>
-    <small class="muted" style="font-size:12.5px">ดูได้ในหน้าภาพรวม → จ่ายประจำ (ไม่นับรวมในรายจ่าย)</small>`;
+    <small class="muted" style="font-size:12.5px">ดูได้ในหน้าภาพรวม → จ่ายประจำ (รายจ่ายหลักลงในหน้ารับ–จ่ายตอนฝากเงินคงเหลือแล้ว)</small>`;
   if (done) { const tx = state.data.txs.find(t => t.category === SAVE_CAT && t.note === note), mv = (state.data.moves || []).find(m => m.kind === "deposit" && m.note === note && !m.debt_id);
     const where = mv ? acctName(mv.account_id) : "บัญชีรายรับรายจ่าย", when = tx ? `นับเป็นรายรับ ${monthLabel(parseYmd(tx.tx_date))}` : "ยังไม่ขึ้นในหน้ารับ–จ่าย (ฝากด้วยรุ่นเก่า)";
-    return `<div class="deposit"><div class="dep-done"><div><b>🏦 ฝากเงินเหลือจากเงินเดือน ${baht(done)} ✓</b><small>เข้า ${esc(where)} · ${when}</small></div>
+    const bt = billTxsOf(M).filter(t => t.type === "expense");
+    return `<div class="deposit"><div class="dep-done"><div><b>🏦 ฝากเงินเหลือจากเงินเดือน ${baht(done)} ✓</b><small>เข้า ${esc(where)} · ${when}${bt.length ? ` · รายจ่ายหลัก ${bt.length} รายการ ${baht(bt.reduce((a, t) => a + +t.amount, 0))} อยู่ในหน้ารับ–จ่าย` : ""}</small></div>
       <button class="btn btn-ghost btn-sm" type="button" data-deposit-undo="${ymd(M)}">ยกเลิก / ฝากใหม่</button></div>${bpLine}</div>`; }
   if (M > monthStart(today0())) return `<div class="deposit"><button class="btn btn-soft" type="button" disabled>ฝากเงินเหลือได้เมื่อถึงรอบนี้</button></div>`;
   return `<div class="deposit"><button class="btn btn-primary" type="button" data-deposit="${round2(left)}">🏦 ฝากเงินคงเหลือ ${baht(round2(left))}</button>
-    <small class="muted" style="font-size:12.5px">เลือกบัญชีที่จะฝากได้ · ระบบจะบันทึกรายจ่ายหลัก ${billPayRows(M).length} รายการ (รวมรายการหักในสลิป) ไว้ให้ด้วย</small></div>`;
+    <small class="muted" style="font-size:12.5px">เลือกบัญชีที่จะฝากได้ · รายจ่ายหลัก ${billTxRows(M).length} รายการจะลงในหน้ารับ–จ่ายด้วย (ของใคร / หมวด ตามที่ตั้งไว้) · ยกเลิกแล้วหายทั้งชุด</small></div>`;
 }
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-deposit]"); if (!b) return;
@@ -2257,10 +2288,11 @@ document.addEventListener("click", (e) => {
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-deposit-undo]"); if (!b) return;
   const M = parseYmd(b.dataset.depositUndo), note = depositNote(M);
-  if (!confirm(`ยกเลิกการฝากเงินคงเหลือ รอบ ${monthLabel(M)}?\n\nรายการในหน้ารับ–จ่าย เงินที่โอนเข้าบัญชีเงินเก็บ และรายจ่ายประจำของรอบนี้จะถูกลบ แล้วกดฝากใหม่ได้`)) return;
+  if (!confirm(`ยกเลิกการฝากเงินคงเหลือ รอบ ${monthLabel(M)}?\n\nรายการในหน้ารับ–จ่าย (เงินฝาก + รายจ่ายหลักที่ลงไว้) เงินที่โอนเข้าบัญชีเงินเก็บ และรายจ่ายประจำของรอบนี้จะถูกลบ แล้วกดฝากใหม่ได้`)) return;
   b.disabled = true;
   try {
     for (const t of state.data.txs.filter(t => t.category === SAVE_CAT && t.note === note)) await api.deleteTx(t.id);
+    await removeBillTxs(M);
     for (const m of (state.data.moves || []).filter(m => !m.debt_id && m.note === note && (m.kind === "deposit" || m.kind === "withdraw"))) await api.deleteMove(m.id);
     try { await api.setBillPays(state.family.id, ymd(M), []); } catch (er) { console.warn(er); }
     toast("ยกเลิกแล้ว กดฝากใหม่ได้เลย"); await reload();
@@ -2628,15 +2660,17 @@ function renderLines(kind) {
     <input data-line="${kind}" data-i="${i}" data-k="amount" class="num" type="number" inputmode="decimal" min="0" step="0.01" value="${x.amount || ""}" placeholder="บาท" aria-label="จำนวนเงิน">
     ${bills ? `<button type="button" data-mv-line="-1" data-i="${i}" aria-label="เลื่อนขึ้น (สำคัญกว่า)" ${i === 0 ? "disabled" : ""}>↑</button>
     <button type="button" data-mv-line="1" data-i="${i}" aria-label="เลื่อนลง" ${i === items.length - 1 ? "disabled" : ""}>↓</button>` : ""}
-    <button type="button" data-rm-line="${kind}" data-i="${i}" aria-label="ลบรายการ">×</button></div>`).join("")
+    <button type="button" data-rm-line="${kind}" data-i="${i}" aria-label="ลบรายการ">×</button>${bills ? billMetaHTML(x, i) : ""}</div>`).join("")
     : `<div class="muted" style="font-size:14px">ยังไม่มีรายการ</div>`;
   if (kind === "bills") $("billsDraftTotal").textContent = baht(sumItems(items.filter(x => !x.off)));
 }
-document.addEventListener("input", (e) => {
+const onLineEdit = (e) => {
   const l = e.target.closest("[data-line]"); if (!l) return;
   state.draft[l.dataset.line][+l.dataset.i][l.dataset.k] = l.value;
   if (l.dataset.line === "bills") $("billsDraftTotal").textContent = baht(sumItems(state.draft.bills.filter(x => !x.off)));
-});
+};
+document.addEventListener("input", onLineEdit);
+document.addEventListener("change", (e) => { if (e.target.matches && e.target.matches("select[data-line]")) onLineEdit(e); });
 // ติ๊กหน้ารายการจ่ายตามลำดับ: ไม่ติ๊ก = เดือนนี้ไม่จ่าย แต่เก็บรายการไว้ เดือนหน้าติ๊กกลับได้
 document.addEventListener("change", (e) => {
   const c = e.target.closest("[data-line-on]"); if (!c) return;
@@ -2650,7 +2684,30 @@ document.addEventListener("click", (e) => {
   if (mv) { const a = state.draft.bills, i = +mv.dataset.i, j = i + +mv.dataset.mvLine; if (j >= 0 && j < a.length) { [a[i], a[j]] = [a[j], a[i]]; renderLines("bills"); } }
   const r = e.target.closest("[data-rm-line]"); if (r) { state.draft[r.dataset.rmLine].splice(+r.dataset.i, 1); renderLines(r.dataset.rmLine); }
 });
-const cleanLines = (arr) => arr.filter(x => String(x.name).trim() || +x.amount > 0).map(x => ({ name: String(x.name).trim() || "ไม่ระบุ", amount: round2(x.amount), ...(x.off ? { off: true } : {}) }));
+const cleanLines = (arr) => arr.filter(x => String(x.name).trim() || +x.amount > 0).map(x => ({ name: String(x.name).trim() || "ไม่ระบุ", amount: round2(x.amount), ...(x.off ? { off: true } : {}),
+  ...(x.who && x.who !== "shared" ? { who: x.who } : {}), ...(x.cat ? { cat: x.cat } : {}) }));
+// รายจ่ายหลัก: ของใคร + ใช้ทำอะไร (หมวดเดียวกับปุ่ม +) · ใช้ตอนฝากเงินคงเหลือ ลงเป็นรายจ่ายในหน้ารับ–จ่าย
+const BILL_DEF_CAT = "ค่าเช่า/ผ่อนบ้าน";
+// เดาหมวดจากชื่อรายการ (ใช้เมื่อยังไม่ได้เลือกเอง)
+function guessBillCat(name) {
+  const n = String(name || "");
+  if (/น้ำ|ไฟ|เน็ต|อินเทอร์|มือถือ|โทรศัพท์|wifi|แก๊ส/i.test(n)) return "ค่าน้ำค่าไฟ";
+  if (/รถ|น้ำมัน|ทางด่วน|bts|mrt|เดินทาง|ค่ารถ/i.test(n)) return "เดินทาง";
+  if (/อาหาร|กับข้าว|ข้าว|ตลาด/.test(n)) return "อาหาร";
+  if (/ของใช้|ผงซักฟอก|ทิชชู่/.test(n)) return "ของใช้ในบ้าน";
+  if (/เรียน|เทอม|โรงเรียน|ค่าเทอม|หนังสือ/.test(n)) return "การศึกษา";
+  if (/ยา|หมอ|ประกัน|โรงพยาบาล/.test(n)) return "สุขภาพ";
+  if (/netflix|youtube|spotify|บันเทิง/i.test(n)) return "บันเทิง";
+  return BILL_DEF_CAT;
+}
+function billCatOpts() { return [...CATEGORIES.expense.map(c => [c[0], c[1]]).filter(c => c[0] !== OTHER_CAT), ...customCats("expense").map(c => [c.name, c.icon]), [OTHER_CAT, "📦"]]; }
+function billMetaHTML(x, i) {
+  const who = x.who && state.members.some(m => m.id === x.who) ? x.who : "shared", cat = x.cat || guessBillCat(x.name);
+  const cats = billCatOpts(); if (!cats.some(c => c[0] === cat)) cats.unshift([cat, catIcon("expense", cat)]);
+  return `<div class="li-meta"><label><span>ของใคร</span><select data-line="bills" data-i="${i}" data-k="who" aria-label="รายจ่ายนี้ของใคร">
+      <option value="shared"${who === "shared" ? " selected" : ""}>🏠 ใช้ร่วมกัน</option>${state.members.map(m => `<option value="${esc(m.id)}"${m.id === who ? " selected" : ""}>${esc(m.display_name)}</option>`).join("")}</select></label>
+    <label><span>ใช้ทำอะไร</span><select data-line="bills" data-i="${i}" data-k="cat" aria-label="หมวดรายจ่าย">${cats.map(([c, e]) => `<option value="${esc(c)}"${c === cat ? " selected" : ""}>${e} ${esc(c)}</option>`).join("")}</select></label></div>`;
+}
 
 /* ---------- pay settings sheet ---------- */
 function fillDaySelect(sel, val) { sel.innerHTML = Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1 === 31 ? "31 (สิ้นเดือน)" : i + 1}</option>`).join(""); sel.value = String(val); }
@@ -2708,7 +2765,7 @@ $("formPay").onsubmit = async (e) => {
 function openBills() {
   const M = monthStart(state.anchor), b = billsFor(ymd(M));
   $("billsTitle").textContent = `รายจ่ายหลัก · ${monthLabel(M)}`;
-  $("billsHint").textContent = `ติ๊ก ✓ หน้ารายการ = จ่ายเดือนนี้ · ไม่ติ๊ก = ข้ามเดือนนี้แต่เก็บรายการไว้ · เรียงจากสำคัญมากไปน้อย (บนสุดจ่ายก่อน) ใช้ปุ่ม ↑ ↓ จัดลำดับ · ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้า · ไม่ต้องบันทึกซ้ำในปุ่ม +`;
+  $("billsHint").textContent = `ติ๊ก ✓ หน้ารายการ = จ่ายเดือนนี้ · ไม่ติ๊ก = ข้ามเดือนนี้แต่เก็บรายการไว้ · เลือก "ของใคร" และ "ใช้ทำอะไร" ได้ (ตอนกดฝากเงินคงเหลือ จะลงเป็นรายจ่ายในหน้ารับ–จ่ายตามนี้) · เรียงจากสำคัญมากไปน้อย (บนสุดจ่ายก่อน) ใช้ปุ่ม ↑ ↓ จัดลำดับ · ใช้ตั้งแต่ ${monthLabel(M)} เป็นต้นไป เดือนที่ไม่ได้ตั้งจะใช้ของเดือนก่อนหน้า · ไม่ต้องบันทึกซ้ำในปุ่ม +`;
   state.draft.bills = (b?.items || []).map(x => ({ ...x }));
   if (!state.draft.bills.length) state.draft.bills.push({ name: "", amount: "" });
   renderLines("bills"); $("billsErr").textContent = "";
@@ -2834,7 +2891,7 @@ function renderQuick() {
   const t = state.tx, el = $("quickRow");
   if (t.edit || (t.type !== "expense" && t.type !== "income")) { el.classList.add("hidden"); return; }
   const since = ymd(addDays(today0(), -120)), freq = {};
-  state.data.txs.filter(x => x.type === t.type && x.category !== SAVE_CAT && countable(x) && x.tx_date >= since && !x.recurring_id).forEach(x => {
+  state.data.txs.filter(x => x.type === t.type && !isCarryCat(x.category) && !billNoteM(x.note) && countable(x) && x.tx_date >= since && !x.recurring_id).forEach(x => {
     const who = x.scope === "shared" ? "shared" : x.member_id, k = [x.category, x.note || "", +x.amount, who].join("|"); freq[k] = (freq[k] || 0) + 1; });
   const top = Object.entries(freq).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]).slice(0, 8);
   el.classList.toggle("hidden", !top.length);
@@ -3526,7 +3583,7 @@ function renderBillPays() {
   const r = periodRange(state.period), s0 = ymd(monthStart(r.start)), e0 = ymd(r.end), list = bpaysOf(s0, e0);
   const total = list.reduce((a, x) => a + +x.amount, 0);
   $("kBills").textContent = bahtR(total);
-  $("kBillsSub").textContent = list.length ? `${new Set(list.map(x => String(x.cycle_month).slice(0, 7))).size} รอบ · ไม่นับในรายจ่าย` : "กดฝากเงินคงเหลือเพื่อบันทึก";
+  $("kBillsSub").textContent = list.length ? `${new Set(list.map(x => String(x.cycle_month).slice(0, 7))).size} รอบ · ดูยอดรวม` : "กดฝากเงินคงเหลือเพื่อบันทึก";
   if (!on) return;
   const agg = {};
   list.forEach(x => { const k = x.source + "|" + x.name; const g = agg[k] ||= { name: x.name, source: x.source, amount: 0, who: new Set(), n: new Set() };
@@ -3554,24 +3611,28 @@ function depositMonthOf(t) {
   for (let i = -3; i <= 24; i++) { const M = addMonths(monthStart(d), -i); if (depositNote(M) === t.note) return M; }
   return null;
 }
-const delTxMsg = (id) => { const M = depositMonthOf(state.data.txs.find(x => x.id === id));
-  return M ? `ลบรายการฝากเงินคงเหลือ รอบ ${monthLabel(M)}?\n\nรายจ่ายประจำของรอบนี้ในหน้าภาพรวม และเงินที่โอนเข้าบัญชีเงินเก็บ จะถูกลบตามไปด้วย` : "ลบรายการนี้?"; };
+const delTxMsg = (id) => { const t0 = state.data.txs.find(x => x.id === id), B = billGroupMonth(t0);
+  if (B) return `ลบรายจ่ายหลักชุดของรอบ ${monthLabel(B)}?\n\nรายจ่ายหลักทุกรายการของรอบนี้ในหน้ารับ–จ่าย และรายการ "${BILL_CAT}" จะถูกลบทั้งชุด (เงินฝากคงเหลือยังอยู่)`;
+  const M = depositMonthOf(t0);
+  return M ? `ลบรายการฝากเงินคงเหลือ รอบ ${monthLabel(M)}?\n\nรายจ่ายหลักที่ลงไว้ในหน้ารับ–จ่าย รายจ่ายประจำของรอบนี้ในหน้าภาพรวม และเงินที่โอนเข้าบัญชีเงินเก็บ จะถูกลบตามไปด้วย` : "ลบรายการนี้?"; };
 async function deleteTxCascade(id) {
-  const t = state.data.txs.find(x => x.id === id), M = depositMonthOf(t);
+  const t = state.data.txs.find(x => x.id === id), M = depositMonthOf(t), B = billGroupMonth(t);
+  if (B) { await removeBillTxs(B); return; }   // ลบรายจ่ายหลัก 1 รายการ = ลบทั้งชุดของรอบนั้น (รายรับคู่กันจะได้ไม่ค้าง)
   await api.deleteTx(id);
   if (t?.slip_path) { try { await api.removeFiles([t.slip_path]); } catch (x) { console.warn(x); } }
   if (!M) return;
   const others = state.data.txs.some(x => x.id !== id && x.category === SAVE_CAT && x.note === t.note);
   if (others) return; // ยังมีรายการฝากของรอบนี้อีก
+  await removeBillTxs(M);
   for (const m of (state.data.moves || []).filter(m => !m.debt_id && m.note === t.note && (m.kind === "deposit" || m.kind === "withdraw"))) await api.deleteMove(m.id);
   try { await api.setBillPays(state.family.id, ymd(M), []); } catch (e) { console.warn(e); }
 }
 
 /* ---------- ภาพรวม: รายรับเดือนก่อน vs รายจ่ายเดือนนี้ ---------- */
-const incomeOnly = (s0, e0) => state.data.txs.filter(t => t.type === "income" && countable(t) && t.category !== SAVE_CAT && t.tx_date >= s0 && t.tx_date <= e0).reduce((a, t) => a + +t.amount, 0);
+const incomeOnly = (s0, e0) => state.data.txs.filter(t => t.type === "income" && countable(t) && !isCarryCat(t.category) && t.tx_date >= s0 && t.tx_date <= e0).reduce((a, t) => a + +t.amount, 0);
 const expenseOnly = (s0, e0) => state.data.txs.filter(t => t.type === "expense" && countable(t) && t.tx_date >= s0 && t.tx_date <= e0).reduce((a, t) => a + +t.amount, 0);
 const mEnd = (M) => ymd(new Date(M.getFullYear(), M.getMonth() + 1, 0));
-const saveIn = (s0, e0) => state.data.txs.filter(t => t.type === "income" && t.category === SAVE_CAT && t.tx_date >= s0 && t.tx_date <= e0).reduce((a, t) => a + +t.amount, 0);
+const saveIn = (s0, e0) => state.data.txs.filter(t => t.type === "income" && isCarryCat(t.category) && t.tx_date >= s0 && t.tx_date <= e0).reduce((a, t) => a + +t.amount, 0);
 // เงินที่ใช้ได้ของเดือน M = รายรับเดือนก่อน + เงินเหลือที่ฝากเข้าเดือน M (ซึ่งลงวันที่เดือนที่ใช้อยู่แล้ว)
 function carryPair(M) { const P = addMonths(M, -1); return { M, P, inc: memo("ci|" + ymd(M), () => incomeOnly(ymd(P), mEnd(P)) + saveIn(ymd(M), mEnd(M))), out: memo("co|" + ymd(M), () => expenseOnly(ymd(M), mEnd(M))) }; }
 function renderCarry() {

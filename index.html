@@ -19,6 +19,10 @@
 <script>try{var t=localStorage.getItem("samudbaan-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;var p=localStorage.getItem("samudbaan-palette");if(p&&p!=="forest")document.documentElement.dataset.palette=p;}catch(e){}</script>
 <link rel="stylesheet" href="style.css">
 <style>
+.list-edit .li.li-bill .li-meta{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:2px 0 6px 0}
+.li-meta label{display:flex;flex-direction:column;gap:2px;font-size:11.5px;color:var(--muted)}
+.li-meta select{font:inherit;font-size:13.5px;padding:8px 8px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);min-width:0;width:100%}
+.li-off .li-meta{opacity:.5}
 .cyc-btn{border:0;background:color-mix(in srgb,var(--brand) 16%,transparent);color:inherit;font:inherit;font-size:11px;padding:2px 8px;border-radius:20px;margin-left:4px;cursor:pointer}
 .cyc-note{display:block;font-size:11px;opacity:.8;margin-top:2px}
 .cyc-fixed{padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--brand) 8%,transparent);font-weight:600}
@@ -184,7 +188,7 @@
       <section data-ov="billpay" id="secBillPay">
         <div class="sec-head"><h2>จ่ายประจำ · มากไปน้อย</h2><small id="bpSub"></small></div>
         <div class="card">
-          <p class="muted" style="font-size:13px;margin:0 0 8px">รายจ่ายหลัก + รายการหักในสลิป ที่บันทึกตอนกด “ฝากเงินคงเหลือ” · ดูยอดอย่างเดียว ไม่นับรวมในรายรับรายจ่าย</p>
+          <p class="muted" style="font-size:13px;margin:0 0 8px">รายจ่ายหลัก + รายการหักในสลิป ที่บันทึกตอนกด “ฝากเงินคงเหลือ” · รายจ่ายหลักลงในหน้ารับ–จ่ายด้วยแล้ว (ตามของใคร / หมวดที่ตั้ง) · รายการหักในสลิปดูยอดอย่างเดียว</p>
           <div id="bpList" class="hbars"></div>
           <div class="legend-row" style="margin-top:14px"><span><i style="background:var(--bill)"></i>รายจ่ายหลัก</span><span><i style="background:#E0620F"></i>หักในสลิป</span></div>
           <div id="chartBP" class="chart"></div><div id="tipBP" class="tip"></div>
