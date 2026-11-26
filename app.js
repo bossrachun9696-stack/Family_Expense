@@ -5,7 +5,7 @@ const CATEGORIES = {
             ["การศึกษา","📚"],["สุขภาพ","💊"],["ช้อปปิ้ง","🛍️"],["บันเทิง","🎬"],["อื่น ๆ","📦"]],
   income:  [["เงินเดือน","💼"],["OT","⏱️"],["ค่ากะ","🌙"],["เงินฝากจากเงินเหลือ","🏦"],["โบนัส","🎁"],["รายได้เสริม","💰"],["ขายของ","🏷️"],["เงินให้/ของขวัญ","🧧"],["อื่น ๆ","✨"]]
 };
-const LEGACY_ICONS = { "เงินเดือน": "💼", "OT": "⏱️", "เงินเดือนจ่ายรายจ่ายหลัก": "📌" };
+const LEGACY_ICONS = { "เงินเดือน": "💼", "OT": "⏱️", "เงินเดือนจ่ายรายจ่ายหลัก": "📌", "เงินเดือนส่วนจ่ายรายจ่ายหลัก": "📌" };
 const CAT_COLORS = ["#16805F","#C23A4A","#D08A1E","#2F7FC1","#8456C4","#5E8C3A","#C2612D","#1F9A8E","#9C6B4E","#7B8794"];
 const AV_COLORS = ["#16805F","#2F7FC1","#C2612D","#8456C4","#C23A4A","#1F9A8E","#D08A1E"];
 const STATUSES = [
@@ -41,8 +41,9 @@ const FEATURES = [
 const SAVINGS_LENDER = "เงินเก็บ";
 const SALARY_CATS = new Set(["เงินเดือน", "OT", "ค่ากะ"]);
 const SAVE_CAT = "เงินฝากจากเงินเหลือ";
-const BILL_CAT = "เงินเดือนจ่ายรายจ่ายหลัก"; // เงินเดือนส่วนที่จ่ายรายจ่ายหลัก (ลงคู่กับรายจ่ายตอนฝากเงินคงเหลือ) นับแบบเดียวกับ SAVE_CAT
-const isCarryCat = (c) => c === SAVE_CAT || c === BILL_CAT; // ย้ายเงินเหลือไปเก็บ ไม่นับเป็นรายได้ซ้ำในภาพรวม
+const BILL_CAT = "เงินเดือนส่วนจ่ายรายจ่ายหลัก"; const BILL_CAT_OLD = "เงินเดือนจ่ายรายจ่ายหลัก"; // เงินเดือนส่วนที่จ่ายรายจ่ายหลัก (ลงคู่กับรายจ่ายตอนฝากเงินคงเหลือ) นับแบบเดียวกับ SAVE_CAT
+const isBillCat = (c) => c === BILL_CAT || c === BILL_CAT_OLD;
+const isCarryCat = (c) => c === SAVE_CAT || isBillCat(c); // ย้ายเงินเหลือไปเก็บ ไม่นับเป็นรายได้ซ้ำในภาพรวม
 const LEGACY_SLIP = "สลิปเงินเดือน รอบ"; // รายรับที่ปุ่มเก่าบันทึกไว้ ไม่นำมานับซ้ำ
 
 /* ---------- helpers ---------- */
@@ -2308,16 +2309,17 @@ function renderSalaryChips() {
 }
 const depositNote = (M) => `เงินเหลือรอบ ${monthLabel(M)}`;
 // รายจ่ายหลักลงหน้ารับ–จ่าย (ตอนฝากเงินคงเหลือ): รายรับ BILL_CAT 1 รายการ + รายจ่ายทีละรายการ (ของใคร / หมวด ตามที่ตั้งไว้)
-const billNote = (M) => `จ่ายรายจ่ายหลักรอบ ${monthLabel(M)}`;
+const billNote = (M) => `เงินเดือนที่ใช้จ่ายรายจ่ายหลัก รอบ ${monthLabel(M)}`;
+const billNoteOld = (M) => `จ่ายรายจ่ายหลักรอบ ${monthLabel(M)}`;
 const billTag = (M) => ` (รายจ่ายหลักรอบ ${monthLabel(M)})`;
 function billNoteM(note, date) {
-  const n = String(note || ""); if (!/รายจ่ายหลักรอบ /.test(n)) return null;
+  const n = String(note || ""); if (!/รายจ่ายหลัก ?รอบ /.test(n)) return null;
   const d = date ? parseYmd(date) : today0();
-  for (let i = -3; i <= 24; i++) { const M = addMonths(monthStart(d), -i); if (n === billNote(M) || n.endsWith(billTag(M))) return M; }
+  for (let i = -3; i <= 24; i++) { const M = addMonths(monthStart(d), -i); if (n === billNote(M) || n === billNoteOld(M) || n.endsWith(billTag(M))) return M; }
   return null;
 }
-const billGroupMonth = (t) => !t ? null : (t.type === "income" && t.category === BILL_CAT) || (t.type === "expense" && String(t.note || "").endsWith(")")) ? billNoteM(t.note, t.tx_date) : null;
-const billTxsOf = (M) => state.data.txs.filter(t => (t.type === "income" && t.category === BILL_CAT && t.note === billNote(M)) || (t.type === "expense" && String(t.note || "").endsWith(billTag(M))));
+const billGroupMonth = (t) => !t ? null : (t.type === "income" && isBillCat(t.category)) || (t.type === "expense" && String(t.note || "").endsWith(")")) ? billNoteM(t.note, t.tx_date) : null;
+const billTxsOf = (M) => state.data.txs.filter(t => (t.type === "income" && isBillCat(t.category) && (t.note === billNote(M) || t.note === billNoteOld(M))) || (t.type === "expense" && String(t.note || "").endsWith(billTag(M))));
 function billTxRows(M) {
   if (!feat("bills")) return [];
   const b = billsFor(ymd(M));
@@ -3708,22 +3710,79 @@ const saveIn = (s0, e0) => state.data.txs.filter(t => t.type === "income" && isC
 // เงินที่ใช้ได้ของเดือน M = รายรับเดือนก่อน + เงินเหลือที่ฝากเข้าเดือน M (ซึ่งลงวันที่เดือนที่ใช้อยู่แล้ว)
 function carryPair(M) { const P = addMonths(M, -1); return { M, P, inc: memo("ci|" + ymd(M), () => incomeOnly(ymd(P), mEnd(P)) + saveIn(ymd(M), mEnd(M))), out: memo("co|" + ymd(M), () => expenseOnly(ymd(M), mEnd(M))) }; }
 function renderCarry() {
-  const t0 = monthStart(today0()), a = state.anchor;
-  const T = state.period === "month" ? monthStart(a) : state.period === "year" && a.getFullYear() < t0.getFullYear() ? new Date(a.getFullYear(), 11, 1) : t0;
-  const c = carryPair(T), left = c.inc - c.out, pct = c.inc ? c.out / c.inc * 100 : null;
-  $("carryTitle").textContent = `ใช้เงินของ ${monthShort(c.P)} เกินไหม`;
-  $("carrySub").textContent = `รายรับ ${monthLabel(c.P)} → จ่าย ${monthLabel(T)}`;
-  const col = left >= 0 ? "var(--income)" : "var(--expense)";
-  $("carryBox").innerHTML = `<div class="cmp2">
-      <div><span>รายรับ ${esc(monthShort(c.P))} + เงินเหลือที่ฝาก</span><b class="num" style="color:var(--income)">${bahtR(c.inc)}</b></div>
-      <div><span>รายจ่าย ${esc(monthLabel(T))}</span><b class="num" style="color:var(--expense)">${bahtR(c.out)}</b></div>
-      <div><span>${left >= 0 ? "ยังเหลือ" : "ใช้เกิน"}</span><b class="num" style="color:${col}">${left >= 0 ? "" : "−"}${bahtR(Math.abs(left))}</b></div></div>
-    <div class="track" style="height:12px;margin-top:12px"><i style="width:${pct === null ? 0 : Math.min(100, pct).toFixed(1)}%;background:${pct !== null && pct > 100 ? "var(--expense)" : pct !== null && pct > 85 ? "var(--shift)" : "var(--income)"}"></i></div>
-    <div class="wf-sub"><span>${pct === null ? "เดือนก่อนยังไม่มีรายรับที่บันทึก" : `ใช้ไปแล้ว ${Math.round(pct)}% ของรายรับเดือนก่อน`}</span><span class="muted">รวมเงินเหลือที่ฝากเข้าเดือนนี้</span></div>`;
-  const B = []; for (let i = 11; i >= 0; i--) B.push(carryPair(addMonths(T, -i)));
-  barChart($("chartCarry"), $("tipCarry"), { labels: B.map(b => monthShort(b.M)), stacked: false, hi: B.length - 1, initialTip: B.length - 1,
-    series: [{ color: "var(--income)", values: B.map(b => b.inc) }, { color: "var(--expense)", values: B.map(b => b.out) }],
-    tip: (i) => { const b = B[i], d = b.inc - b.out; return `<b>จ่าย ${esc(monthLabel(b.M))}</b><span>รายรับ ${esc(monthLabel(b.P))} + เงินเหลือ <b class="num">${bahtR(b.inc)}</b></span><span>รายจ่าย ${esc(monthLabel(b.M))} <b class="num">${bahtR(b.out)}</b></span><span style="color:${d >= 0 ? "var(--income)" : "var(--expense)"}">${d >= 0 ? "เหลือ" : "ใช้เกิน"} ${bahtR(Math.abs(d))}</span>`; } });
+  // เทียบกับช่วงก่อน ตามปุ่มด้านบน: เดือน = เทียบเดือนที่แล้ว · ปี = เทียบปีที่แล้ว · ทั้งหมด = กราฟ 12 เดือนย้อนหลัง
+  // (ไม่นับเงินย้ายไปเก็บ / เงินเดือนส่วนจ่ายรายจ่ายหลัก เป็นรายรับซ้ำ)
+  const t0 = today0(), a = state.anchor, per = state.period;
+  const sum = (s0, e0) => { const inc = incomeOnly(s0, e0), out = expenseOnly(s0, e0); return { inc, out, bal: inc - out }; };
+  const box = $("carryBox"), wrap = $("carryChartWrap");
+
+  if (per === "all") {
+    const T = monthStart(t0), B = [];
+    for (let k = 11; k >= 0; k--) { const M = addMonths(T, -k); B.push(Object.assign({ M }, sum(ymd(M), mEnd(M)))); }
+    const tot = B.reduce((x, b) => ({ inc: x.inc + b.inc, out: x.out + b.out }), { inc: 0, out: 0 });
+    const minus = B.filter(b => b.bal < 0).length;
+    $("carryTitle").textContent = "ย้อนหลัง 12 เดือน";
+    $("carrySub").textContent = `${monthLabel(B[0].M)} – ${monthLabel(T)}`;
+    box.innerHTML = `<div class="cmp2">
+        <div><span>รายรับรวม</span><b class="num" style="color:var(--income)">${bahtR(tot.inc)}</b></div>
+        <div><span>รายจ่ายรวม</span><b class="num" style="color:var(--expense)">${bahtR(tot.out)}</b></div>
+        <div><span>เฉลี่ยเหลือ/เดือน</span><b class="num" style="color:${tot.inc - tot.out >= 0 ? "var(--income)" : "var(--expense)"}">${tot.inc - tot.out < 0 ? "−" : ""}${bahtR(Math.abs(tot.inc - tot.out) / 12)}</b></div></div>
+      <div class="mc-note" style="margin-top:10px">${minus ? `⚠️ ใช้เกินรายรับ ${minus} เดือน จาก 12 เดือน` : "✅ ไม่มีเดือนไหนใช้เกินรายรับ"} · แตะแท่งเพื่อดูแต่ละเดือน</div>`;
+    wrap.classList.remove("hidden");
+    barChart($("chartCarry"), $("tipCarry"), { labels: B.map(b => monthShort(b.M)), stacked: false, hi: B.length - 1, initialTip: B.length - 1,
+      series: [{ color: "var(--income)", values: B.map(b => b.inc) }, { color: "var(--expense)", values: B.map(b => b.out) }],
+      tip: (i) => { const b = B[i], p = i ? B[i - 1] : null;
+        const ch = p ? b.out - p.out : null;
+        return `<b>${esc(monthLabel(b.M))}</b><span>รายรับ <b class="num">${bahtR(b.inc)}</b></span><span>รายจ่าย <b class="num">${bahtR(b.out)}</b></span>
+          <span style="color:${b.bal >= 0 ? "var(--income)" : "var(--expense)"}">${b.bal >= 0 ? "เหลือ" : "ใช้เกิน"} ${bahtR(Math.abs(b.bal))}</span>
+          ${ch !== null && Math.round(ch) ? `<span>รายจ่าย${ch > 0 ? "มากกว่า" : "น้อยกว่า"}เดือนก่อน ${bahtR(Math.abs(ch))}</span>` : ""}`; } });
+    return;
+  }
+  wrap.classList.add("hidden");
+
+  let cur, prv, labC, labP, shortC, shortP, unit, same = "";
+  if (per === "year") {
+    const Y = a.getFullYear();
+    cur = sum(`${Y}-01-01`, `${Y}-12-31`); prv = sum(`${Y - 1}-01-01`, `${Y - 1}-12-31`);
+    labC = `ปี ${Y + 543}`; labP = `ปี ${Y + 542}`; shortC = String(Y + 543); shortP = String(Y + 542); unit = "ปีที่แล้ว";
+    if (Y === t0.getFullYear()) {   // ปีนี้ยังไม่จบ: เทียบช่วงเดียวกันของปีที่แล้ว
+      const pe = ymd(new Date(Y - 1, t0.getMonth(), Math.min(t0.getDate(), new Date(Y - 1, t0.getMonth() + 1, 0).getDate())));
+      const p2 = sum(`${Y - 1}-01-01`, pe), d = cur.out - p2.out;
+      same = `<div class="mc-note">📅 ช่วงเดียวกัน (1 ม.ค. – ${esc(dayLabel(ymd(t0)).replace(/^\S+\s/, ""))}) ปี ${Y + 542} จ่ายไป <b class="num">${bahtR(p2.out)}</b> · ปีนี้จ่าย <b class="num">${bahtR(cur.out)}</b>
+        ${Math.round(d) === 0 ? "เท่ากัน" : `<b style="color:${d > 0 ? "var(--expense)" : "var(--income)"}">${d > 0 ? "มากกว่า" : "น้อยกว่า"} ${bahtR(Math.abs(d))}</b>`}</div>`;
+    }
+  } else {
+    const T = monthStart(a), P = addMonths(T, -1);
+    cur = sum(ymd(T), mEnd(T)); prv = sum(ymd(P), mEnd(P));
+    labC = monthLabel(T); labP = monthLabel(P); shortC = monthShort(T); shortP = monthShort(P); unit = "เดือนที่แล้ว";
+    if (+T === +monthStart(t0)) {   // เดือนนี้ยังไม่จบ: เทียบช่วงวันเดียวกันของเดือนที่แล้ว
+      const dd = t0.getDate(), pe = ymd(new Date(P.getFullYear(), P.getMonth(), Math.min(dd, new Date(P.getFullYear(), P.getMonth() + 1, 0).getDate())));
+      const pOut = expenseOnly(ymd(P), pe), d = cur.out - pOut;
+      same = `<div class="mc-note">📅 ช่วงเดียวกัน (วันที่ 1–${dd}) ${esc(shortP)} จ่ายไป <b class="num">${bahtR(pOut)}</b> · เดือนนี้จ่าย <b class="num">${bahtR(cur.out)}</b>
+        ${Math.round(d) === 0 ? "เท่ากัน" : `<b style="color:${d > 0 ? "var(--expense)" : "var(--income)"}">${d > 0 ? "มากกว่า" : "น้อยกว่า"} ${bahtR(Math.abs(d))}</b>`}</div>`;
+    }
+  }
+  $("carryTitle").textContent = "เทียบกับ" + unit;
+  $("carrySub").textContent = `${labC} เทียบ ${labP}`;
+  const rows = [
+    { k: "inc", name: "รายรับ", color: "var(--income)", goodUp: true },
+    { k: "out", name: "รายจ่าย", color: "var(--expense)", goodUp: false },
+    { k: "bal", name: "คงเหลือ (รายรับ − รายจ่าย)", color: "var(--brand)", goodUp: true },
+  ];
+  const max = Math.max(1, ...rows.flatMap(r => [Math.abs(cur[r.k]), Math.abs(prv[r.k])]));
+  const bar = (lab, v, color, now) => `<div class="mc-bar${now ? " now" : ""}"><span>${esc(lab)}</span>
+      <div class="mc-track"><i style="width:${(Math.abs(v) / max * 100).toFixed(1)}%;background:${v < 0 ? "var(--expense)" : color}"></i></div>
+      <b class="num" style="${v < 0 ? "color:var(--expense)" : ""}">${v < 0 ? "−" : ""}${bahtR(Math.abs(v))}</b></div>`;
+  const chg = (r) => {
+    const d = cur[r.k] - prv[r.k];
+    if (Math.round(d) === 0) return `<span class="mc-chg same">เท่าเดิม</span>`;
+    const good = (d > 0) === r.goodUp, pc = prv[r.k] ? Math.abs(d / prv[r.k] * 100) : null;
+    return `<span class="mc-chg ${good ? "good" : "bad"}">${d > 0 ? "▲" : "▼"} ${d > 0 ? "มากขึ้น" : "น้อยลง"} ${bahtR(Math.abs(d))}${pc !== null && pc < 1000 ? ` (${Math.round(pc)}%)` : ""}</span>`;
+  };
+  box.innerHTML = `<div class="mc-legend"><span><i class="prev"></i>${esc(labP)}</span><span><i class="cur"></i>${esc(labC)}</span></div>` +
+    rows.map(r => `<div class="mc-row"><div class="mc-h"><b>${r.name}</b>${chg(r)}</div>
+      ${bar(shortP, prv[r.k], "color-mix(in srgb," + r.color + " 40%,var(--surface-2))", false)}
+      ${bar(shortC, cur[r.k], r.color, true)}</div>`).join("") + same;
 }
 
 /* ---------- ปฏิทินการใช้จ่าย: แตะวัน → ป๊อปอัปรายละเอียด ---------- */
@@ -4345,7 +4404,7 @@ $("formRecover").onsubmit = async (e) => {
 
 
 /* ---------- ภาพรวม: จัดลำดับหัวข้อ (ตั้งค่า > หน้าตาและธีม) · เก็บแยกแต่ละเครื่อง ---------- */
-const OV_LABELS = { carry: "ใช้เงินเดือนก่อนเกินไหม", cmp: "รายรับ–รายจ่าย แต่ละเดือน", grow: "เงินเหลือ โตขึ้นหรือลดลง",
+const OV_LABELS = { carry: "เทียบกับช่วงก่อน (เดือน/ปี/12 เดือน)", cmp: "รายรับ–รายจ่าย แต่ละเดือน", grow: "เงินเหลือ โตขึ้นหรือลดลง",
   billpay: "จ่ายประจำ · มากไปน้อย", kids: "🎒 เงินไปโรงเรียนของน้อง", who: "ใครใช้จ่ายเท่าไหร่", debts: "เงินเก็บ · กู้ยืม · ออกให้ก่อน",
   ot: "OT แต่ละคน", memberinc: "รายได้–รายจ่ายแต่ละคน", personal: "ใช้ส่วนตัวแต่ละคน", cats: "จ่ายไปกับอะไร", recent: "ล่าสุด" };
 const OV_DEFAULT = Object.keys(OV_LABELS);

@@ -791,3 +791,21 @@ body.sheet-open{overflow:hidden}
   .wrap{max-width:1560px}
   #tabOverview,#ioFlow,#ioSave,#salAll,#salOne,#pDaily{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+/* ===== เทียบกับเดือนที่แล้ว ===== */
+.mc-legend{display:flex;gap:16px;font-size:13px;color:var(--muted);margin-bottom:6px}
+.mc-legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:6px;vertical-align:-1px}
+.mc-legend i.prev{background:color-mix(in srgb,var(--muted) 45%,var(--surface-2))}
+.mc-legend i.cur{background:var(--brand)}
+.mc-row{padding:12px 0;border-top:1px solid var(--line)}
+.mc-row:first-of-type{border-top:0}
+.mc-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.mc-h b{font-size:15px}
+.mc-chg{font-size:13px;font-weight:700;white-space:nowrap}
+.mc-chg.good{color:var(--income)} .mc-chg.bad{color:var(--expense)} .mc-chg.same{color:var(--muted)}
+.mc-bar{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:10px;margin:5px 0;font-size:13px;color:var(--muted)}
+.mc-bar b{font-size:14px;color:var(--ink);min-width:78px;text-align:right}
+.mc-bar.now span{color:var(--ink);font-weight:700}
+.mc-track{height:12px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.mc-track i{display:block;height:100%;border-radius:999px;min-width:2px;transition:width .4s}
+.mc-note{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface-2);font-size:13px;color:var(--muted);line-height:1.6}

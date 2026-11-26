@@ -161,11 +161,13 @@
       <div id="budAlerts" class="alerts"></div>
 
       <section data-ov="carry" id="secCarry">
-        <div class="sec-head"><h2 id="carryTitle">ใช้เงินเดือนก่อนเกินไหม</h2><small id="carrySub"></small></div>
+        <div class="sec-head"><h2 id="carryTitle">เทียบกับเดือนที่แล้ว</h2><small id="carrySub"></small></div>
         <div class="card">
           <div id="carryBox"></div>
-          <div class="legend-row" style="margin-top:14px"><span><i style="background:var(--income)"></i>รายรับเดือนก่อน + เงินเหลือที่ฝาก</span><span><i style="background:var(--expense)"></i>รายจ่ายเดือนนี้</span></div>
-          <div id="chartCarry" class="chart"></div><div id="tipCarry" class="tip"></div>
+          <div id="carryChartWrap" class="hidden">
+            <div class="legend-row" style="margin-top:6px"><span><i style="background:var(--income)"></i>รายรับ</span><span><i style="background:var(--expense)"></i>รายจ่าย</span></div>
+            <div id="chartCarry" class="chart"></div><div id="tipCarry" class="tip"></div>
+          </div>
         </div>
       </section>
 
