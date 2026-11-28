@@ -2,7 +2,7 @@ const DEMO = !CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY;
 
 const CATEGORIES = {
   expense: [["อาหาร","🍜"],["ของใช้ในบ้าน","🧺"],["ค่าน้ำค่าไฟ","💡"],["ค่าเช่า/ผ่อนบ้าน","🏠"],["เดินทาง","🚗"],
-            ["การศึกษา","📚"],["สุขภาพ","💊"],["ช้อปปิ้ง","🛍️"],["บันเทิง","🎬"],["อื่น ๆ","📦"]],
+            ["การศึกษา","📚"],["สุขภาพ","💊"],["ช้อปปิ้ง","🛍️"],["บันเทิง","🎬"],["ผ่อนชำระหนี้","💳"],["อื่น ๆ","📦"]],
   income:  [["เงินเดือน","💼"],["OT","⏱️"],["ค่ากะ","🌙"],["เงินฝากจากเงินเหลือ","🏦"],["โบนัส","🎁"],["รายได้เสริม","💰"],["ขายของ","🏷️"],["เงินให้/ของขวัญ","🧧"],["อื่น ๆ","✨"]]
 };
 const LEGACY_ICONS = { "เงินเดือน": "💼", "OT": "⏱️", "เงินเดือนจ่ายรายจ่ายหลัก": "📌", "เงินเดือนส่วนจ่ายรายจ่ายหลัก": "📌" };
@@ -35,6 +35,7 @@ const FEATURES = [
   ["heatmap", "ปฏิทินสีการใช้จ่าย", "ดูว่าวันไหนใช้เงินเยอะ", true],
   ["loans", "กู้ยืม / คืนเงินกู้", "ยืมเงินเก็บหรือคนอื่น แล้วทยอยคืน", false],
   ["advances", "ออกให้ก่อน", "คิดกันเองว่าใครออกเงินให้ใคร", false],
+  ["liabilities", "💳 หนี้สินของเรา", "บัตรเครดิต ผ่อนบ้าน/รถ ฯลฯ · จ่ายหนี้ลงรายจ่ายให้เอง · ภาระหนี้ต่อรายได้ · การ์ดหนี้สิน vs เงินเก็บในภาพรวม", false],
   ["personal", "งบส่วนตัว", "เงินใช้ส่วนตัวของแต่ละคน แบ่งเป็นรายวัน", false],
   ["business", "💼 ธุรกิจ / งานรับเหมา", "งวดเบิกเงิน เงินค้างรับ ต้นทุน (ไม่นับรวมรายรับรายจ่ายบ้าน)", false]
 ];
@@ -256,6 +257,13 @@ function makeSupabaseApi() {
       return must(r);
     },
     async bizDelete(t, id) { must(await sb.from(t).delete().eq("id", id)); },
+    async debtSave(t, row) {   // t = sb_liabilities | sb_liability_moves
+      const { id, ...rest } = row;
+      const r = id ? await sb.from(t).update(rest).eq("id", id).select().single() : await sb.from(t).insert(rest).select().single();
+      if (r.error && /sb_liab|does not exist|schema cache/i.test(r.error.message || "")) throw new Error("ให้รันไฟล์ sb-debt-01.sql ใน Supabase ก่อน");
+      return must(r);
+    },
+    async debtDelete(t, id) { must(await sb.from(t).delete().eq("id", id)); },
     async addTxCat(row) {
       const r = await sb.from("sb_tx_cats").insert(row).select().single();
       if (r.error && /sb_tx_cats|does not exist|schema cache/i.test(r.error.message || "")) throw new Error("ให้รันไฟล์ supabase-sb-cats.sql ใน Supabase ก่อน");
@@ -269,7 +277,7 @@ function makeSupabaseApi() {
     async loadAll(fid) {
       const missing = [];
       const opt = (p, name) => p.catch(e => { missing.push(name); console.warn(e); return []; });
-      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, txCats, cycles] = await Promise.all([
+      const [txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, txCats, cycles, liabs, lmoves] = await Promise.all([
         fetchAll("transactions", fid, "tx_date"),
         opt(fetchAll("work_days", fid, "work_date"), "work_days"),
         opt(fetchAll("member_pay_settings", fid, "effective_month"), "member_pay_settings"),
@@ -295,9 +303,11 @@ function makeSupabaseApi() {
         opt(fetchAll("sb_biz_jobs", fid, "created_at"), "sb_biz_jobs"),
         opt(fetchAll("sb_biz_items", fid, "item_date"), "sb_biz_items"),
         opt(fetchAll("sb_tx_cats", fid, "created_at"), "sb_tx_cats"),
-        opt(fetchAll("sb_pay_cycles", fid, "cycle_month"), "sb_pay_cycles")
+        opt(fetchAll("sb_pay_cycles", fid, "cycle_month"), "sb_pay_cycles"),
+        opt(fetchAll("sb_liabilities", fid, "start_date"), "sb_liabilities"),
+        opt(fetchAll("sb_liability_moves", fid, "move_date"), "sb_liability_moves")
       ]);
-      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, txCats, cycles, missing };
+      return { txs, days, settings, bills, actual, debts, budgets, pspends, recurring, goals, contribs, catbud, accounts, moves, paccts, pmoves, bpays, cdays, cspends, dues, checks, docs, bizJobs, bizItems, txCats, cycles, liabs, lmoves, missing };
     },
     async addTx(tx) { return must(await sb.from("transactions").insert(tx).select().single()); },
     async addDebt(row) { return must(await sb.from("debts").insert(row).select().single()); },
@@ -306,7 +316,8 @@ function makeSupabaseApi() {
     async setPermissions(mid, perms) { must(await sb.rpc("set_member_permissions", { p_member: mid, p_perms: perms })); },
     async setMemberOrder(ids) { must(await sb.rpc("sb_set_member_order", { p_ids: ids })); },
     async getPrefs() {
-      const { data, error } = await sb.from("sb_user_prefs").select("ov_order").maybeSingle();
+      let { data, error } = await sb.from("sb_user_prefs").select("ov_order, cmp_pick").maybeSingle();
+      if (error && /cmp_pick/.test(error.message || "")) ({ data, error } = await sb.from("sb_user_prefs").select("ov_order").maybeSingle());
       return error ? null : (data || {});   // null = ยังไม่ได้รัน supabase-sb-prefs.sql
     },
     async savePrefs(row) { must(await sb.from("sb_user_prefs").upsert({ user_id: state.user.id, ...row, updated_at: new Date().toISOString() }, { onConflict: "user_id" })); },
@@ -375,7 +386,7 @@ function makeSupabaseApi() {
     },
     subscribe(fid, onChange, onStatus) {
       const ch = sb.channel("family-" + fid);
-      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "due_lists", "bill_checks", "member_docs", "sb_biz_jobs", "sb_biz_items", "sb_tx_cats", "sb_pay_cycles"].forEach(t => {
+      ["transactions", "work_days", "member_pay_settings", "family_bills", "actual_pay", "debts", "personal_budgets", "personal_spends", "recurring_items", "savings_goals", "goal_contribs", "category_budgets", "savings_accounts", "account_moves", "personal_accounts", "personal_moves", "bill_payments", "child_days", "child_spends", "due_lists", "bill_checks", "member_docs", "sb_biz_jobs", "sb_biz_items", "sb_tx_cats", "sb_pay_cycles", "sb_liabilities", "sb_liability_moves"].forEach(t => {
         ch.on("postgres_changes", { event: "*", schema: "public", table: t, filter: `family_id=eq.${fid}` }, onChange);
         ch.on("postgres_changes", { event: "DELETE", schema: "public", table: t }, onChange); // การลบกรองตาม family ไม่ได้
       });
@@ -386,7 +397,7 @@ function makeSupabaseApi() {
 }
 
 function makeDemoApi() {
-  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], dues: [], checks: [], docs: [], bizJobs: [], bizItems: [], txCats: [], cycles: [], files: {} };
+  const db = { users: [], families: [], members: [], txs: [], days: [], settings: [], bills: [], actual: [], debts: [], budgets: [], pspends: [], recurring: [], goals: [], contribs: [], catbud: [], accounts: [], moves: [], paccts: [], pmoves: [], bpays: [], cdays: [], cspends: [], dues: [], checks: [], docs: [], bizJobs: [], bizItems: [], txCats: [], cycles: [], liabs: [], lmoves: [], files: {} };
   let session = null;
   const uid = () => Math.random().toString(36).slice(2, 10);
   const wait = () => new Promise(r => setTimeout(r, 100));
@@ -495,7 +506,9 @@ function makeDemoApi() {
         pspends: famRows(db.pspends, fid).filter(b => b.member_id === me?.id), recurring: famRows(db.recurring, fid), goals: famRows(db.goals, fid),
         contribs: famRows(db.contribs, fid), catbud: famRows(db.catbud, fid), accounts: famRows(db.accounts, fid), moves: famRows(db.moves, fid),
         paccts: famRows(db.paccts, fid).filter(a => a.member_id === me?.id || a.shared), pmoves: famRows(db.pmoves, fid).filter(m => { const a = db.paccts.find(x => x.id === m.account_id); return a && (a.member_id === me?.id || a.shared); }),
-        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), dues: famRows(db.dues, fid), checks: famRows(db.checks, fid), docs: famRows(db.docs, fid), bizJobs: famRows(db.bizJobs, fid), bizItems: famRows(db.bizItems, fid), txCats: famRows(db.txCats, fid), cycles: famRows(db.cycles, fid), missing: [] }; },
+        bpays: famRows(db.bpays, fid), cdays: famRows(db.cdays, fid), cspends: famRows(db.cspends, fid), dues: famRows(db.dues, fid), checks: famRows(db.checks, fid), docs: famRows(db.docs, fid), bizJobs: famRows(db.bizJobs, fid), bizItems: famRows(db.bizItems, fid), txCats: famRows(db.txCats, fid), cycles: famRows(db.cycles, fid),
+        liabs: famRows(db.liabs, fid).filter(l => !l.private || l.created_by === session.id || db.members.find(m => m.id === l.member_id)?.user_id === session.id),
+        lmoves: famRows(db.lmoves, fid).filter(m => { const l = db.liabs.find(x => x.id === m.liability_id); return l && (!l.private || l.created_by === session.id || db.members.find(x => x.id === l.member_id)?.user_id === session.id); }), missing: [] }; },
     async uploadFile(path, blob) { db.files[path] = await blobUrl(blob); if (blob.thumb && thumbPathOf(path)) db.files[thumbPathOf(path)] = await blobUrl(blob.thumb); return path; },
     async removeFiles(paths) { withThumbs(paths).forEach(p => delete db.files[p]); },
     async saveDoc(row) { if (row.id) { const d = db.docs.find(x => x.id === row.id); Object.assign(d, row, { updated_at: new Date().toISOString() }); return d; }
@@ -568,6 +581,10 @@ function makeDemoApi() {
     async addTxCat(row) { if (db.txCats.some(c => c.family_id === row.family_id && c.type === row.type && c.name === row.name)) throw new Error("มีรายการชื่อนี้อยู่แล้ว");
       const r = { ...row, id: uid(), created_at: new Date().toISOString() }; db.txCats.push(r); return r; },
     async delTxCat(id) { db.txCats = db.txCats.filter(c => c.id !== id); },
+    async debtSave(t, row) { const arr = t === "sb_liabilities" ? db.liabs : db.lmoves;
+      if (row.id) { const r = arr.find(x => x.id === row.id); Object.assign(r, row); return r; }
+      const r = { ...row, id: uid(), created_by: session.id, created_at: new Date().toISOString() }; arr.push(r); return r; },
+    async debtDelete(t, id) { if (t === "sb_liabilities") { db.liabs = db.liabs.filter(x => x.id !== id); db.lmoves = db.lmoves.filter(x => x.liability_id !== id); } else db.lmoves = db.lmoves.filter(x => x.id !== id); },
     async bizDelete(t, id) { if (t === "sb_biz_jobs") { db.bizJobs = db.bizJobs.filter(x => x.id !== id); db.bizItems = db.bizItems.filter(x => x.job_id !== id); } else db.bizItems = db.bizItems.filter(x => x.id !== id); },
     async deleteSlip(path) { withThumbs([path]).forEach(p => delete db.files[p]); },
     async deleteActual(mid, month) { db.actual = db.actual.filter(a => !(a.member_id === mid && a.cycle_month === month)); },
@@ -606,7 +623,7 @@ const memo = (key, fn) => { if (MEMO.has(key)) return MEMO.get(key); const v = f
 function buildIndex() {
   const D = state.data;
   MEMO.clear();
-  ["pspends", "recurring", "goals", "contribs", "catbud", "debts", "budgets", "accounts", "moves", "paccts", "pmoves", "bpays", "cdays", "cspends", "dues", "checks"].forEach(k => D[k] ||= []);
+  ["pspends", "recurring", "goals", "contribs", "catbud", "debts", "budgets", "accounts", "moves", "paccts", "pmoves", "bpays", "cdays", "cspends", "dues", "checks", "liabs", "lmoves"].forEach(k => D[k] ||= []);
   IDX.catbud = [...D.catbud].sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)));
   IDX.recur = new Set(D.txs.filter(t => t.recurring_id).map(t => t.recurring_id + "|" + String(t.recurring_month).slice(0, 10)));
   IDX.days = new Map(D.days.map(d => [d.member_id + "|" + String(d.work_date).slice(0, 10), d]));
@@ -644,6 +661,8 @@ function sortMembers(list) {
 const can = (k) => { if (isOwner()) return true; const v = (meMember().permissions || {})[k]; return v === undefined ? !!PERMS.find(x => x[0] === k)?.[2] : !!v; };
 const feat = (k) => { const v = (state.family?.features || {})[k]; return v === undefined ? !!FEATURES.find(x => x[0] === k)?.[3] : !!v; };
 const canEditMember = (id) => id === state.me.id || can("salary_all");
+// อยู่คนเดียว (สมาชิก 1 คน ไม่มีลูก): ไม่มี "ใช้ร่วมกัน" · ซ่อนการ์ดที่ต้องมีหลายคน
+const solo = () => (state.members || []).length === 1;
 const avatarHTML = (m, cls = "mini-av") => m.avatar_url
   ? `<img class="${cls} av-img" src="${esc(m.avatar_url)}" alt="">`
   : `<span class="${cls}" style="background:${avColor(memberIdx(m.id))}">${esc(initial(m.display_name))}</span>`;
@@ -1224,17 +1243,24 @@ function applyFeatures() {
   $("secDebts").classList.toggle("hidden", !feat("loans") && !feat("advances") && !feat("savings"));
   document.querySelector('[data-io-view="save"]').classList.toggle("hidden", !feat("savings"));
   if (state.ioView === "save" && !feat("savings")) state.ioView = "flow";
-  $("ioViews").classList.toggle("hidden", !feat("loans") && !feat("advances") && !feat("savings") && !feat("business"));
+  $("ioViews").classList.toggle("hidden", !feat("loans") && !feat("advances") && !feat("savings") && !feat("business") && !feat("liabilities"));
+  document.querySelector('[data-io-view="debt"]').classList.toggle("hidden", !feat("liabilities"));
+  if (state.ioView === "debt" && !feat("liabilities")) state.ioView = "flow";
+  $("secNetWorth").classList.toggle("hidden", !feat("liabilities"));
   document.querySelector('[data-io-view="biz"]').classList.toggle("hidden", !feat("business"));
   if (state.ioView === "biz" && !feat("business")) state.ioView = "flow";
   $("secHeat").classList.toggle("hidden", !feat("heatmap"));
   $("secCatBud").classList.toggle("hidden", !feat("cat_budgets"));
   $("setRecurring").classList.toggle("hidden", !feat("recurring"));
   document.querySelector('[data-io-view="loan"]').classList.toggle("hidden", !feat("loans"));
-  document.querySelector('[data-io-view="adv"]').classList.toggle("hidden", !feat("advances"));
-  if ((state.ioView === "loan" && !feat("loans")) || (state.ioView === "adv" && !feat("advances"))) state.ioView = "flow";
+  document.querySelector('[data-io-view="adv"]').classList.toggle("hidden", !feat("advances") || solo());
+  if ((state.ioView === "loan" && !feat("loans")) || (state.ioView === "adv" && (!feat("advances") || solo()))) state.ioView = "flow";
+  $("secWhoSpent").classList.toggle("hidden", solo());
+  const soloShared = solo() ? (state.data.txs || []).filter(t => t.scope === "shared" && t.category !== SAVE_CAT && !isBillCat(t.category)).length : 0;
+  $("soloMoveRow").classList.toggle("hidden", !soloShared || !can("tx_all") && !isOwner());
+  $("soloMoveCnt").textContent = soloShared ? `มี ${soloShared} รายการ` : "";
   document.querySelector('#formTx [data-type="loan"]').classList.toggle("hidden", !feat("loans") || !can("loans"));
-  document.querySelector('#formTx [data-type="advance"]').classList.toggle("hidden", !feat("advances") || !can("loans"));
+  document.querySelector('#formTx [data-type="advance"]').classList.toggle("hidden", !feat("advances") || !can("loans") || solo());
   $("shiftRow").classList.toggle("hidden", !feat("shift"));
   $("psShift").closest(".field").classList.toggle("hidden", !feat("shift"));
 }
@@ -1284,7 +1310,11 @@ function renderDashboard(S) {
   $("kOther").textContent = bahtR(S.income);
   $("kShared").textContent = bahtR(S.shared);
   $("kSharedSub").textContent = "จากปุ่ม +";
-  $("kPersonal").textContent = bahtR(S.personal);
+  $("kPersonal").textContent = bahtR(solo() ? S.personal + S.shared : S.personal);
+  // อยู่คนเดียว: รวม "ใช้ร่วมกัน" กับ "ใช้ส่วนตัว" เป็น "ใช้จ่าย"
+  $("kShared").closest(".kpi").classList.toggle("hidden", solo());
+  $("kPersonal").previousElementSibling.textContent = solo() ? "ใช้จ่าย" : "ใช้ส่วนตัว";
+  $("kPersonal").nextElementSibling.textContent = solo() ? "จากปุ่ม + ทั้งหมด" : "ทุกคนรวมกัน";
 
   renderCompare();
   renderCarry();
@@ -1292,6 +1322,7 @@ function renderDashboard(S) {
   renderKidsOverview();
   renderOt(S);
   renderMemberAll(S);
+  renderNetWorth();
   renderMemberIncome(S);
   renderCategories(S);
   renderWhoSpent();
@@ -1570,7 +1601,7 @@ function ioBuckets(P, r) {
 }
 function renderMonthStrip() {
   const P = state.ioPeriod, el = $("mstrip");
-  el.classList.toggle("hidden", P === "all" || state.ioView === "save" || state.ioView === "adv" || state.ioView === "biz");
+  el.classList.toggle("hidden", P === "all" || state.ioView === "save" || state.ioView === "adv" || state.ioView === "biz" || state.ioView === "debt");
   if (P === "all") return;
   const b = dataBounds(), t0 = today0(), a = state.anchor; let html = "";
   if (P === "month") {
@@ -1587,13 +1618,14 @@ document.addEventListener("click", (e) => { const j = e.target.closest("[data-ju
 document.querySelectorAll("[data-io-view]").forEach(b => b.onclick = () => { state.ioView = b.dataset.ioView; renderAll(); });
 function renderIO() {
   renderMonthStrip();
-  ["flow", "loan", "adv", "save", "biz"].forEach(v => $({ flow: "ioFlow", loan: "ioLoan", adv: "ioAdv", save: "ioSave", biz: "ioBiz" }[v]).classList.toggle("hidden", state.ioView !== v));
-  const noPeriod = state.ioView === "save" || state.ioView === "adv" || state.ioView === "biz";
+  ["flow", "loan", "adv", "save", "biz", "debt"].forEach(v => $({ flow: "ioFlow", loan: "ioLoan", adv: "ioAdv", save: "ioSave", biz: "ioBiz", debt: "ioDebt" }[v]).classList.toggle("hidden", state.ioView !== v));
+  const noPeriod = state.ioView === "save" || state.ioView === "adv" || state.ioView === "biz" || state.ioView === "debt";
   $("ioPeriodBar").classList.toggle("hidden", noPeriod); $("mstrip").classList.toggle("hidden", noPeriod || state.ioPeriod === "all");
   if (state.ioView === "save") return renderSavings();
   if (state.ioView === "loan") return renderLoans();
   if (state.ioView === "adv") return renderAdvances();
   if (state.ioView === "biz") return renderBiz();
+  if (state.ioView === "debt") return renderDebtTab();
   const P = state.ioPeriod, r = periodRange(P), s0 = ymd(r.start), e0 = ymd(r.end);
   const txs = state.data.txs.filter(t => countable(t) && t.tx_date >= s0 && t.tx_date <= e0);
   let inc = 0, out = 0; const ec = {}, ic = {}, who = {}; let sharedOut = 0;
@@ -2034,7 +2066,7 @@ function renderDebtSummary() {
       ${open.slice(0, 3).map(g => `<div class="dcard-sub"><span>👤 ${esc(g.borrower)}</span><span class="num">ค้าง ${bahtR(g.left)} / ${bahtR(g.borrowed)}</span></div>
         <div class="track" style="height:6px;margin-top:4px"><i style="width:${Math.min(100, g.repaid / g.borrowed * 100).toFixed(1)}%;background:var(--bill)"></i></div>`).join("") || `<div class="dcard-sub"><span>ไม่มีใครค้างคืน 🎉</span></div>`}</div>`;
   }
-  if (feat("advances")) {
+  if (feat("advances") && !solo()) {
     const A = advanceBook(), tot = A.pairs.reduce((a, p) => a + p.amount, 0);
     html += `<div class="dcard" role="button" tabindex="0" data-goto-io="adv"><div class="dcard-h"><b>🤝 ออกให้ก่อน ค้างคืน</b><b class="num" style="color:${tot ? "var(--st-personal)" : "var(--income)"}">${bahtR(tot)}</b></div>
       ${A.pairs.slice(0, 3).map(p => `<div class="dcard-sub"><span>${esc(memberName(p.from))} → ${esc(memberName(p.to))}</span><span class="num">${bahtR(p.amount)}</span></div>`).join("") || `<div class="dcard-sub"><span>ไม่มีใครค้างคืนกัน</span></div>`}</div>`;
@@ -2083,6 +2115,13 @@ function renderHome() {
   $("featList").innerHTML = FEATURES.map(([k, name, desc]) => `<div class="perm-row"><div><b>${esc(name)}</b><small>${esc(desc)}</small></div>
     <button type="button" class="switch brand" role="switch" aria-checked="${feat(k)}" aria-label="${esc(name)}" data-feat="${k}" ${canFam ? "" : "disabled"}></button></div>`).join("");
 }
+$("soloMoveBtn").onclick = async () => {
+  const list = (state.data.txs || []).filter(t => t.scope === "shared" && t.category !== SAVE_CAT && !isBillCat(t.category));
+  if (!list.length || !confirm(`ย้ายรายการ "ใช้ร่วมกัน / ของบ้าน" ${list.length} รายการ เป็นของ ${state.me.display_name}?`)) return;
+  const btn = $("soloMoveBtn"); btn.disabled = true;
+  try { for (const t of list) await api.updateTx(t.id, { scope: "personal", member_id: state.me.id }); toast(`ย้ายแล้ว ${list.length} รายการ`); await reload(); }
+  catch (err) { toast(friendlyError(err)); } finally { btn.disabled = false; }
+};
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-feat]"); if (!b || b.disabled) return;
   const features = { ...(state.family.features || {}) }; features[b.dataset.feat] = !feat(b.dataset.feat);
@@ -2967,8 +3006,9 @@ document.addEventListener("keydown", (e) => {
 function renderWho() {
   const inc = state.tx.type === "income";
   $("whoLabel").textContent = inc ? "รายรับของใคร" : "ใครใช้จ่าย";
+  if (solo() && state.tx.who === "shared" && !(state.tx.edit && state.tx.edit.scope === "shared")) state.tx.who = state.me.id;
   const opts = state.members.map(m => ({ id: m.id, html: `${avatarHTML(m)}${esc(m.display_name)}` }))
-    .concat([{ id: "shared", html: inc ? "🏠 ของบ้าน" : "🏠 ใช้ร่วมกัน" }]);
+    .concat(solo() && state.tx.who !== "shared" ? [] : [{ id: "shared", html: inc ? "🏠 ของบ้าน" : "🏠 ใช้ร่วมกัน" }]);
   $("whoGrid").innerHTML = opts.map(o => `<button type="button" class="chip" data-who="${esc(o.id)}" aria-pressed="${o.id === state.tx.who}">${o.html}</button>`).join("");
   $("txHint").classList.toggle("hidden", !inc || feat("salary_overview"));
   $("txHint").textContent = "บันทึกเงินเดือนที่ได้รับจริงเป็นรายรับหมวด “เงินเดือน” ได้ที่นี่ หน้าภาพรวมจะนับจากรายการนี้";
@@ -3073,7 +3113,7 @@ $("catGrid").addEventListener("click", (e) => {
 function openAdd(o = {}) {
   const others = state.members.filter(m => m.id !== state.me.id), ed = o.edit || null, de = o.editDebt || null;
   state.tx.edit = ed; state.tx.editDebt = de;
-  Object.assign(state.tx, { who: o.who || "shared", loanAction: o.loanAction || "borrow", loanWho: o.loanWho || "other", splitInit: o.splitInit || null,
+  Object.assign(state.tx, { who: o.who || (solo() ? state.me.id : "shared"), loanAction: o.loanAction || "borrow", loanWho: o.loanWho || "other", splitInit: o.splitInit || null,
     advAction: o.advAction || "pay", advFrom: o.advFrom || state.me.id, advTo: o.advTo || others[0]?.id || null, category: null });
   $("loanFrom").value = o.lender || ""; $("loanSplit").innerHTML = "";
   $("txAmount").value = o.amount || ""; $("txNote").value = ""; $("txErr").textContent = ""; closeCatOther();
@@ -4507,10 +4547,297 @@ $("formRecover").onsubmit = async (e) => {
 };
 
 
+
+/* ==================== 💳 หนี้สินของเรา ====================
+   sb_liabilities (บัญชีหนี้) + sb_liability_moves (pay จ่าย / charge ก่อหนี้เพิ่ม / interest ดอกเบี้ย-ค่าธรรมเนียม / adjust ปรับยอด)
+   ยอดค้าง = ยอดเริ่มต้น + ก่อหนี้เพิ่ม + ดอกเบี้ย + ปรับยอด − จ่าย
+   จ่ายหนี้ → ลงรายจ่ายหมวด "ผ่อนชำระหนี้" ให้เอง (ยกเว้นตั้ง "ไม่ลงรายจ่ายซ้ำ") · จ่ายจากบัญชีเงินเก็บ = โอนเข้าบัญชีรายรับรายจ่ายก่อน */
+const DEBT_CAT = "ผ่อนชำระหนี้";
+const DEBT_KINDS = [["card", "💳", "บัตรเครดิต"], ["home", "🏠", "สินเชื่อบ้าน"], ["car", "🚗", "สินเชื่อรถ"], ["personal", "👤", "สินเชื่อส่วนบุคคล"],
+  ["student", "🎓", "กยศ."], ["installment", "🛍️", "ผ่อน 0% / ผ่อนสินค้า"], ["informal", "🤝", "หนี้นอกระบบ"], ["other", "📄", "อื่น ๆ"]];
+const debtKind = (k) => DEBT_KINDS.find(x => x[0] === k) || DEBT_KINDS[DEBT_KINDS.length - 1];
+const DEBT_COLORS = ["#E5484D", "#F5A524", "#8E4EC6", "#3E63DD", "#12A594", "#E54666", "#AD7F58", "#0090FF", "#7C66DC", "#46A758"];
+const liabs = () => (state.data.liabs || []).slice().sort((a, b) => (a.sort || 0) - (b.sort || 0) || String(a.created_at).localeCompare(String(b.created_at)));
+const lmovesOf = (id) => (state.data.lmoves || []).filter(m => m.liability_id === id);
+const dmSign = (k) => k === "pay" ? -1 : 1;
+function debtBal(L, at = "9999-12-31") {
+  if (String(L.start_date).slice(0, 10) > at) return 0;
+  return round2(+L.start_balance + lmovesOf(L.id).filter(m => String(m.move_date).slice(0, 10) <= at).reduce((a, m) => a + dmSign(m.kind) * +m.amount, 0));
+}
+const debtPaid = (L, s0 = "0000", e0 = "9999") => round2(lmovesOf(L.id).filter(m => m.kind === "pay" && String(m.move_date).slice(0, 10) >= s0 && String(m.move_date).slice(0, 10) <= e0).reduce((a, m) => a + +m.amount, 0));
+const debtOpen = (L) => !L.closed_at;
+const debtOwnerName = (L) => L.member_id ? (state.members.find(m => m.id === L.member_id)?.display_name || "สมาชิกที่ออกไปแล้ว") : "ของบ้าน";
+const canEditDebt = (L) => !L || L.created_by === state.user.id || !L.member_id || canEditMember(L.member_id);
+function debtNextDue(L) {
+  if (!L.due_day) return null;
+  const t = today0(); let d = new Date(t.getFullYear(), t.getMonth(), Math.min(L.due_day, new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate()));
+  if (d < t) { const n = addMonths(monthStart(t), 1); d = new Date(n.getFullYear(), n.getMonth(), Math.min(L.due_day, new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate())); }
+  return { d, days: Math.round((d - t) / 864e5) };
+}
+// คาดว่าหมดเมื่อไหร่ จากค่างวด (+ ดอกเบี้ยต่อปี ถ้าใส่)
+function debtPayoff(L) {
+  const B = debtBal(L), P = +L.installment || 0, r = (+L.rate || 0) / 1200;
+  if (B <= 0.004) return { done: true };
+  if (!P) return null;
+  let n;
+  if (r > 0) { if (P <= B * r) return { never: true }; n = Math.ceil(-Math.log(1 - r * B / P) / Math.log(1 + r)); }
+  else n = Math.ceil(B / P);
+  return { n, end: addMonths(monthStart(today0()), n - 1), interest: r > 0 ? round2(P * n - B) : 0 };
+}
+// ภาระหนี้ต่อรายได้ (DSR) = ค่างวดรวมต่อเดือน ÷ เงินเดือนก่อนหักของเดือนนี้
+function memberGrossNow(mid) {
+  const p = feat("salary") ? payFor(mid, monthStart(today0())) : null;
+  return p ? round2(p.base + p.otTotal + p.shiftPay + p.incSum + p.dailyIncSum) : 0;
+}
+function debtDsr() {
+  const open = liabs().filter(debtOpen), inst = (arr) => arr.reduce((a, L) => a + (+L.installment || 0), 0);
+  const rows = adults().map(m => { const g = memberGrossNow(m.id), i = inst(open.filter(L => L.member_id === m.id)); return { m, gross: g, inst: i, pct: g ? i / g * 100 : null }; });
+  const home = inst(open.filter(L => !L.member_id)), totI = inst(open), totG = rows.reduce((a, r) => a + r.gross, 0);
+  return { rows, home, inst: totI, gross: totG, pct: totG ? totI / totG * 100 : null };
+}
+const dsrColor = (p) => p === null ? "var(--muted)" : p > 60 ? "var(--expense)" : p > 40 ? "#E9A23B" : "var(--income)";
+const dsrWord = (p) => p === null ? "ยังไม่มีเงินเดือนให้คิด" : p > 60 ? "สูงมาก ควรรีบลดหนี้" : p > 40 ? "เกิน 40% เริ่มตึงมือ" : "อยู่ในเกณฑ์ปลอดภัย";
+
+state.dbFilter = "open"; state.dbOpen = null;
+function renderDebtTab() {
+  const all = liabs(), open = all.filter(debtOpen), t = today0(), m0 = ymd(monthStart(t)), m1 = mEnd(monthStart(t));
+  const tot = open.reduce((a, L) => a + Math.max(0, debtBal(L)), 0), D = debtDsr();
+  $("dbTotal").textContent = bahtR(tot);
+  $("dbInst").textContent = bahtR(D.inst);
+  $("dbPaidM").textContent = bahtR(all.reduce((a, L) => a + debtPaid(L, m0, m1), 0));
+  $("dbPaid").textContent = bahtR(all.reduce((a, L) => a + debtPaid(L), 0));
+  $("dbCount").textContent = `${open.length}${all.length > open.length ? ` (+ปิดแล้ว ${all.length - open.length})` : ""}`;
+  $("dbPill").textContent = D.pct === null ? "" : `ภาระหนี้ ${Math.round(D.pct)}%`;
+  $("dbPill").style.background = D.pct === null ? "" : `color-mix(in srgb,${dsrColor(D.pct)} 25%,transparent)`;
+  const due = open.map(L => ({ L, n: debtNextDue(L) })).filter(x => x.n).sort((a, b) => a.n.days - b.n.days)[0];
+  $("dbVerdict").textContent = !all.length ? "ยังไม่มีบัญชีหนี้ · กด + เพิ่มบัญชีหนี้ ด้านล่าง"
+    : due ? `ครบกำหนดถัดไป: ${due.L.name} ${due.n.days === 0 ? "วันนี้" : `อีก ${due.n.days} วัน`} (${shortDate(due.n.d)})${+due.L.installment ? ` · ${bahtR(due.L.installment)}` : ""}` : "ไม่มีหนี้ค้าง 🎉";
+  // DSR
+  const bar = (p) => `<div class="track"><i style="width:${Math.min(100, p || 0).toFixed(1)}%;background:${dsrColor(p)}"></i></div>`;
+  $("dbDsr").innerHTML = `<div class="hbar"><div class="top"><b>🏠 ทั้งบ้าน</b><span class="num" style="font-weight:800;color:${dsrColor(D.pct)}">${D.pct === null ? "–" : Math.round(D.pct) + "%"}</span></div>${bar(D.pct)}
+      <div class="sub num">ค่างวด ${bahtR(D.inst)} ÷ เงินเดือนรวม ${bahtR(D.gross)} · ${dsrWord(D.pct)}</div></div>` +
+    D.rows.filter(r => r.inst || r.gross).map(r => `<div class="hbar"><div class="top"><b>${avatarHTML(r.m)}${esc(r.m.display_name)}</b><span class="num" style="font-weight:800;color:${dsrColor(r.pct)}">${r.pct === null ? "–" : Math.round(r.pct) + "%"}</span></div>${bar(r.pct)}
+      <div class="sub num">ค่างวด ${bahtR(r.inst)} ÷ เงินเดือน ${bahtR(r.gross)}</div></div>`).join("") +
+    `<p class="muted" style="font-size:12.5px;margin:6px 0 0">เกิน 40% ขึ้นสีส้ม · เกิน 60% ขึ้นสีแดง${D.home ? ` · หนี้ของบ้าน ${bahtR(D.home)}/เดือน นับรวมในทั้งบ้าน` : ""} · หนี้ที่ตั้ง "เห็นคนเดียว" ของคนอื่นไม่นับในเครื่องนี้</p>`;
+  // กราฟยอดหนี้ 12 เดือน (แยกสีตามบัญชี)
+  const T = monthStart(t), M = []; for (let k = 11; k >= 0; k--) M.push(addMonths(T, -k));
+  const shown = all.filter(L => M.some(x => debtBal(L, mEnd(x)) > 0.004));
+  const color = (L) => DEBT_COLORS[all.indexOf(L) % DEBT_COLORS.length];
+  $("dbLegend").innerHTML = shown.map(L => `<span><i style="background:${color(L)}"></i>${esc(L.name)}</span>`).join("");
+  barChart($("chartDebt"), $("tipDebt"), { labels: M.map(x => monthShort(x)), stacked: true, initialTip: M.length - 1, hi: M.length - 1, emptyText: "ยังไม่มียอดหนี้",
+    series: shown.map(L => ({ color: color(L), values: M.map(x => Math.max(0, debtBal(L, mEnd(x)))) })),
+    tip: (i) => { const x = M[i], s0 = ymd(x), e0 = mEnd(x), paid = all.reduce((a, L) => a + debtPaid(L, s0, e0), 0);
+      return `<b>${esc(monthLabel(x))}</b><span>หนี้คงเหลือ <b class="num">${bahtR(shown.reduce((a, L) => a + Math.max(0, debtBal(L, e0)), 0))}</b></span><span>จ่ายไป <b class="num">${bahtR(paid)}</b></span>`; } });
+  // รายการบัญชี
+  document.querySelectorAll("[data-db-filter]").forEach(b => b.setAttribute("aria-pressed", b.dataset.dbFilter === state.dbFilter));
+  const list = all.filter(L => state.dbFilter === "all" || (state.dbFilter === "open") === debtOpen(L));
+  $("dbList").innerHTML = list.length ? list.map(L => debtCard(L, color(L))).join("") : `<div class="empty">${all.length ? "ไม่มีรายการในกลุ่มนี้" : "ยังไม่มีบัญชีหนี้"}</div>`;
+}
+function debtCard(L, c) {
+  const k = debtKind(L.kind), B = debtBal(L), mv = lmovesOf(L.id), base = +L.start_balance + mv.filter(m => m.kind !== "pay" && +m.amount > 0).reduce((a, m) => a + +m.amount, 0);
+  const paid = debtPaid(L), pct = base > 0 ? Math.max(0, Math.min(100, paid / base * 100)) : 0, due = debtOpen(L) ? debtNextDue(L) : null, po = debtOpen(L) ? debtPayoff(L) : null, edit = canEditDebt(L);
+  const lab = { pay: "จ่าย", charge: "ก่อหนี้เพิ่ม", interest: "ดอกเบี้ย/ค่าธรรมเนียม", adjust: "ปรับยอด" };
+  const hist = state.dbOpen === L.id ? `<div class="moves">${mv.length ? mv.slice().sort(newest("move_date")).slice(0, 20).map(m => `<div class="mv"><div><b>${lab[m.kind]}</b> ${esc(m.note || "")}<small>${esc(dayLabel(String(m.move_date).slice(0, 10)))}${m.tx_id ? " · ลงรายจ่ายแล้ว" : ""}${m.account_move_id ? " · ถอนจากเงินเก็บ" : ""}${m.slip_path ? ` · <a href="#" data-dm-slip="${esc(m.id)}">🧾 ดูสลิป</a>` : ""}</small></div>
+      <div style="text-align:right"><b class="num" style="color:${m.kind === "pay" ? "var(--income)" : "var(--expense)"}">${m.kind === "pay" ? "−" : +m.amount < 0 ? "−" : "+"}${baht(Math.abs(m.amount))}</b>
+      ${edit ? `<br><button class="linkbtn" type="button" style="font-size:12px;padding:0;color:var(--muted)" data-dm-del="${esc(m.id)}">ลบ</button>` : ""}</div></div>`).join("")
+    : `<div class="muted" style="padding:6px 0">ยังไม่มีรายการ · ยอดเริ่มต้น ${baht(L.start_balance)} (${esc(dayLabel(String(L.start_date).slice(0, 10)))})</div>`}</div>` : "";
+  return `<div class="acct" style="border-left:4px solid ${c}"><div class="acct-h" role="button" tabindex="0" data-db-open="${esc(L.id)}" style="cursor:pointer">
+      <div class="goal-e" aria-hidden="true">${k[1]}</div><div style="flex:1;min-width:0"><b>${esc(L.name)}${L.private ? ' <span class="lent-tag" style="background:var(--surface-2);color:var(--muted)">🔒 เห็นคนเดียว</span>' : ""}${!debtOpen(L) ? ' <span class="lent-tag" style="background:var(--surface-2);color:var(--muted)">ปิดแล้ว</span>' : ""}</b>
+      <small>${esc(k[2])}${L.lender ? " · " + esc(L.lender) : ""} · ${esc(debtOwnerName(L))}</small></div>
+      <div class="acct-bal"><b class="num" style="color:${B > 0.004 ? "var(--expense)" : "var(--income)"}">${bahtR(Math.max(0, B))}</b><small class="muted" style="display:block;font-size:11.5px">คงเหลือ</small></div></div>
+    <div class="track" style="margin:8px 0 4px"><i style="width:${pct.toFixed(1)}%;background:var(--income)"></i></div>
+    <div class="sub num" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>จ่ายแล้ว ${bahtR(paid)} (${Math.round(pct)}%)</span>
+      <span>${+L.installment ? `งวดละ ${bahtR(L.installment)}` : ""}${due ? ` · ครบกำหนด${due.days === 0 ? "วันนี้" : `อีก ${due.days} วัน`}` : ""}</span></div>
+    ${po ? `<div class="sub" style="margin-top:2px">${po.done ? "✅ จ่ายครบแล้ว" : po.never ? "⚠️ ค่างวดน้อยกว่าดอกเบี้ย ยอดจะไม่ลด" : `คาดว่าหมด ${esc(monthLabel(po.end))} (อีก ${po.n} งวด${po.interest ? ` · ดอกเบี้ยรวมราว ${bahtR(po.interest)}` : ""})`}</div>` : ""}
+    ${edit ? `<div class="goal-actions">${debtOpen(L) ? `<button class="btn btn-primary btn-sm" type="button" data-db-pay="${esc(L.id)}">💸 จ่ายหนี้</button><button class="btn btn-ghost btn-sm" type="button" data-db-more="${esc(L.id)}">➕ ก่อหนี้ / ดอกเบี้ย / ปรับยอด</button>` : ""}<button class="btn btn-ghost btn-sm" type="button" data-db-edit="${esc(L.id)}">แก้ไข</button></div>` : ""}
+    ${hist}</div>`;
+}
+document.querySelectorAll("[data-db-filter]").forEach(b => b.onclick = () => { state.dbFilter = b.dataset.dbFilter; renderDebtTab(); });
+$("dbAdd").onclick = () => openDebtEdit(null);
+$("dbList").addEventListener("click", (e) => {
+  const o = e.target.closest("[data-db-open]"); if (o && !e.target.closest("button")) { state.dbOpen = state.dbOpen === o.dataset.dbOpen ? null : o.dataset.dbOpen; renderDebtTab(); return; }
+  const p = e.target.closest("[data-db-pay]"); if (p) return openDebtMove(p.dataset.dbPay, "pay");
+  const m = e.target.closest("[data-db-more]"); if (m) return openDebtMove(m.dataset.dbMore, "charge");
+  const ed = e.target.closest("[data-db-edit]"); if (ed) return openDebtEdit(ed.dataset.dbEdit);
+  const sl = e.target.closest("[data-dm-slip]"); if (sl) { e.preventDefault(); const mv = (state.data.lmoves || []).find(x => x.id === sl.dataset.dmSlip); if (mv) openSlipPath(mv.slip_path, "สลิปจ่ายหนี้"); return; }
+  const d = e.target.closest("[data-dm-del]"); if (d) delDebtMove(d.dataset.dmDel);
+});
+$("dbList").addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-db-open]")) { e.preventDefault(); e.target.click(); } });
+
+// ---------- เพิ่ม/แก้บัญชีหนี้ ----------
+let dbeEdit = null, dbeKind = "card";
+const swOn = (id) => $(id).getAttribute("aria-checked") === "true";
+["dbePriv", "dbeNoExp", "dbeClosed"].forEach(id => $(id).onclick = () => $(id).setAttribute("aria-checked", String(!swOn(id))));
+function paintDbe() {
+  $("dbeKinds").innerHTML = DEBT_KINDS.map(k => `<button type="button" class="chip" data-dbe-kind="${k[0]}" aria-pressed="${k[0] === dbeKind}">${k[1]} ${esc(k[2])}</button>`).join("");
+  $("dbeNoExpRow").classList.toggle("hidden", dbeKind !== "card");
+  $("dbePrivRow").classList.toggle("hidden", !$("dbeOwner").value);
+}
+$("dbeKinds").addEventListener("click", (e) => { const b = e.target.closest("[data-dbe-kind]"); if (b) { dbeKind = b.dataset.dbeKind; paintDbe(); } });
+$("dbeOwner").addEventListener("change", paintDbe);
+function openDebtEdit(id) {
+  const L = id ? liabs().find(x => x.id === id) : null; dbeEdit = L; dbeKind = L?.kind || "card";
+  $("dbeTitle").textContent = L ? "แก้ไขบัญชีหนี้" : "เพิ่มบัญชีหนี้";
+  $("dbeName").value = L?.name || ""; $("dbeLender").value = L?.lender || "";
+  const mems = adults().filter(m => canEditMember(m.id) || m.id === state.me.id);
+  $("dbeOwner").innerHTML = mems.map(m => `<option value="${esc(m.id)}">${esc(m.display_name)}</option>`).join("") + `<option value="">🏠 ของบ้าน (ทุกคนรับผิดชอบร่วมกัน)</option>`;
+  $("dbeOwner").value = L ? (L.member_id || "") : state.me.id;
+  $("dbeStart").value = L ? L.start_balance : ""; $("dbeStartDate").value = L ? String(L.start_date).slice(0, 10) : ymd(today0());
+  $("dbeStartLbl").textContent = L ? "ยอดค้างตอนเริ่มบันทึก" : "ยอดค้างตอนนี้";
+  $("dbeInst").value = L?.installment ?? ""; $("dbeDue").value = L?.due_day ?? ""; $("dbeRate").value = L?.rate ?? ""; $("dbeEnd").value = L?.end_date ? String(L.end_date).slice(0, 10) : "";
+  $("dbePriv").setAttribute("aria-checked", String(!!L?.private)); $("dbeNoExp").setAttribute("aria-checked", String(!!L?.no_expense));
+  $("dbeClosed").setAttribute("aria-checked", String(!!L?.closed_at)); $("dbeClosedRow").classList.toggle("hidden", !L);
+  $("dbeNote").value = L?.note || ""; $("dbeDel").classList.toggle("hidden", !L); $("dbeErr").textContent = "";
+  paintDbe(); openSheet("sheetDebt"); if (!L) setTimeout(() => $("dbeName").focus(), 60);
+}
+const numOrNull = (v) => String(v).trim() === "" ? null : round2(v);
+$("formDebt").onsubmit = async (e) => {
+  e.preventDefault();
+  const name = $("dbeName").value.trim(); if (!name) { $("dbeErr").textContent = "ใส่ชื่อบัญชีหนี้"; $("dbeName").focus(); return; }
+  const sb0 = numOrNull($("dbeStart").value); if (sb0 === null || sb0 < 0) { $("dbeErr").textContent = "ใส่ยอดค้าง (0 ขึ้นไป)"; $("dbeStart").focus(); return; }
+  const due = $("dbeDue").value ? Math.max(1, Math.min(31, parseInt($("dbeDue").value, 10))) : null, owner = $("dbeOwner").value || null, L = dbeEdit;
+  const row = { name: name.slice(0, 80), kind: dbeKind, lender: $("dbeLender").value.trim().slice(0, 80) || null, member_id: owner,
+    start_balance: sb0, start_date: $("dbeStartDate").value || ymd(today0()), installment: numOrNull($("dbeInst").value), due_day: due,
+    rate: numOrNull($("dbeRate").value), end_date: $("dbeEnd").value || null, private: !!owner && swOn("dbePriv"),
+    no_expense: dbeKind === "card" && swOn("dbeNoExp"), note: $("dbeNote").value.trim().slice(0, 300) || null,
+    closed_at: L ? (swOn("dbeClosed") ? (L.closed_at || ymd(today0())) : null) : null };
+  if (L) row.id = L.id; else row.family_id = state.family.id;
+  const btn = $("dbeSave"); btn.disabled = true;
+  try { await api.debtSave("sb_liabilities", row); closeSheet("sheetDebt"); toast(L ? "บันทึกแล้ว" : "เพิ่มบัญชีหนี้แล้ว"); await reload(); }
+  catch (err) { $("dbeErr").textContent = friendlyError(err); } finally { btn.disabled = false; }
+};
+$("dbeDel").onclick = async () => {
+  const L = dbeEdit; if (!L) return;
+  const mv = lmovesOf(L.id), linked = mv.filter(m => m.tx_id).length;
+  if (!confirm(`ลบบัญชีหนี้ "${L.name}" พร้อมประวัติ ${mv.length} รายการ?${linked ? `\nรายจ่าย "ผ่อนชำระหนี้" ที่ลงไว้ ${linked} รายการจะถูกลบด้วย` : ""}\nกู้คืนไม่ได้`)) return;
+  try {
+    for (const m of mv) await undoDebtMoveLinks(m);
+    await api.debtDelete("sb_liabilities", L.id);
+    closeSheet("sheetDebt"); toast("ลบแล้ว"); await reload();
+  } catch (err) { $("dbeErr").textContent = friendlyError(err); }
+};
+
+// ---------- จ่าย / ก่อหนี้เพิ่ม / ดอกเบี้ย / ปรับยอด ----------
+const DMSLIP = makeSlipPicker("dm");
+let dmL = null, dmKind = "pay";
+function paintDm() {
+  const L = dmL, B = debtBal(L);
+  document.querySelectorAll("[data-dm-kind]").forEach(b => b.setAttribute("aria-pressed", b.dataset.dmKind === dmKind));
+  $("dmHead").textContent = `${{ pay: "จ่ายหนี้", charge: "ก่อหนี้เพิ่ม", interest: "ดอกเบี้ย / ค่าธรรมเนียม", adjust: "ปรับยอดตาม statement" }[dmKind]} · ${L.name}`;
+  $("dmFromField").classList.toggle("hidden", dmKind !== "pay");
+  $("dmSlipBox").classList.toggle("hidden", dmKind !== "pay");
+  $("dmAmount").placeholder = dmKind === "adjust" ? "ยอดค้างตาม statement" : "0";
+  $("dmHint").textContent = dmKind === "pay" ? (L.no_expense ? `ยอดค้าง ${baht(B)} · ไม่ลงรายจ่ายซ้ำ (ตั้งไว้สำหรับบัตรเครดิต)` : `ยอดค้าง ${baht(B)} · จะลงรายจ่ายหมวด "${DEBT_CAT}" ในหน้ารับ–จ่ายให้อัตโนมัติ`)
+    : dmKind === "adjust" ? `ใส่ยอดค้างจริงตาม statement · ตอนนี้ในแอป ${baht(B)} ระบบจะปรับส่วนต่างให้` : `ยอดค้างตอนนี้ ${baht(B)} · ไม่ลงรายจ่าย (เพิ่มยอดหนี้อย่างเดียว)`;
+  if (dmKind === "pay" && !$("dmAmount").value && +L.installment) $("dmAmount").value = Math.min(+L.installment, Math.max(0, B)) || "";
+}
+document.querySelectorAll("[data-dm-kind]").forEach(b => b.onclick = () => { dmKind = b.dataset.dmKind; $("dmAmount").value = ""; paintDm(); });
+function openDebtMove(id, kind) {
+  dmL = liabs().find(x => x.id === id); if (!dmL) return; dmKind = kind;
+  $("dmAmount").value = ""; $("dmDate").value = ymd(today0()); $("dmNote").value = ""; $("dmErr").textContent = "";
+  $("dmFrom").innerHTML = acctList().map(a => `<option value="${esc(a.id)}">${esc(a.emoji || "💼")} ${esc(a.main ? "เงินสด / บัญชีรายรับรายจ่าย" : a.name)} · ${esc(baht(acctBalance(a.id)))}</option>`).join("");
+  DMSLIP.reset(null); paintDm(); openSheet("sheetDebtMove"); setTimeout(() => $("dmAmount").focus(), 60);
+}
+const debtTxNote = (L) => L.private ? DEBT_CAT : `ผ่อน ${L.name}`;
+$("formDebtMove").onsubmit = async (e) => {
+  e.preventDefault();
+  const L = dmL, v = round2($("dmAmount").value), date = $("dmDate").value || ymd(today0()), note = $("dmNote").value.trim().slice(0, 200) || null;
+  let amount = v;
+  if (dmKind === "adjust") { if (!($("dmAmount").value !== "" && v >= 0)) { $("dmErr").textContent = "ใส่ยอดค้างตาม statement"; return; }
+    amount = round2(v - debtBal(L)); if (Math.abs(amount) < 0.005) { $("dmErr").textContent = "ยอดตรงกันอยู่แล้ว"; return; } }
+  else if (!(v > 0)) { $("dmErr").textContent = "ใส่จำนวนเงินมากกว่า 0"; return; }
+  const btn = $("dmSave"); btn.disabled = true;
+  try {
+    const row = { family_id: state.family.id, liability_id: L.id, kind: dmKind, amount, move_date: date, note };
+    if (dmKind === "pay") {
+      const sl = await DMSLIP.commit(`${state.family.id}/${state.me.id}/debt-${Date.now()}.jpg`); if (sl.path) row.slip_path = sl.path;
+      const from = $("dmFrom").value, tag = `${debtTxNote(L)} · ${shortDate(parseYmd(date))}`;
+      if (from && from !== MAIN) {   // ถอนจากบัญชีเงินเก็บ เข้าบัญชีรายรับรายจ่าย แล้วจ่ายออก
+        const mv = await api.addMoves([
+          { family_id: state.family.id, account_id: from, kind: "withdraw", amount, note: tag, move_date: date, slip_path: null, debt_id: null },
+          { family_id: state.family.id, account_id: null, kind: "deposit", amount, note: tag, move_date: date, slip_path: null, debt_id: null }]);
+        row.account_move_id = (mv || []).find(m => m.account_id === from)?.id || null;
+      }
+      if (!L.no_expense) {
+        const tx = await api.addTx({ family_id: state.family.id, member_id: L.member_id || state.me.id, type: "expense", scope: L.member_id ? "personal" : "shared",
+          amount, category: DEBT_CAT, note: debtTxNote(L), tx_date: date, slip_path: row.slip_path || null });
+        row.tx_id = tx?.id || null;
+      }
+    }
+    await api.debtSave("sb_liability_moves", row);
+    closeSheet("sheetDebtMove");
+    toast(dmKind === "pay" ? (L.no_expense ? "บันทึกการจ่ายแล้ว" : `บันทึกแล้ว · ลงรายจ่าย "${DEBT_CAT}" ให้แล้ว`) : "บันทึกแล้ว");
+    await reload();
+  } catch (err) { $("dmErr").textContent = friendlyError(err); } finally { btn.disabled = false; }
+};
+// ลบรายการจ่าย: ลบรายจ่ายที่ลงไว้ และการถอนจากเงินเก็บที่คู่กันด้วย
+async function undoDebtMoveLinks(m) {
+  if (m.tx_id && (state.data.txs || []).some(t => t.id === m.tx_id)) await api.deleteTx(m.tx_id);
+  if (m.account_move_id) {
+    const w = (state.data.moves || []).find(x => x.id === m.account_move_id);
+    if (w) { const pair = (state.data.moves || []).find(x => x.id !== w.id && !x.account_id && x.kind === "deposit" && x.note === w.note && String(x.move_date) === String(w.move_date) && +x.amount === +w.amount);
+      await api.deleteMove(w.id); if (pair) await api.deleteMove(pair.id); }
+  }
+}
+async function delDebtMove(id) {
+  const m = (state.data.lmoves || []).find(x => x.id === id); if (!m) return;
+  if (!confirm(`ลบรายการนี้ (${baht(Math.abs(m.amount))})?${m.tx_id ? `\nรายจ่าย "${DEBT_CAT}" ที่ลงไว้จะถูกลบด้วย` : ""}`)) return;
+  try { await undoDebtMoveLinks(m); await api.debtDelete("sb_liability_moves", id); toast("ลบแล้ว"); await reload(); }
+  catch (err) { toast(friendlyError(err)); }
+}
+// ลบรายจ่าย "ผ่อนชำระหนี้" จากหน้ารับ–จ่าย: ปลดลิงก์ในประวัติหนี้ด้วย (ยอดหนี้ยังลดอยู่ ต้องลบจากหน้าหนี้สินถ้าจะยกเลิกการจ่าย)
+
+// ---------- ภาพรวม: หนี้สิน vs เงินเก็บ (ดูทั้งหมดเสมอ) ----------
+function nwItems() {
+  const saves = acctList().map(a => ({ key: "a:" + a.id, kind: "save", name: `${a.emoji || "💼"} ${a.main ? "บัญชีรายรับรายจ่าย" : a.name}`, main: !!a.main,
+      bal: (at) => acctBalanceAt(a.id, at) }))
+    .concat((state.data.paccts || []).filter(a => a.member_id === state.me.id || a.shared).map(a => ({ key: "p:" + a.id, kind: "save", name: `${a.emoji || "🔒"} ${a.name}${a.member_id !== state.me.id ? ` (ของ${memberName(a.member_id)})` : " (ส่วนตัว)"}`,
+      personal: true, mine: a.member_id === state.me.id, bal: (at) => round2((state.data.pmoves || []).filter(m => m.account_id === a.id && String(m.move_date).slice(0, 10) <= at).reduce((x, m) => x + (m.kind === "deposit" ? +m.amount : -m.amount), 0)) })));
+  const debts = liabs().map(L => ({ key: "d:" + L.id, kind: "debt", name: `${debtKind(L.kind)[1]} ${L.name}${debtOpen(L) ? "" : " (ปิดแล้ว)"}`, bal: (at) => Math.max(0, debtBal(L, at)) }));
+  return { saves, debts };
+}
+// ค่าเริ่มต้น: บัญชีเงินเก็บของบ้าน (ไม่รวมบัญชีรายรับรายจ่าย) + บัญชีส่วนตัวของฉัน + หนี้ทุกบัญชีที่เห็นได้
+const nwDefault = (it) => it.kind === "debt" || (it.kind === "save" && !it.main && (!it.personal || it.mine));
+function nwPicked(it) { const p = state.cmpPick; if (!p || !Array.isArray(p.keys)) return nwDefault(it); return p.keys.includes(it.key); }
+function acctBalanceAt(id, at) {
+  let b = (state.data.moves || []).filter(m => acctKey(m.account_id) === id && String(m.move_date).slice(0, 10) <= at).reduce((a, m) => a + moveSign(m.kind) * +m.amount, 0);
+  if (id === MAIN) b += state.data.txs.filter(t => countable(t) && t.tx_date <= at).reduce((a, t) => a + (t.type === "income" ? +t.amount : -t.amount), 0);
+  return round2(b);
+}
+function renderNetWorth() {
+  if (!feat("liabilities") || !$("chartNw")) return;
+  const { saves, debts } = nwItems(), S = saves.filter(nwPicked), Dd = debts.filter(nwPicked), now = "9999-12-31";
+  const sv = S.reduce((a, x) => a + x.bal(now), 0), db = Dd.reduce((a, x) => a + x.bal(now), 0), net = sv - db;
+  $("nwKpi").innerHTML = `<div><span>เงินเก็บ (${S.length} บัญชี)</span><b class="num" style="color:var(--income)">${bahtR(sv)}</b></div>
+    <div><span>หนี้สิน (${Dd.length} บัญชี)</span><b class="num" style="color:var(--expense)">${bahtR(db)}</b></div>
+    <div><span>สุทธิ (เงินเก็บ − หนี้)</span><b class="num" style="color:${net >= 0 ? "var(--income)" : "var(--expense)"}">${net < 0 ? "−" : ""}${bahtR(Math.abs(net))}</b></div>`;
+  const D = debtDsr();
+  $("nwDsr").innerHTML = `${sv > 0 && db > 0 ? `${sv >= db ? `✅ เงินเก็บพอปิดหนี้ได้ทั้งหมด (เหลือ ${bahtR(sv - db)})` : `เงินเก็บปิดหนี้ได้ ${Math.round(sv / db * 100)}%`} · ` : db > 0 ? "ยังไม่มีเงินเก็บที่เลือกไว้ · " : ""}ภาระหนี้ต่อรายได้ <b style="color:${dsrColor(D.pct)}">${D.pct === null ? "–" : Math.round(D.pct) + "%"}</b> ${D.pct !== null && D.pct > 40 ? "⚠️ " + dsrWord(D.pct) : ""}`;
+  const T = monthStart(today0()), M = []; for (let k = 11; k >= 0; k--) M.push(addMonths(T, -k));
+  const ends = M.map((x, i) => i === M.length - 1 ? ymd(today0()) : mEnd(x));
+  const sS = ends.map(e => round2(S.reduce((a, x) => a + x.bal(e), 0))), sD = ends.map(e => round2(Dd.reduce((a, x) => a + x.bal(e), 0)));
+  lineChart($("chartNw"), $("tipNw"), { labels: M.map(x => monthShort(x)), initialTip: M.length - 1,
+    series: [{ name: "เงินเก็บ", color: "var(--income)", values: sS }, { name: "หนี้สิน", color: "var(--expense)", values: sD }],
+    tip: (i) => `<b>${esc(monthLabel(M[i]))}</b><span>เงินเก็บ <b class="num">${bahtR(sS[i])}</b></span><span>หนี้สิน <b class="num">${bahtR(sD[i])}</b></span><span style="color:${sS[i] - sD[i] >= 0 ? "var(--income)" : "var(--expense)"}">สุทธิ ${sS[i] - sD[i] < 0 ? "−" : ""}${bahtR(Math.abs(sS[i] - sD[i]))}</span>` });
+}
+$("nwPickBtn").onclick = () => {
+  const { saves, debts } = nwItems();
+  const row = (it) => `<label class="switch-row" style="cursor:pointer"><div><b>${esc(it.name)}</b><small class="num">${it.kind === "save" ? signed(round2(it.bal("9999-12-31"))) : bahtR(it.bal("9999-12-31"))}</small></div><input type="checkbox" data-nwp="${esc(it.key)}" ${nwPicked(it) ? "checked" : ""} style="width:22px;height:22px"></label>`;
+  $("nwpList").innerHTML = `<div class="ma-h in">เงินเก็บ</div>${saves.map(row).join("") || '<div class="muted">ยังไม่มีบัญชี</div>'}<div class="ma-h out">หนี้สิน</div>${debts.map(row).join("") || '<div class="muted">ยังไม่มีบัญชีหนี้</div>'}`;
+  openSheet("sheetNwPick");
+};
+$("nwpReset").onclick = () => { const { saves, debts } = nwItems(); saves.concat(debts).forEach(it => { const c = document.querySelector(`[data-nwp="${CSS.escape(it.key)}"]`); if (c) c.checked = nwDefault(it); }); };
+$("formNwPick").onsubmit = async (e) => {
+  e.preventDefault();
+  state.cmpPick = { keys: [...document.querySelectorAll("[data-nwp]")].filter(c => c.checked).map(c => c.dataset.nwp) };
+  closeSheet("sheetNwPick"); renderAll();
+  if (api.savePrefs && state.prefsReady !== false) api.savePrefs({ cmp_pick: state.cmpPick }).catch(err => toast("บันทึกการเลือกในบัญชีไม่ได้: " + friendlyError(err)));
+};
+
 /* ---------- ภาพรวม: จัดลำดับหัวข้อ (ตั้งค่า > หน้าตาและธีม) · เก็บแยกแต่ละเครื่อง ---------- */
 const OV_LABELS = { carry: "เทียบกับช่วงก่อน (เดือน/ปี/12 เดือน)", cmp: "รายรับ–รายจ่าย แต่ละเดือน", grow: "เงินเหลือ โตขึ้นหรือลดลง",
   billpay: "จ่ายประจำ · มากไปน้อย", kids: "🎒 เงินไปโรงเรียนของน้อง", who: "ใครใช้จ่ายเท่าไหร่", debts: "เงินเก็บ · กู้ยืม · ออกให้ก่อน",
-  ot: "OT แต่ละคน", memberall: "รายรับ–รายจ่ายรวม แต่ละคน", memberinc: "รายได้–รายการหักในสลิป", personal: "ใช้ส่วนตัวแต่ละคน", cats: "จ่ายไปกับอะไร", recent: "ล่าสุด" };
+  ot: "OT แต่ละคน", memberall: "รายรับ–รายจ่ายรวม แต่ละคน", networth: "💳 หนี้สิน vs เงินเก็บ", memberinc: "รายได้–รายการหักในสลิป", personal: "ใช้ส่วนตัวแต่ละคน", cats: "จ่ายไปกับอะไร", recent: "ล่าสุด" };
 const OV_DEFAULT = Object.keys(OV_LABELS);
 const ovKey = () => "samudbaan_ovorder_" + (state.user?.id || "x");
 // ลำดับที่ตั้งไว้: เก็บในบัญชี (ใช้ได้ทุกเครื่อง) และสำรองไว้ในเครื่อง
@@ -4519,6 +4846,7 @@ async function loadPrefs(pre) {
   try {
     const p = pre !== undefined ? pre : await api.getPrefs();
     state.prefsReady = p !== null;
+    if (p && p.cmp_pick && typeof p.cmp_pick === "object") state.cmpPick = p.cmp_pick;
     if (p && Array.isArray(p.ov_order)) {
       state.ovOrder = p.ov_order;
       try { localStorage.setItem(ovKey(), JSON.stringify(p.ov_order)); } catch (x) { /* ไม่เป็นไร */ }

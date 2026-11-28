@@ -206,6 +206,17 @@
         </div>
       </section>
 
+      <section data-ov="networth" id="secNetWorth" class="hidden">
+        <div class="sec-head"><h2>หนี้สิน vs เงินเก็บ</h2><button type="button" class="linkbtn" id="nwPickBtn">⚙️ เลือกบัญชี</button></div>
+        <div class="card">
+          <div class="cmp2" id="nwKpi"></div>
+          <div id="nwDsr" class="mc-note" style="margin-top:10px"></div>
+          <div class="legend-row" style="margin-top:10px"><span><i style="background:var(--income)"></i>เงินเก็บ</span><span><i style="background:var(--expense)"></i>หนี้สิน</span></div>
+          <div id="chartNw" class="chart"></div><div id="tipNw" class="tip"></div>
+          <p class="muted" style="font-size:12.5px;margin:8px 0 0">ดูทั้งหมดเสมอ (ไม่เปลี่ยนตามปุ่มเดือน/ปี) · กราฟคือยอด ณ สิ้นแต่ละเดือน</p>
+        </div>
+      </section>
+
       <section data-ov="who" id="secWhoSpent">
         <div class="sec-head"><h2>ใครใช้จ่ายเท่าไหร่</h2><small id="whoSpentSub" class="muted"></small></div>
         <div class="card">
@@ -264,8 +275,9 @@
       <div id="ioViews" class="subtabs" role="group" aria-label="หมวด">
         <button data-io-view="flow" aria-pressed="true">💸 รับ–จ่าย</button>
         <button data-io-view="loan" aria-pressed="false">🏦 กู้ยืม</button>
-        <button data-io-view="save" aria-pressed="false">🎯 เงินเก็บ</button>
         <button data-io-view="adv" aria-pressed="false">🤝 ออกให้ก่อน</button>
+        <button data-io-view="debt" aria-pressed="false" class="hidden">💳 หนี้สิน</button>
+        <button data-io-view="save" aria-pressed="false">🎯 เงินเก็บ</button>
         <button data-io-view="biz" aria-pressed="false" class="hidden">💼 ธุรกิจ</button>
       </div>
       <div id="ioPeriodBar" class="period p3" role="group" aria-label="มุมมองรายรับรายจ่าย">
@@ -367,6 +379,38 @@
         <section>
           <div class="sec-head"><h2>งานทั้งหมด</h2><button type="button" class="linkbtn" id="bzAdd">+ เพิ่มงาน</button></div>
           <div id="bzJobs" class="ledger"></div>
+        </section>
+      </div>
+
+      <!-- หนี้สินของเรา -->
+      <div id="ioDebt" class="hidden">
+        <div class="hero">
+          <div class="label"><span>หนี้คงเหลือทั้งหมด</span><span id="dbPill" class="pill"></span></div>
+          <div id="dbTotal" class="big num">฿0</div>
+          <div id="dbVerdict" class="verdict"></div>
+          <div class="cols">
+            <div><span>ค่างวดรวม/เดือน</span><strong id="dbInst" class="num">฿0</strong></div>
+            <div><span>จ่ายเดือนนี้</span><strong id="dbPaidM" class="num">฿0</strong></div>
+            <div><span>จ่ายไปแล้วทั้งหมด</span><strong id="dbPaid" class="num">฿0</strong></div>
+            <div><span>บัญชีหนี้</span><strong id="dbCount" class="num">0</strong></div>
+          </div>
+        </div>
+        <section>
+          <div class="sec-head"><h2>ภาระหนี้ต่อรายได้</h2><small>ค่างวดรวม ÷ เงินเดือนก่อนหัก</small></div>
+          <div class="card"><div id="dbDsr" class="hbars"></div></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2>ยอดหนี้แต่ละเดือน</h2><small>12 เดือนล่าสุด · แตะดูจ่ายไปเท่าไหร่</small></div>
+          <div class="card"><div id="dbLegend" class="legend-row"></div><div id="chartDebt" class="chart"></div><div id="tipDebt" class="tip"></div></div>
+        </section>
+        <div class="chips" role="group" aria-label="แสดงบัญชีหนี้" style="margin-top:12px">
+          <button type="button" class="chip" data-db-filter="open" aria-pressed="true">ยังค้างอยู่</button>
+          <button type="button" class="chip" data-db-filter="closed" aria-pressed="false">ปิดแล้ว</button>
+          <button type="button" class="chip" data-db-filter="all" aria-pressed="false">ทั้งหมด</button>
+        </div>
+        <section>
+          <div class="sec-head"><h2>บัญชีหนี้</h2><button type="button" class="linkbtn" id="dbAdd">+ เพิ่มบัญชีหนี้</button></div>
+          <div id="dbList"></div>
         </section>
       </div>
 
@@ -799,6 +843,8 @@
       <h3>ฟังก์ชันที่ใช้ในบ้านนี้</h3>
       <p class="muted" id="featHint" style="font-size:13px;margin:-4px 0 4px"></p>
       <div id="featList"></div>
+      <div class="perm-row hidden" id="soloMoveRow"><div><b>อยู่คนเดียว: ย้ายรายการ "ใช้ร่วมกัน" เป็นของฉัน</b><small id="soloMoveCnt"></small></div>
+        <button type="button" class="btn btn-soft btn-sm" id="soloMoveBtn">ย้ายทั้งหมด</button></div>
     </div>
     <div class="card set-block" id="setRecurring">
       <h3>รายการประจำอัตโนมัติ</h3>
@@ -1398,6 +1444,95 @@
   </form>
 </div>
 
+
+<!-- ============ หนี้สิน: บัญชีหนี้ ============ -->
+<div id="sheetDebt" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="dbeTitle">
+  <form class="sheet" id="formDebt" novalidate>
+    <h2 id="dbeTitle">เพิ่มบัญชีหนี้</h2>
+    <div class="field"><label for="dbeName">ชื่อ</label><input id="dbeName" maxlength="80" placeholder="เช่น บัตร KTC, ผ่อนรถ, กยศ."></div>
+    <div class="field"><label>ประเภท</label><div id="dbeKinds" class="chips" style="flex-wrap:wrap"></div></div>
+    <div class="field"><label for="dbeLender">เจ้าหนี้ (ไม่ใส่ก็ได้)</label><input id="dbeLender" maxlength="80" placeholder="เช่น ธนาคารกรุงไทย"></div>
+    <div class="field"><label for="dbeOwner">หนี้ของใคร</label><select id="dbeOwner"></select></div>
+    <div class="grid2">
+      <div class="field"><label for="dbeStart" id="dbeStartLbl">ยอดค้างตอนเริ่มบันทึก</label><input id="dbeStart" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+      <div class="field"><label for="dbeStartDate">ณ วันที่</label><input id="dbeStartDate" type="date"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="dbeInst">ค่างวด/เดือน</label><input id="dbeInst" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ไม่ใส่ก็ได้"></div>
+      <div class="field"><label for="dbeDue">ครบกำหนดทุกวันที่</label><input id="dbeDue" class="num" type="number" inputmode="numeric" min="1" max="31" placeholder="1–31"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="dbeRate">ดอกเบี้ย %/ปี</label><input id="dbeRate" class="num" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="ไม่ใส่ก็ได้"></div>
+      <div class="field"><label for="dbeEnd">งวดสุดท้าย</label><input id="dbeEnd" type="date"></div>
+    </div>
+    <div class="switch-row" id="dbePrivRow">
+      <div><b>🔒 เห็นคนเดียว</b><small>คนอื่นในบ้านไม่เห็นบัญชีนี้ (ยอดจ่ายที่ลงในรับ–จ่าย ขึ้นแค่ "ผ่อนชำระหนี้")</small></div>
+      <button type="button" id="dbePriv" class="switch brand" role="switch" aria-checked="false" aria-label="เห็นคนเดียว"></button>
+    </div>
+    <div class="switch-row" id="dbeNoExpRow">
+      <div><b>จ่ายแล้วไม่ลงรายจ่ายซ้ำ</b><small>เปิดถ้าบันทึกรายจ่ายตอนรูดบัตรไว้แล้ว</small></div>
+      <button type="button" id="dbeNoExp" class="switch brand" role="switch" aria-checked="false" aria-label="ไม่ลงรายจ่ายซ้ำ"></button>
+    </div>
+    <div class="switch-row" id="dbeClosedRow">
+      <div><b>ปิดบัญชีแล้ว</b><small>จ่ายหมดแล้ว ย้ายไปอยู่ "ปิดแล้ว"</small></div>
+      <button type="button" id="dbeClosed" class="switch brand" role="switch" aria-checked="false" aria-label="ปิดบัญชีแล้ว"></button>
+    </div>
+    <div class="field"><label for="dbeNote">โน้ต (ไม่ใส่ก็ได้)</label><input id="dbeNote" maxlength="300"></div>
+    <div id="dbeErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost hidden" id="dbeDel" style="color:var(--expense)">ลบ</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="dbeSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ หนี้สิน: จ่าย / ก่อหนี้เพิ่ม / ดอกเบี้ย / ปรับยอด ============ -->
+<div id="sheetDebtMove" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="dmHead">
+  <form class="sheet" id="formDebtMove" novalidate>
+    <h2 id="dmHead">จ่ายหนี้</h2>
+    <div class="seg seg2" role="group" aria-label="ประเภท" style="flex-wrap:wrap">
+      <button type="button" class="inc" data-dm-kind="pay" aria-pressed="true">💸 จ่ายหนี้</button>
+      <button type="button" class="exp" data-dm-kind="charge" aria-pressed="false">➕ ก่อหนี้เพิ่ม</button>
+      <button type="button" class="exp" data-dm-kind="interest" aria-pressed="false">％ ดอกเบี้ย/ค่าธรรมเนียม</button>
+      <button type="button" data-dm-kind="adjust" aria-pressed="false">⚖️ ปรับยอดตาม statement</button>
+    </div>
+    <label class="amount-box" for="dmAmount"><span>฿</span>
+      <input id="dmAmount" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" aria-label="จำนวนเงิน"></label>
+    <div id="dmHint" class="muted" style="font-size:13px;margin:-4px 0 10px"></div>
+    <div class="field" id="dmFromField"><label for="dmFrom">จ่ายจาก</label><select id="dmFrom"></select></div>
+    <div class="grid2">
+      <div class="field"><label for="dmDate">วันที่</label><input id="dmDate" type="date"></div>
+      <div class="field"><label for="dmNote">โน้ต</label><input id="dmNote" maxlength="200" placeholder="ไม่ใส่ก็ได้"></div>
+    </div>
+    <div id="dmSlipBox" class="slip-pick">
+      <div class="slip-pick-l"><b>🧾 สลิป</b><small>ใส่หรือไม่ใส่ก็ได้</small></div>
+      <button type="button" class="slip-thumb hidden" id="dmSlipThumb" aria-label="ดูสลิป"><img alt=""></button>
+      <button type="button" class="btn btn-ghost btn-sm hidden" id="dmSlipDel" style="color:var(--expense)">ลบ</button>
+      <button type="button" class="btn btn-soft btn-sm" id="dmSlipAdd">📎 แนบสลิป</button>
+      <input type="file" id="dmSlipIn" accept="image/*" hidden>
+    </div>
+    <div id="dmErr" class="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary" id="dmSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ ภาพรวม: เลือกบัญชีที่นำมาเทียบ ============ -->
+<div id="sheetNwPick" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="nwpTitle">
+  <form class="sheet" id="formNwPick" novalidate>
+    <h2 id="nwpTitle">เลือกบัญชีที่นำมาเทียบ</h2>
+    <p class="muted" style="font-size:13px;margin:-6px 0 10px">เลือกได้เฉพาะของตัวเอง ไม่กระทบคนอื่นในบ้าน</p>
+    <div id="nwpList"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" id="nwpReset">ค่าเริ่มต้น</button>
+      <button type="button" class="btn btn-ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn btn-primary">บันทึก</button>
+    </div>
+  </form>
+</div>
 <!-- ============ ธุรกิจ: งวด / ค่าใช้จ่าย ============ -->
 <div id="sheetBizItem" class="scrim hidden" role="dialog" aria-modal="true" aria-labelledby="biHead">
   <form class="sheet" id="formBizItem" novalidate>
