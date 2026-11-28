@@ -389,7 +389,7 @@
           <div id="dbTotal" class="big num">฿0</div>
           <div id="dbVerdict" class="verdict"></div>
           <div class="cols">
-            <div><span>ค่างวดรวม/เดือน</span><strong id="dbInst" class="num">฿0</strong></div>
+            <div><span id="dbInstLbl">ค่างวดรวม/เดือน</span><strong id="dbInst" class="num">฿0</strong></div>
             <div><span>จ่ายเดือนนี้</span><strong id="dbPaidM" class="num">฿0</strong></div>
             <div><span>จ่ายไปแล้วทั้งหมด</span><strong id="dbPaid" class="num">฿0</strong></div>
             <div><span>บัญชีหนี้</span><strong id="dbCount" class="num">0</strong></div>
@@ -1457,8 +1457,12 @@
       <div class="field"><label for="dbeStart" id="dbeStartLbl">ยอดค้างตอนเริ่มบันทึก</label><input id="dbeStart" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
       <div class="field"><label for="dbeStartDate">ณ วันที่</label><input id="dbeStartDate" type="date"></div>
     </div>
+    <div class="switch-row" id="dbeInBillsRow">
+      <div><b>ค่างวดหักในรายจ่ายหลักประจำแล้ว</b><small id="dbeInBillsHint">เปิดถ้าค่างวดนี้ใส่ไว้ในรายจ่ายหลักประจำแล้ว</small></div>
+      <button type="button" id="dbeInBills" class="switch brand" role="switch" aria-checked="false" aria-label="ค่างวดหักในรายจ่ายหลักแล้ว"></button>
+    </div>
     <div class="grid2">
-      <div class="field"><label for="dbeInst">ค่างวด/เดือน</label><input id="dbeInst" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ไม่ใส่ก็ได้"></div>
+      <div class="field"><label for="dbeInst" id="dbeInstLbl">ค่างวด/เดือน</label><input id="dbeInst" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ไม่ใส่ก็ได้"></div>
       <div class="field"><label for="dbeDue">ครบกำหนดทุกวันที่</label><input id="dbeDue" class="num" type="number" inputmode="numeric" min="1" max="31" placeholder="1–31"></div>
     </div>
     <div class="grid2">
@@ -1496,6 +1500,10 @@
       <button type="button" class="exp" data-dm-kind="charge" aria-pressed="false">➕ ก่อหนี้เพิ่ม</button>
       <button type="button" class="exp" data-dm-kind="interest" aria-pressed="false">％ ดอกเบี้ย/ค่าธรรมเนียม</button>
       <button type="button" data-dm-kind="adjust" aria-pressed="false">⚖️ ปรับยอดตาม statement</button>
+    </div>
+    <div class="seg seg2 hidden" id="dmPayMode" role="group" aria-label="จ่ายแบบไหน" style="margin-top:8px">
+      <button type="button" data-dm-mode="regular" aria-pressed="true">งวดปกติ (ในรายจ่ายหลัก)</button>
+      <button type="button" class="inc" data-dm-mode="extra" aria-pressed="false">💪 โปะเพิ่ม</button>
     </div>
     <label class="amount-box" for="dmAmount"><span>฿</span>
       <input id="dmAmount" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" aria-label="จำนวนเงิน"></label>
