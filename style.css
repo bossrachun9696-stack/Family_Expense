@@ -826,3 +826,16 @@ body.sheet-open{overflow:hidden}
 #formDebtMove .seg{flex-wrap:wrap}
 #formDebtMove .seg button{flex:1 1 44%;min-width:0}
 #nwpList .switch-row{padding:8px 0}
+
+/* ภาระหนี้รายเดือน */
+.dsr-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dsr-nav b{font-size:15px}
+.dsr-nav .iconbtn{width:36px;height:36px;border-radius:10px;box-shadow:none;display:grid;place-items:center;border:1px solid var(--line,rgba(255,255,255,.12));background:var(--surface-2);color:inherit;font-size:20px;line-height:1;cursor:pointer}
+.dsr-verdict{font-weight:800;font-size:16px;text-align:center;margin-top:-4px}
+.dsr-verdict small{font-weight:500;color:var(--muted);font-size:12.5px}
+.dsr-strip{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-top:-4px}
+.dsr-m{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;border:1px solid transparent;border-radius:8px;background:none;color:var(--muted);cursor:pointer;min-width:0}
+.dsr-m.on{border-color:var(--income);background:var(--surface-2);color:var(--text,inherit)}
+.dsr-m .col{height:38px;width:60%;display:flex;align-items:flex-end;justify-content:center}
+.dsr-m .col i{display:block;width:100%;border-radius:3px 3px 0 0}
+.dsr-m small{font-size:10px;line-height:1.15;white-space:nowrap}
