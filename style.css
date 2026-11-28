@@ -846,3 +846,7 @@ body.sheet-open{overflow:hidden}
 .qe input:focus{outline:2px solid var(--income);outline-offset:1px}
 .qe-act{display:inline-flex;gap:6px;margin-left:6px}
 .nav{will-change:transform}
+
+/* แอปที่ติดตั้ง (iPhone): ยึดแถบเมนูจากขอบบนของจอ ไม่ลอยขึ้นกลางจอ */
+.nav.nav-top{bottom:auto;top:calc(100vh - var(--navh,86px))}
+@supports (height:100lvh){.nav.nav-top{top:calc(100lvh - var(--navh,86px))}}

@@ -4291,9 +4291,17 @@ document.querySelectorAll("[data-eye]").forEach(btn => {
   //   → ถ้าไม่มีช่องที่กำลังพิมพ์ ให้ดันแถบเมนูกลับไปชิดล่างของจอที่เห็นจริง + กระตุ้นให้เบราว์เซอร์วางตำแหน่งใหม่
   const nav = document.querySelector(".nav");
   const typing = () => { const a = document.activeElement; return !!a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.isContentEditable); };
+  // แอปที่ติดตั้งบนหน้าจอ: ยึดแถบเมนูจากขอบบนของจอ (100lvh) แทนขอบล่าง → layout viewport หดค้างก็ไม่ลอยขึ้น
+  const pwa = typeof isStandalone === "function" ? isStandalone() : (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true);
+  const anchorTop = () => {
+    if (!nav || !pwa) return;
+    nav.classList.add("nav-top");
+    nav.style.setProperty("--navh", nav.offsetHeight + "px");
+  };
+  anchorTop(); window.addEventListener("resize", anchorTop);
   const pin = () => {
     if (!nav) return;
-    if (typing()) { nav.style.transform = ""; return; }
+    if (pwa || typing()) { nav.style.transform = ""; return; }
     const gap = Math.round(window.innerHeight - (vv.height + vv.offsetTop));   // > 0 = แถบอยู่ต่ำกว่าจอ · < 0 = แถบลอยขึ้นมา
     nav.style.transform = Math.abs(gap) > 2 && Math.abs(gap) < window.innerHeight * 0.8 ? `translateY(${-gap}px)` : "";
   };
@@ -4301,7 +4309,7 @@ document.querySelectorAll("[data-eye]").forEach(btn => {
     fix(); if (typing()) return pin();
     window.scrollBy(0, 1); window.scrollBy(0, -1);
     if (nav) { nav.style.display = "none"; void nav.offsetHeight; nav.style.display = ""; }
-    pin();
+    anchorTop(); pin();
   };
   vv.addEventListener("resize", () => { fix(); pin(); });
   vv.addEventListener("scroll", () => { fix(); pin(); });
@@ -4717,6 +4725,9 @@ function renderDebtTab(skipList) {
     const sum = (k) => rows.filter(x => x.m.kind === k).reduce((a, x) => a + +x.m.amount, 0);
     $("dbMovesTitle").textContent = `รายการหนี้ ${monthLabel(selM)}`;
     $("dbMovesSub").textContent = [sum("pay") && `จ่าย ${bahtR(sum("pay"))}`, sum("interest") && `ดอกเบี้ย ${bahtR(sum("interest"))}`, sum("charge") && `ก่อหนี้ ${bahtR(sum("charge"))}`].filter(Boolean).join(" · ");
+    const legacy = (state.data.lmoves || []).filter(m => (m.tx_id && (state.data.txs || []).some(t => t.id === m.tx_id)) || m.account_move_id);
+    $("dbLegacy").classList.toggle("hidden", !legacy.length || !all.some(L => canEditDebt(L)));
+    $("dbLegacy").innerHTML = legacy.length ? `<div><b>มีรายจ่าย "${DEBT_CAT}" ที่เคยลงในรับ–จ่ายจากหน้านี้ ${legacy.length} รายการ</b><small>ตอนนี้หน้าหนี้สินแยกจากรับ–จ่ายแล้ว กดเพื่อเอาออกจากรับ–จ่าย (ยอดหนี้และประวัติในหน้านี้ไม่เปลี่ยน)</small></div><button type="button" class="btn btn-ghost btn-sm" id="dbLegacyBtn">เอาออก</button>` : "";
     $("dbMoves").innerHTML = rows.length ? `<div class="moves" style="margin:0;border:0;padding:0">${rows.map(({ m, L }) => debtMoveRow(m, L, runs[L.id] ||= debtRunning(L), canEditDebt(L), true)).join("")}</div>`
       : `<div class="empty">ไม่มีรายการหนี้ในเดือนนี้ · เลือกเดือนด้านบนเพื่อดูย้อนหลัง</div>`; }
 }
@@ -4731,7 +4742,7 @@ const DM_LAB = { pay: "จ่าย", charge: "ก่อหนี้เพิ่
 function debtMoveRow(m, L, run, edit, withName) {
   const r = run.map[m.id] || {}, adj = m.kind === "adjust", diff = adj ? round2(r.prevStmt - r.after) : 0;
   const tags = [esc(dayLabel(String(m.move_date).slice(0, 10))), withName ? esc(L.name) : "", m.in_bills ? "งวดในรายจ่ายหลัก" : m.kind === "pay" && L.in_bills ? "โปะ" : "",
-    m.tx_id ? "ลงรายจ่ายแล้ว" : "", m.account_move_id ? "ถอนจากเงินเก็บ" : "", m.slip_path ? `<a href="#" data-dm-slip="${esc(m.id)}">🧾 ดูสลิป</a>` : ""].filter(Boolean).join(" · ");
+    m.tx_id && (state.data.txs || []).some(t => t.id === m.tx_id) ? "เคยลงรายจ่าย" : "", m.account_move_id ? "เคยถอนจากเงินเก็บ" : "", m.slip_path ? `<a href="#" data-dm-slip="${esc(m.id)}">🧾 ดูสลิป</a>` : ""].filter(Boolean).join(" · ");
   const sub = adj ? `<div class="sub num" style="margin-top:2px">ยอดตาม statement <b>${baht(r.after)}</b> · ${diff >= 0 ? `<b style="color:var(--income)">ลดจากรอบก่อน ${baht(diff)}</b>` : `<b style="color:var(--expense)">เพิ่มจากรอบก่อน ${baht(-diff)}</b>`}</div>` : "";
   const amt = adj ? `<b class="num" style="color:${diff >= 0 ? "var(--income)" : "var(--expense)"}">${diff >= 0 ? "−" : "+"}${baht(Math.abs(diff))}</b><small class="muted" style="display:block;font-size:11px">จากรอบก่อน</small>`
     : `<b class="num" style="color:${m.kind === "pay" ? "var(--income)" : "var(--expense)"}">${m.kind === "pay" ? "−" : "+"}${baht(Math.abs(m.amount))}</b>`;
@@ -4797,6 +4808,17 @@ async function qeSave(id) {
   catch (err) { toast(friendlyError(err)); }
 }
 $("dbList").addEventListener("keydown", (e) => { const inp = e.target.closest("[data-qe]"); if (inp && e.key === "Enter") { e.preventDefault(); inp.blur(); qeSave(inp.dataset.qe); } });
+$("dbLegacy").addEventListener("click", async (e) => {
+  if (!e.target.closest("#dbLegacyBtn")) return;
+  const legacy = (state.data.lmoves || []).filter(m => (m.tx_id && (state.data.txs || []).some(t => t.id === m.tx_id)) || m.account_move_id)
+    .filter(m => { const L = (state.data.liabs || []).find(x => x.id === m.liability_id); return L && canEditDebt(L); });
+  const tot = legacy.reduce((a, m) => a + +m.amount, 0);
+  if (!legacy.length || !confirm(`เอารายจ่าย "${DEBT_CAT}" ${legacy.length} รายการ (รวม ${baht(tot)}) ออกจากหน้ารับ–จ่าย?\nยอดหนี้และประวัติจ่ายในหน้าหนี้สินยังอยู่เหมือนเดิม`)) return;
+  try {
+    for (const m of legacy) { await undoDebtMoveLinks(m); await api.debtSave("sb_liability_moves", { id: m.id, tx_id: null, account_move_id: null }); }
+    toast("เอาออกจากรับ–จ่ายแล้ว"); await reload();
+  } catch (err) { toast(friendlyError(err)); }
+});
 $("dbMoves").addEventListener("click", (e) => {
   const sl = e.target.closest("[data-dm-slip]"); if (sl) { e.preventDefault(); const mv = (state.data.lmoves || []).find(x => x.id === sl.dataset.dmSlip); if (mv) openSlipPath(mv.slip_path, "สลิปจ่ายหนี้"); return; }
   const d = e.target.closest("[data-dm-del]"); if (d) delDebtMove(d.dataset.dmDel);
@@ -4834,7 +4856,7 @@ $("dbeInBills").onclick = () => {
 function paintDbe() {
   paintDbeInst();
   $("dbeKinds").innerHTML = DEBT_KINDS.map(k => `<button type="button" class="chip" data-dbe-kind="${k[0]}" aria-pressed="${k[0] === dbeKind}">${k[1]} ${esc(k[2])}</button>`).join("");
-  $("dbeNoExpRow").classList.toggle("hidden", dbeKind !== "card");
+  $("dbeNoExpRow").classList.add("hidden");   // หน้าหนี้สินไม่ลงรายจ่ายแล้ว สวิตช์นี้ไม่จำเป็น
   $("dbePrivRow").classList.toggle("hidden", !$("dbeOwner").value);
 }
 $("dbeKinds").addEventListener("click", (e) => { const b = e.target.closest("[data-dbe-kind]"); if (b) { dbeKind = b.dataset.dbeKind; paintDbe(); } });
@@ -4905,8 +4927,7 @@ function paintDm() {
   $("dmFromField").classList.add("hidden");   // หน้าหนี้สินเป็นการจำลอง ไม่ย้ายเงินจากบัญชีเงินเก็บ
   $("dmSlipBox").classList.toggle("hidden", dmKind !== "pay");
   $("dmAmount").placeholder = dmKind === "adjust" ? "ยอดค้างตาม statement" : "0";
-  $("dmHint").textContent = reg ? `ยอดค้าง ${baht(B)} · ลดยอดหนี้อย่างเดียว ไม่ลงรายจ่าย (ค่างวดนี้อยู่ในรายจ่ายหลักแล้ว)`
-    : dmKind === "pay" ? (L.no_expense ? `ยอดค้าง ${baht(B)} · ไม่ลงรายจ่ายซ้ำ (ตั้งไว้สำหรับบัตรเครดิต)` : `ยอดค้าง ${baht(B)} · จะลงรายจ่ายหมวด "${DEBT_CAT}" ในหน้ารับ–จ่ายให้อัตโนมัติ`)
+  $("dmHint").textContent = dmKind === "pay" ? `ยอดค้าง ${baht(B)} · ลดยอดหนี้อย่างเดียว (หน้านี้แยกจากรับ–จ่าย ไม่ลงรายจ่าย)`
     : dmKind === "adjust" ? dmAdjHint() : `ยอดค้างตอนนี้ ${baht(B)} · ไม่ลงรายจ่าย (เพิ่มยอดหนี้อย่างเดียว)`;
   const pre = dmKind !== "pay" ? 0 : L.in_bills ? (dmMode === "regular" ? debtRegular(L) : +L.extra_pay || 0) : +L.installment || 0;
   if (dmKind === "pay" && !$("dmAmount").value && pre) $("dmAmount").value = Math.min(pre, Math.max(0, B)) || "";
@@ -4931,28 +4952,13 @@ $("formDebtMove").onsubmit = async (e) => {
   const btn = $("dmSave"); btn.disabled = true;
   try {
     const row = { family_id: state.family.id, liability_id: L.id, kind: dmKind, amount, move_date: date, note };
+    // หน้าหนี้สินแยกขาดจากรับ–จ่าย: จ่ายหนี้ = ลดยอดหนี้อย่างเดียว ไม่ลงรายจ่าย ไม่ย้ายเงินบัญชีไหน
     const reg = dmKind === "pay" && L.in_bills && dmMode === "regular";
-    if (reg) {   // งวดปกติที่อยู่ในรายจ่ายหลัก: ลดยอดหนี้อย่างเดียว
-      row.in_bills = true;
-      const sl = await DMSLIP.commit(`${state.family.id}/${state.me.id}/debt-${Date.now()}.jpg`); if (sl.path) row.slip_path = sl.path;
-    } else if (dmKind === "pay") {
-      const sl = await DMSLIP.commit(`${state.family.id}/${state.me.id}/debt-${Date.now()}.jpg`); if (sl.path) row.slip_path = sl.path;
-      const from = null, tag = `${debtTxNote(L)} · ${shortDate(parseYmd(date))}`;
-      if (from && from !== MAIN) {   // ถอนจากบัญชีเงินเก็บ เข้าบัญชีรายรับรายจ่าย แล้วจ่ายออก
-        const mv = await api.addMoves([
-          { family_id: state.family.id, account_id: from, kind: "withdraw", amount, note: tag, move_date: date, slip_path: null, debt_id: null },
-          { family_id: state.family.id, account_id: null, kind: "deposit", amount, note: tag, move_date: date, slip_path: null, debt_id: null }]);
-        row.account_move_id = (mv || []).find(m => m.account_id === from)?.id || null;
-      }
-      if (!L.no_expense) {
-        const tx = await api.addTx({ family_id: state.family.id, member_id: L.member_id || state.me.id, type: "expense", scope: L.member_id ? "personal" : "shared",
-          amount, category: DEBT_CAT, note: debtTxNote(L), tx_date: date, slip_path: row.slip_path || null });
-        row.tx_id = tx?.id || null;
-      }
-    }
+    if (reg) row.in_bills = true;
+    if (dmKind === "pay") { const sl = await DMSLIP.commit(`${state.family.id}/${state.me.id}/debt-${Date.now()}.jpg`); if (sl.path) row.slip_path = sl.path; }
     await api.debtSave("sb_liability_moves", row);
     closeSheet("sheetDebtMove");
-    toast(reg ? "บันทึกงวดแล้ว · ไม่ลงรายจ่ายซ้ำ" : dmKind === "pay" ? (L.no_expense ? "บันทึกการจ่ายแล้ว" : `บันทึกแล้ว · ลงรายจ่าย "${DEBT_CAT}" ให้แล้ว`) : "บันทึกแล้ว");
+    toast(dmKind === "pay" ? (reg ? "บันทึกงวดแล้ว" : L.in_bills ? "บันทึกโปะแล้ว" : "บันทึกการจ่ายแล้ว") : "บันทึกแล้ว");
     await reload();
   } catch (err) { $("dmErr").textContent = friendlyError(err); } finally { btn.disabled = false; }
 };
@@ -4967,7 +4973,7 @@ async function undoDebtMoveLinks(m) {
 }
 async function delDebtMove(id) {
   const m = (state.data.lmoves || []).find(x => x.id === id); if (!m) return;
-  if (!confirm(`ลบรายการนี้ (${baht(Math.abs(m.amount))})?${m.tx_id ? `\nรายจ่าย "${DEBT_CAT}" ที่ลงไว้จะถูกลบด้วย` : ""}`)) return;
+  if (!confirm(`ลบรายการนี้ (${baht(Math.abs(m.amount))})?${m.tx_id && (state.data.txs || []).some(t => t.id === m.tx_id) ? `\nรายจ่าย "${DEBT_CAT}" ที่เคยลงไว้จะถูกลบด้วย` : ""}`)) return;
   try { await undoDebtMoveLinks(m); await api.debtDelete("sb_liability_moves", id); toast("ลบแล้ว"); await reload(); }
   catch (err) { toast(friendlyError(err)); }
 }
