@@ -4584,19 +4584,33 @@ function debtPayoff(L) {
   else n = Math.ceil(B / P);
   return { n, end: addMonths(monthStart(today0()), n - 1), interest: r > 0 ? round2(P * n - B) : 0 };
 }
-// ภาระหนี้ต่อรายได้ (DSR) = ค่างวดรวมต่อเดือน ÷ เงินเดือนก่อนหักของเดือนนี้
-function memberGrossNow(mid) {
+// ภาระหนี้ต่อรายได้ = ค่างวดรวมต่อเดือน ÷ เงินที่เหลือหลังหักรายจ่ายหลัก (ของเดือนนี้)
+//   รายคน: เงินเดือนสุทธิ (หลังหักในสลิป · ใช้ยอดจริงถ้าบันทึกไว้) + รายรับส่วนตัวจากปุ่ม + − รายจ่ายหลักที่เป็นของคนนั้น
+//   ทั้งบ้าน: เงินเดือนสุทธิทุกคน + รายรับทั้งหมดจากปุ่ม + − รายจ่ายหลักทั้งหมด
+//   รายจ่ายหลักที่ชื่อตรงกับบัญชีหนี้ (เช่น ตั้ง "ผ่อนรถ" ไว้ทั้งสองที่) ไม่หักซ้ำ
+function memberNetNow(mid) {
   const p = feat("salary") ? payFor(mid, monthStart(today0())) : null;
-  return p ? round2(p.base + p.otTotal + p.shiftPay + p.incSum + p.dailyIncSum) : 0;
+  return p ? round2(p.actual !== null && p.actual !== undefined ? p.actual : p.net) : 0;
 }
 function debtDsr() {
   const open = liabs().filter(debtOpen), inst = (arr) => arr.reduce((a, L) => a + (+L.installment || 0), 0);
-  const rows = adults().map(m => { const g = memberGrossNow(m.id), i = inst(open.filter(L => L.member_id === m.id)); return { m, gross: g, inst: i, pct: g ? i / g * 100 : null }; });
-  const home = inst(open.filter(L => !L.member_id)), totI = inst(open), totG = rows.reduce((a, r) => a + r.gross, 0);
-  return { rows, home, inst: totI, gross: totG, pct: totG ? totI / totG * 100 : null };
+  const M = monthStart(today0()), s0 = ymd(M), e0 = mEnd(M);
+  const isDebtBill = (x) => { const n = String(x.name || "").trim().toLowerCase(); return n.length >= 2 && open.some(L => { const d = String(L.name).trim().toLowerCase(); return n.includes(d) || d.includes(n); }); };
+  const bills = billTxRows(M).filter(x => !isDebtBill(x));
+  const incTx = (state.data.txs || []).filter(t => t.type === "income" && countable(t) && !isCarryCat(t.category) && t.tx_date >= s0 && t.tx_date <= e0 && !(feat("salary") && SALARY_CATS.has(t.category)));
+  const rows = adults().map(m => {
+    const net = memberNetNow(m.id), other = incTx.filter(t => t.scope !== "shared" && t.member_id === m.id).reduce((a, t) => a + +t.amount, 0);
+    const bill = bills.filter(x => x.who === m.id).reduce((a, x) => a + +x.amount, 0), left = round2(net + other - bill), i = inst(open.filter(L => L.member_id === m.id));
+    return { m, net, other, bill, left, inst: i, pct: left > 0 ? i / left * 100 : (i > 0 ? Infinity : null) };
+  });
+  const totNet = rows.reduce((a, r) => a + r.net, 0), totOther = incTx.reduce((a, t) => a + +t.amount, 0), totBill = bills.reduce((a, x) => a + +x.amount, 0);
+  const left = round2(totNet + totOther - totBill), totI = inst(open);
+  return { rows, home: inst(open.filter(L => !L.member_id)), inst: totI, net: totNet, other: totOther, bill: totBill, left,
+    pct: left > 0 ? totI / left * 100 : (totI > 0 ? Infinity : null), skipped: billTxRows(M).length - bills.length };
 }
 const dsrColor = (p) => p === null ? "var(--muted)" : p > 60 ? "var(--expense)" : p > 40 ? "#E9A23B" : "var(--income)";
-const dsrWord = (p) => p === null ? "ยังไม่มีเงินเดือนให้คิด" : p > 60 ? "สูงมาก ควรรีบลดหนี้" : p > 40 ? "เกิน 40% เริ่มตึงมือ" : "อยู่ในเกณฑ์ปลอดภัย";
+const dsrWord = (p) => p === null ? "ยังไม่มีรายได้ให้คิด" : p === Infinity ? "หักรายจ่ายหลักแล้วไม่เหลือเงินจ่ายหนี้" : p > 100 ? "เงินที่เหลือไม่พอจ่ายค่างวด" : p > 60 ? "สูงมาก ควรรีบลดหนี้" : p > 40 ? "เกิน 40% เริ่มตึงมือ" : "อยู่ในเกณฑ์ปลอดภัย";
+const dsrPct = (p) => p === null ? "–" : p === Infinity ? "เกิน" : Math.round(p) + "%";
 
 state.dbFilter = "open"; state.dbOpen = null;
 function renderDebtTab() {
@@ -4607,18 +4621,21 @@ function renderDebtTab() {
   $("dbPaidM").textContent = bahtR(all.reduce((a, L) => a + debtPaid(L, m0, m1), 0));
   $("dbPaid").textContent = bahtR(all.reduce((a, L) => a + debtPaid(L), 0));
   $("dbCount").textContent = `${open.length}${all.length > open.length ? ` (+ปิดแล้ว ${all.length - open.length})` : ""}`;
-  $("dbPill").textContent = D.pct === null ? "" : `ภาระหนี้ ${Math.round(D.pct)}%`;
+  $("dbPill").textContent = D.pct === null ? "" : `ภาระหนี้ ${dsrPct(D.pct)}`;
   $("dbPill").style.background = D.pct === null ? "" : `color-mix(in srgb,${dsrColor(D.pct)} 25%,transparent)`;
   const due = open.map(L => ({ L, n: debtNextDue(L) })).filter(x => x.n).sort((a, b) => a.n.days - b.n.days)[0];
   $("dbVerdict").textContent = !all.length ? "ยังไม่มีบัญชีหนี้ · กด + เพิ่มบัญชีหนี้ ด้านล่าง"
     : due ? `ครบกำหนดถัดไป: ${due.L.name} ${due.n.days === 0 ? "วันนี้" : `อีก ${due.n.days} วัน`} (${shortDate(due.n.d)})${+due.L.installment ? ` · ${bahtR(due.L.installment)}` : ""}` : "ไม่มีหนี้ค้าง 🎉";
-  // DSR
-  const bar = (p) => `<div class="track"><i style="width:${Math.min(100, p || 0).toFixed(1)}%;background:${dsrColor(p)}"></i></div>`;
-  $("dbDsr").innerHTML = `<div class="hbar"><div class="top"><b>🏠 ทั้งบ้าน</b><span class="num" style="font-weight:800;color:${dsrColor(D.pct)}">${D.pct === null ? "–" : Math.round(D.pct) + "%"}</span></div>${bar(D.pct)}
-      <div class="sub num">ค่างวด ${bahtR(D.inst)} ÷ เงินเดือนรวม ${bahtR(D.gross)} · ${dsrWord(D.pct)}</div></div>` +
-    D.rows.filter(r => r.inst || r.gross).map(r => `<div class="hbar"><div class="top"><b>${avatarHTML(r.m)}${esc(r.m.display_name)}</b><span class="num" style="font-weight:800;color:${dsrColor(r.pct)}">${r.pct === null ? "–" : Math.round(r.pct) + "%"}</span></div>${bar(r.pct)}
-      <div class="sub num">ค่างวด ${bahtR(r.inst)} ÷ เงินเดือน ${bahtR(r.gross)}</div></div>`).join("") +
-    `<p class="muted" style="font-size:12.5px;margin:6px 0 0">เกิน 40% ขึ้นสีส้ม · เกิน 60% ขึ้นสีแดง${D.home ? ` · หนี้ของบ้าน ${bahtR(D.home)}/เดือน นับรวมในทั้งบ้าน` : ""} · หนี้ที่ตั้ง "เห็นคนเดียว" ของคนอื่นไม่นับในเครื่องนี้</p>`;
+  // ภาระหนี้ต่อเงินที่เหลือหลังหักรายจ่ายหลัก
+  const bar = (p) => `<div class="track"><i style="width:${p === null ? 0 : Math.min(100, p === Infinity ? 100 : p).toFixed(1)}%;background:${dsrColor(p)}"></i></div>`;
+  const after = (left, i) => { const r = round2(left - i); return `<b style="color:${r >= 0 ? "var(--income)" : "var(--expense)"}">${r >= 0 ? `เหลือหลังผ่อน ${bahtR(r)}` : `ขาด ${bahtR(-r)}`}</b>`; };
+  $("dbDsr").innerHTML = `<div class="hbar"><div class="top"><b>🏠 ทั้งบ้าน</b><span class="num" style="font-weight:800;color:${dsrColor(D.pct)}">${dsrPct(D.pct)}</span></div>${bar(D.pct)}
+      <div class="sub num">เงินเดือนสุทธิ ${bahtR(D.net)}${D.other ? ` + รายรับอื่น ${bahtR(D.other)}` : ""} − รายจ่ายหลัก ${bahtR(D.bill)} = เหลือ ${D.left < 0 ? "−" : ""}${bahtR(Math.abs(D.left))}</div>
+      <div class="sub num">ค่างวด ${bahtR(D.inst)} · ${after(D.left, D.inst)} · ${dsrWord(D.pct)}</div></div>` +
+    D.rows.filter(r => r.inst || r.net || r.bill).map(r => `<div class="hbar"><div class="top"><b>${avatarHTML(r.m)}${esc(r.m.display_name)}</b><span class="num" style="font-weight:800;color:${dsrColor(r.pct)}">${dsrPct(r.pct)}</span></div>${bar(r.pct)}
+      <div class="sub num">เงินเดือนสุทธิ ${bahtR(r.net)}${r.other ? ` + รายรับอื่น ${bahtR(r.other)}` : ""} − รายจ่ายหลักของตัวเอง ${bahtR(r.bill)} = เหลือ ${r.left < 0 ? "−" : ""}${bahtR(Math.abs(r.left))}</div>
+      <div class="sub num">ค่างวด ${bahtR(r.inst)} · ${after(r.left, r.inst)}</div></div>`).join("") +
+    `<p class="muted" style="font-size:12.5px;margin:6px 0 0">คิดจากเงินที่เหลือหลังหักรายจ่ายหลักของเดือนนี้ · เกิน 40% ส้ม · เกิน 60% แดง${D.home ? ` · หนี้ของบ้าน ${bahtR(D.home)}/เดือน นับในทั้งบ้าน` : ""}${D.skipped ? ` · รายจ่ายหลักที่ชื่อตรงกับบัญชีหนี้ ${D.skipped} รายการ ไม่หักซ้ำ` : ""} · หนี้ "เห็นคนเดียว" ของคนอื่นไม่นับในเครื่องนี้</p>`;
   // กราฟยอดหนี้ 12 เดือน (แยกสีตามบัญชี)
   const T = monthStart(t), M = []; for (let k = 11; k >= 0; k--) M.push(addMonths(T, -k));
   const shown = all.filter(L => M.some(x => debtBal(L, mEnd(x)) > 0.004));
@@ -4812,7 +4829,7 @@ function renderNetWorth() {
     <div><span>หนี้สิน (${Dd.length} บัญชี)</span><b class="num" style="color:var(--expense)">${bahtR(db)}</b></div>
     <div><span>สุทธิ (เงินเก็บ − หนี้)</span><b class="num" style="color:${net >= 0 ? "var(--income)" : "var(--expense)"}">${net < 0 ? "−" : ""}${bahtR(Math.abs(net))}</b></div>`;
   const D = debtDsr();
-  $("nwDsr").innerHTML = `${sv > 0 && db > 0 ? `${sv >= db ? `✅ เงินเก็บพอปิดหนี้ได้ทั้งหมด (เหลือ ${bahtR(sv - db)})` : `เงินเก็บปิดหนี้ได้ ${Math.round(sv / db * 100)}%`} · ` : db > 0 ? "ยังไม่มีเงินเก็บที่เลือกไว้ · " : ""}ภาระหนี้ต่อรายได้ <b style="color:${dsrColor(D.pct)}">${D.pct === null ? "–" : Math.round(D.pct) + "%"}</b> ${D.pct !== null && D.pct > 40 ? "⚠️ " + dsrWord(D.pct) : ""}`;
+  $("nwDsr").innerHTML = `${sv > 0 && db > 0 ? `${sv >= db ? `✅ เงินเก็บพอปิดหนี้ได้ทั้งหมด (เหลือ ${bahtR(sv - db)})` : `เงินเก็บปิดหนี้ได้ ${Math.round(sv / db * 100)}%`} · ` : db > 0 ? "ยังไม่มีเงินเก็บที่เลือกไว้ · " : ""}ค่างวดกินเงินที่เหลือหลังรายจ่ายหลัก <b style="color:${dsrColor(D.pct)}">${dsrPct(D.pct)}</b> ${D.pct !== null && D.pct > 40 ? "⚠️ " + dsrWord(D.pct) : ""}`;
   const T = monthStart(today0()), M = []; for (let k = 11; k >= 0; k--) M.push(addMonths(T, -k));
   const ends = M.map((x, i) => i === M.length - 1 ? ymd(today0()) : mEnd(x));
   const sS = ends.map(e => round2(S.reduce((a, x) => a + x.bal(e), 0))), sD = ends.map(e => round2(Dd.reduce((a, x) => a + x.bal(e), 0)));
