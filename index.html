@@ -390,7 +390,7 @@
           <div id="dbVerdict" class="verdict"></div>
           <div class="cols">
             <div><span id="dbInstLbl">ค่างวดรวม/เดือน</span><strong id="dbInst" class="num">฿0</strong></div>
-            <div><span>จ่ายเดือนนี้</span><strong id="dbPaidM" class="num">฿0</strong></div>
+            <div><span id="dbPaidMLbl">จ่ายเดือนนี้</span><strong id="dbPaidM" class="num">฿0</strong></div>
             <div><span>จ่ายไปแล้วทั้งหมด</span><strong id="dbPaid" class="num">฿0</strong></div>
             <div><span>บัญชีหนี้</span><strong id="dbCount" class="num">0</strong></div>
           </div>
@@ -411,6 +411,10 @@
         <section>
           <div class="sec-head"><h2>บัญชีหนี้</h2><button type="button" class="linkbtn" id="dbAdd">+ เพิ่มบัญชีหนี้</button></div>
           <div id="dbList"></div>
+        </section>
+        <section>
+          <div class="sec-head"><h2 id="dbMovesTitle">รายการหนี้</h2><small id="dbMovesSub"></small></div>
+          <div class="card" id="dbMoves"></div>
         </section>
       </div>
 
