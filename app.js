@@ -1291,6 +1291,7 @@ function renderDashboard(S) {
   renderBillPays();
   renderKidsOverview();
   renderOt(S);
+  renderMemberAll(S);
   renderMemberIncome(S);
   renderCategories(S);
   renderWhoSpent();
@@ -1444,17 +1445,88 @@ function memberMoney(mid, S) {
   return { ...r, inc: r.gross + r.recIn, out: r.deduct + r.recOut };
 }
 function renderMemberIncome(S) {
-  const rows = adults().map(m => ({ m, x: memberMoney(m.id, S) }));
-  const max = Math.max(1, ...rows.map(r => Math.max(r.x.inc, r.x.out)));
-  const seg = (v, c) => v > 0 ? `<i style="width:${(v / max * 100).toFixed(2)}%;background:${c}"></i>` : "";
-  $("memberIncome").innerHTML = rows.map(({ m, x }) => { const net = x.inc - x.out;
-    return `<div class="hbar"><div class="top"><b>${avatarHTML(m)}${esc(m.display_name)}</b><span class="num" style="font-weight:800;color:${net >= 0 ? "var(--income)" : "var(--expense)"}">เหลือ ${signed(Math.round(net))}</span></div>
-      <div class="wf-sub" style="margin:0 0 3px"><span>รายได้ทั้งหมด</span><b class="num" style="color:var(--income)">${bahtR(x.inc)}</b></div>
-      <div class="track">${seg(x.gross, "var(--income)")}${seg(x.recIn, "#8456C4")}</div>
-      <div class="wf-sub" style="margin:8px 0 3px"><span>รายจ่ายทั้งหมด</span><b class="num" style="color:var(--expense)">${bahtR(x.out)}</b></div>
-      <div class="track">${seg(x.deduct, "#E0620F")}${seg(x.recOut, "var(--expense)")}</div>
-      <div class="sub num">${x.hasPay ? `เงินเดือนก่อนหัก ${bahtR(x.gross)} · หักในสลิป ${bahtR(x.deduct)}${x.actual ? " (ตามสลิปจริง)" : ""} · ` : ""}รายรับอื่น ${bahtR(x.recIn)} · ใช้ส่วนตัว ${bahtR(x.recOut)}</div></div>`; }).join("")
-    + (S.sharedIncome ? `<div class="hbar"><div class="top"><b>🏠 รายรับของบ้าน</b><span class="num" style="font-weight:700">${bahtR(S.sharedIncome)}</span></div></div>` : "");
+  // เฉพาะในสลิปเงินเดือน: เงินเดือนก่อนหัก เทียบ รายการหัก
+  const rows = adults().map(m => ({ m, x: memberMoney(m.id, S) })).filter(r => r.x.hasPay);
+  if (!rows.length) { $("memberIncome").innerHTML = `<div class="empty">ยังไม่ได้ตั้งค่าเงินเดือน</div>`; return; }
+  const max = Math.max(1, ...rows.map(r => Math.max(r.x.gross, r.x.deduct)));
+  const bar = (v, c) => `<div class="track"><i style="width:${(v / max * 100).toFixed(2)}%;background:${c}"></i></div>`;
+  $("memberIncome").innerHTML = rows.map(({ m, x }) => { const net = x.gross - x.deduct;
+    return `<div class="hbar"><div class="top"><b>${avatarHTML(m)}${esc(m.display_name)}</b><span class="num" style="font-weight:800;color:${net >= 0 ? "var(--income)" : "var(--expense)"}">สุทธิ ${signed(Math.round(net))}</span></div>
+      <div class="wf-sub" style="margin:0 0 3px"><span>เงินเดือนก่อนหัก</span><b class="num" style="color:var(--income)">${bahtR(x.gross)}</b></div>${bar(x.gross, "var(--income)")}
+      <div class="wf-sub" style="margin:8px 0 3px"><span>หักในสลิป${x.actual ? " (ตามสลิปจริง)" : ""}</span><b class="num" style="color:#E0620F">${bahtR(x.deduct)}</b></div>${bar(x.deduct, "#E0620F")}
+      <div class="sub num">หัก ${x.gross ? Math.round(x.deduct / x.gross * 100) : 0}% ของเงินเดือน</div></div>`; }).join("");
+}
+// รายรับ–รายจ่ายรวมของแต่ละคน (รวมลูก) · ไม่นับรายจ่ายใช้ร่วมกัน
+// รับ = เงินเดือนก่อนหัก + รายรับส่วนตัวจากปุ่ม + (ลูก) เงินไปโรงเรียนที่ให้ไป
+// จ่าย = หักในสลิป + รายจ่ายส่วนตัวจากปุ่ม + รายจ่ายหลักที่เป็นของคนนั้น (นับเข้ารอบเดือนของมัน) + (ลูก) ใช้ไปวันไปโรงเรียน + ใช้เงินเก็บ
+function memberAllData(S) {
+  // แต่ละส่วนเก็บ "ที่มา" ไว้ด้วย (ชื่อรายการหัก / ชื่อบิล / หมวดรายจ่าย) เพื่ออธิบายในการ์ด
+  const r = { start: S.start, end: S.end }, s0 = ymd(r.start), e0 = ymd(r.end);
+  const sp = whoSpentMap(r).W;
+  return state.members.map(m => {
+    const kid = isChild(m), x = { m, kid, inc: 0, out: 0, parts: [] };
+    const addI = (grp, v, items) => { if (v > 0.004) { x.inc += v; x.parts.push({ io: "in", grp, v, items: items || null }); } };
+    const addO = (grp, v, items) => { if (v > 0.004) { x.out += v; x.parts.push({ io: "out", grp, v, items: items || null }); } };
+    const incTx = {};
+    S.txs.filter(t => t.member_id === m.id && t.scope !== "shared" && t.type === "income" && !isCarryCat(t.category)).forEach(t => { incTx[t.category] = (incTx[t.category] || 0) + (+t.amount || 0); });
+    if (!kid) {
+      const mm = memberMoney(m.id, S), gi = {}, di = {};
+      if (feat("salary")) eachMonth(S.start, S.calcEnd || S.end, M => {
+        const p = payFor(m.id, M); if (!p) return;
+        const ml = monthShort(M), gross = p.base + p.otTotal + p.shiftPay + p.incSum + p.dailyIncSum;
+        const g = (k, v) => { if (v > 0.004) gi[k] = (gi[k] || 0) + v; }, d = (k, v) => { if (v > 0.004) di[k] = (di[k] || 0) + v; };
+        g(p.daily ? "ค่าแรง" : "เงินเดือน", p.base); g("OT", p.otTotal); g("ค่ากะ", p.shiftPay);
+        (p.incomes || []).forEach(it => g(it.name || "รายได้ประจำ", +it.amount)); g("รายได้รายวัน", p.dailyIncSum);
+        if (p.actual !== null) d(`หักตามสลิปจริง (${ml})`, gross - p.actual);
+        else { (p.deductions || []).forEach(it => d(it.name || "รายการหัก", +it.amount)); d(`หักวันขาด/ไม่รับเงิน`, p.unpaidDeduct); }
+      });
+      addI("💼 เงินเดือนก่อนหัก (ในสลิป)", mm.gross, gi);
+      if (!mm.hasPay) addI("รายรับส่วนตัว (จากปุ่ม +)", Object.values(incTx).reduce((a, v) => a + v, 0), incTx);
+      else addI("รายรับอื่น (จากปุ่ม +)", mm.recIn, Object.fromEntries(Object.entries(incTx).filter(([c]) => !SALARY_CATS.has(c))));
+      addO("🧾 หักในสลิปเงินเดือน", mm.deduct, di);
+    } else {
+      addI("รายรับของลูก (จากปุ่ม +)", Object.values(incTx).reduce((a, v) => a + v, 0), incTx);
+      const days = kidDays(m.id, s0, e0), buys = kidBuys(m.id, s0, e0), bi = {};
+      addO("🎒 ใช้วันไปโรงเรียน", days.reduce((a, k) => a + (+k.spent || 0), 0), { [`${days.filter(k => +k.spent > 0).length} วัน`]: days.reduce((a, k) => a + (+k.spent || 0), 0) });
+      buys.forEach(b => { const k = b.note || "ซื้อของ"; bi[k] = (bi[k] || 0) + (+b.amount || 0); });
+      addO("🧸 ใช้เงินเก็บของน้อง", buys.reduce((a, k) => a + (+k.amount || 0), 0), bi);
+    }
+    const w = sp[m.id];
+    if (w) {
+      const own = {}, bills = {};
+      Object.entries(w.items || {}).forEach(([k, v]) => { if (k.startsWith("📌 ")) bills[k.slice(2).trim()] = v; else own[k] = v; });
+      addO("🛒 ใช้ส่วนตัว (จากปุ่ม +)", w.v - w.bill, own);
+      addO("📌 รายจ่ายหลักที่เป็นของตัวเอง", w.bill, bills);
+    }
+    return x;
+  }).filter(x => !x.kid || x.inc || x.out);
+}
+function renderMemberAll(S) {
+  if (!$("chartMA")) return;
+  const D = memberAllData(S);
+  $("maSub").textContent = "ไม่นับรายจ่ายใช้ร่วมกัน";
+  barChart($("chartMA"), $("tipMA"), { labels: D.map(x => x.m.display_name.slice(0, 8)), stacked: false, initialTip: 0,
+    series: [{ color: "var(--income)", values: D.map(x => round2(x.inc)) }, { color: "var(--expense)", values: D.map(x => round2(x.out)) }],
+    emptyText: "ยังไม่มีรายรับรายจ่ายในช่วงนี้",
+    tip: (i) => { const x = D[i], net = x.inc - x.out;
+      return `<b>${esc(x.m.display_name)}${x.kid ? " (ลูก)" : ""}</b><span>รับ <b class="num">${bahtR(x.inc)}</b> · จ่าย <b class="num">${bahtR(x.out)}</b></span>
+        <span style="color:${net >= 0 ? "var(--income)" : "var(--expense)"}">${net >= 0 ? "เหลือ" : "ใช้เกิน"} ${bahtR(Math.abs(net))}</span>`; } });
+  const max = Math.max(1, ...D.map(x => Math.max(x.inc, x.out)));
+  const src = (parts) => parts.length ? parts.map(p => {
+    const it = Object.entries(p.items || {}).filter(([, v]) => v > 0.004).sort((a, b) => b[1] - a[1]);
+    return `<div class="ma-grp"><div class="ma-gh"><span>${esc(p.grp)}</span><b class="num">${bahtR(p.v)}</b></div>${it.length ? `<div class="ma-items">${it.map(([k, v]) => `<span>${esc(k)} <b class="num">${bahtR(v)}</b></span>`).join("")}</div>` : ""}</div>`;
+  }).join("") : `<div class="muted" style="font-size:13px">ไม่มี</div>`;
+  $("maList").innerHTML = D.map(x => { const net = x.inc - x.out;
+    const ins = x.parts.filter(p => p.io === "in"), outs = x.parts.filter(p => p.io === "out");
+    return `<div class="hbar"><div class="top"><b>${avatarHTML(x.m)}${esc(x.m.display_name)}${x.kid ? ' <small class="muted">(ลูก)</small>' : ""}</b>${x.kid && !x.inc ? `<span class="num" style="font-weight:800;color:var(--expense)">ใช้ไป ${bahtR(x.out)}</span>` : `<span class="num" style="font-weight:800;color:${net >= 0 ? "var(--income)" : "var(--expense)"}">${net >= 0 ? "เหลือ" : "ใช้เกิน"} ${bahtR(Math.abs(net))}</span>`}</div>
+      <div class="wf-sub" style="margin:0 0 3px"><span>รายรับรวม</span><b class="num" style="color:var(--income)">${bahtR(x.inc)}</b></div>
+      <div class="track"><i style="width:${(x.inc / max * 100).toFixed(2)}%;background:var(--income)"></i></div>
+      <div class="wf-sub" style="margin:8px 0 3px"><span>รายจ่ายรวม</span><b class="num" style="color:var(--expense)">${bahtR(x.out)}</b></div>
+      <div class="track"><i style="width:${(x.out / max * 100).toFixed(2)}%;background:var(--expense)"></i></div>
+      <details class="ma-src"><summary>ดูที่มา: รับจากไหน · จ่าย/หักไปกับอะไร</summary>
+        <div class="ma-h in">รายรับ</div>${src(ins)}
+        <div class="ma-h out">รายจ่าย</div>${src(outs)}</details></div>`; }).join("")
+    + `<p class="muted" style="font-size:12.5px;margin:8px 0 0">ลูก: เงินไปโรงเรียนไม่นับเป็นรายรับ (เป็นเงินของบ้านที่ให้ลูก) · รายจ่ายหลักนับเข้ารอบเดือนของมัน</p>`;
 }
 function renderCategories(S) {
   const entries = Object.entries(S.cats);
@@ -4281,25 +4353,57 @@ $("allBody").addEventListener("click", (e) => {
 
 /* ---------- ภาพรวม: ใครใช้จ่ายเท่าไหร่ (เฉพาะรายจ่าย) ตามช่วงที่เลือกด้านบน (เดือน / ปี / ทั้งหมด) ---------- */
 function renderWhoSpent() {
+  // รวม: รายจ่ายทั่วไป + รายจ่ายหลัก (นับเข้ารอบเดือนของมัน ตาม "ของใคร") · ไม่นับรายการหักในสลิป
   if (!$("whoSpent")) return;
-  const P = effPeriod(), r = periodRange(P), s0 = ymd(r.start), e0 = ymd(r.end);
+  const P = effPeriod(), r = periodRange(P);
   const label = P === "all" ? "ทั้งหมด" : periodLabel();
-  const who = {}, cnt = {}; let shared = 0, sharedN = 0, total = 0;
-  (state.data.txs || []).forEach(t => {
-    if (t.type === "income" || !countable(t) || t.tx_date < s0 || t.tx_date > e0) return;
-    const a = +t.amount || 0; total += a;
-    if (t.scope === "shared" || !t.member_id) { shared += a; sharedN++; }
-    else { who[t.member_id] = (who[t.member_id] || 0) + a; cnt[t.member_id] = (cnt[t.member_id] || 0) + 1; }
-  });
-  const rows = state.members.filter(m => !isChild(m) || who[m.id])
-    .map(m => ({ html: `${avatarHTML(m)}${esc(m.display_name)}`, v: round2(who[m.id] || 0), n: cnt[m.id] || 0 }));
-  if (shared || sharedN) rows.push({ html: "🏠 ใช้ร่วมกัน", v: round2(shared), n: sharedN });
-  rows.sort((a, b) => b.v - a.v);
-  const max = Math.max(1, ...rows.map(r => r.v));
+  const { W, planned } = whoSpentMap(r);
+  const total = Object.values(W).reduce((a, w) => a + w.v, 0);
+  const rows = state.members.filter(m => !isChild(m) || W[m.id])
+    .map(m => ({ html: `${avatarHTML(m)}${esc(m.display_name)}`, w: W[m.id] || { v: 0, n: 0, bill: 0 } }));
+  if (W.shared) rows.push({ html: "🏠 ใช้ร่วมกัน", w: W.shared });
+  rows.sort((a, b) => b.w.v - a.w.v);
+  const max = Math.max(1, ...rows.map(x => x.w.v));
+  const sub = (w) => [`${w.n} รายการ`, w.bill ? `📌 รายจ่ายหลัก ${bahtR(w.bill)}` : ""].filter(Boolean).join(" · ");
   $("whoSpentSub").textContent = `${label} · รวม ${bahtR(total)}`;
-  $("whoSpent").innerHTML = total ? rows.map(r => `<div class="hbar"><div class="top"><b>${r.html}</b><span class="num" style="font-weight:700">${bahtR(r.v)} <small class="muted">${Math.round(r.v / total * 100)}%</small></span></div>
-    <div class="track"><i style="width:${(r.v / max * 100).toFixed(1)}%;background:var(--expense)"></i></div>
-    <div class="sub">${r.n} รายการ</div></div>`).join("") : `<div class="empty">ยังไม่มีรายจ่ายในช่วงนี้</div>`;
+  $("whoSpent").innerHTML = total ? rows.map(x => `<div class="hbar"><div class="top"><b>${x.html}</b><span class="num" style="font-weight:700">${bahtR(round2(x.w.v))} <small class="muted">${Math.round(x.w.v / total * 100)}%</small></span></div>
+    <div class="track"><i style="width:${(x.w.v / max * 100).toFixed(1)}%;background:var(--expense)"></i></div>
+    <div class="sub">${sub(x.w)}</div></div>`).join("") +
+    `<p class="muted" style="font-size:12.5px;margin:8px 0 0">รวมรายจ่ายหลัก (นับเข้ารอบเดือนของมัน ตาม "ของใคร")${planned ? " · รอบนี้ยังไม่ฝากเงินคงเหลือ ใช้ยอดที่ตั้งไว้" : ""} · "ใช้ร่วมกัน" คือรายจ่ายของบ้านที่ไม่ได้ระบุคน</p>`
+    : `<div class="empty">ยังไม่มีรายจ่ายในช่วงนี้</div>`;
+}
+// รายจ่ายแต่ละคนในช่วง r: รายจ่ายจากปุ่ม + รายจ่ายหลัก (นับเข้ารอบเดือนของมัน) · key = member id หรือ "shared"
+function whoSpentMap(r) {
+  const s0 = ymd(r.start), e0 = ymd(r.end);
+  const curM = monthStart(today0()), inRange = (M) => { const k = ymd(M); return k >= ymd(monthStart(r.start)) && k <= e0; };
+  const W = {};   // key: member id หรือ "shared"
+  const add = (k, a, kind, lab) => { const w = W[k] || (W[k] = { v: 0, n: 0, bill: 0, items: {} }); w.v += a; w.n++; if (kind) w[kind] += a;
+    const key = (kind === "bill" ? "📌 " : "") + (lab || "อื่น ๆ"); w.items[key] = (w.items[key] || 0) + a; };
+  const postedM = new Set();
+  (state.data.txs || []).forEach(t => {
+    if (t.type === "income" || !countable(t)) return;
+    const a = +t.amount || 0, k = t.scope === "shared" || !t.member_id ? "shared" : t.member_id;
+    const bm = billGroupMonth(t);
+    if (bm) {   // รายจ่ายหลักที่ลงตอนฝากเงินคงเหลือ: นับเข้ารอบเดือนของมัน (ไม่ใช่วันที่ฝาก)
+      postedM.add(ymd(bm));
+      if (inRange(bm)) add(k, a, "bill", String(t.note || "").replace(billTag(bm), "") || t.category);
+      return;
+    }
+    if (t.tx_date < s0 || t.tx_date > e0) return;
+    add(k, a, null, t.category);
+  });
+  // รอบที่ยังไม่ได้ฝากเงินคงเหลือ: ใช้รายจ่ายหลักที่ตั้งไว้ (เฉพาะรอบปัจจุบันและรอบที่บันทึกจ่ายประจำแล้ว)
+  const bpMonths = new Set((state.data.bpays || []).map(x => String(x.cycle_month).slice(0, 10)));
+  const months = [];
+  for (let M = monthStart(r.start); M <= r.end && M <= curM; M = addMonths(M, 1)) months.push(M);
+  let planned = false;
+  months.forEach(M => {
+    const k = ymd(M);
+    if (!postedM.has(k) && (+M === +curM || bpMonths.has(k))) {
+      billTxRows(M).forEach(x => { add(x.who || "shared", x.amount, "bill", x.name); planned = planned || +M === +curM; });
+    }
+  });
+  return { W, planned };
 }
 
 /* ---------- บัญชีเด็ก: เห็นได้แค่หน้าเงินไปโรงเรียน/เงินเก็บของตัวเอง ----------
@@ -4406,7 +4510,7 @@ $("formRecover").onsubmit = async (e) => {
 /* ---------- ภาพรวม: จัดลำดับหัวข้อ (ตั้งค่า > หน้าตาและธีม) · เก็บแยกแต่ละเครื่อง ---------- */
 const OV_LABELS = { carry: "เทียบกับช่วงก่อน (เดือน/ปี/12 เดือน)", cmp: "รายรับ–รายจ่าย แต่ละเดือน", grow: "เงินเหลือ โตขึ้นหรือลดลง",
   billpay: "จ่ายประจำ · มากไปน้อย", kids: "🎒 เงินไปโรงเรียนของน้อง", who: "ใครใช้จ่ายเท่าไหร่", debts: "เงินเก็บ · กู้ยืม · ออกให้ก่อน",
-  ot: "OT แต่ละคน", memberinc: "รายได้–รายจ่ายแต่ละคน", personal: "ใช้ส่วนตัวแต่ละคน", cats: "จ่ายไปกับอะไร", recent: "ล่าสุด" };
+  ot: "OT แต่ละคน", memberall: "รายรับ–รายจ่ายรวม แต่ละคน", memberinc: "รายได้–รายการหักในสลิป", personal: "ใช้ส่วนตัวแต่ละคน", cats: "จ่ายไปกับอะไร", recent: "ล่าสุด" };
 const OV_DEFAULT = Object.keys(OV_LABELS);
 const ovKey = () => "samudbaan_ovorder_" + (state.user?.id || "x");
 // ลำดับที่ตั้งไว้: เก็บในบัญชี (ใช้ได้ทุกเครื่อง) และสำรองไว้ในเครื่อง

@@ -809,3 +809,15 @@ body.sheet-open{overflow:hidden}
 .mc-track{height:12px;border-radius:999px;background:var(--surface-2);overflow:hidden}
 .mc-track i{display:block;height:100%;border-radius:999px;min-width:2px;transition:width .4s}
 .mc-note{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface-2);font-size:13px;color:var(--muted);line-height:1.6}
+
+/* ===== รายรับ–รายจ่ายรวมแต่ละคน: ที่มา ===== */
+.ma-src{margin-top:8px}
+.ma-src summary{cursor:pointer;font-size:13px;color:var(--brand);font-weight:700;padding:4px 0;list-style:none}
+.ma-src summary::before{content:"▸ ";}
+.ma-src[open] summary::before{content:"▾ ";}
+.ma-h{font-size:12.5px;font-weight:800;margin:8px 0 4px;letter-spacing:.02em}
+.ma-h.in{color:var(--income)} .ma-h.out{color:var(--expense)}
+.ma-grp{padding:6px 10px;border-radius:10px;background:var(--surface-2);margin:4px 0}
+.ma-gh{display:flex;justify-content:space-between;gap:8px;font-size:13.5px}
+.ma-items{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:12.5px;color:var(--muted)}
+.ma-items b{color:var(--ink);font-weight:700}

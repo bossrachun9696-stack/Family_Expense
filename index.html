@@ -210,7 +210,6 @@
         <div class="sec-head"><h2>ใครใช้จ่ายเท่าไหร่</h2><small id="whoSpentSub" class="muted"></small></div>
         <div class="card">
           <div id="whoSpent" class="hbars"></div>
-          <p class="muted" style="font-size:12.5px;margin:12px 0 0">นับเฉพาะรายจ่าย · "ใช้ร่วมกัน" คือรายจ่ายของบ้านที่ไม่ได้ระบุคน</p>
         </div>
       </section>
 
@@ -227,11 +226,17 @@
         </div>
       </section>
 
+      <section data-ov="memberall" id="secMemberAll">
+        <div class="sec-head"><h2>รายรับ–รายจ่ายรวม แต่ละคน</h2><small id="maSub">ไม่นับรายจ่ายใช้ร่วมกัน</small></div>
+        <div class="card"><div class="legend-row"><span><i style="background:var(--income)"></i>รายรับรวม</span><span><i style="background:var(--expense)"></i>รายจ่ายรวม</span></div>
+          <div id="chartMA" class="chart"></div><div id="tipMA" class="tip"></div>
+          <div id="maList" class="hbars" style="margin-top:10px"></div></div>
+      </section>
+
       <section data-ov="memberinc" id="secMemberIncome">
-        <div class="sec-head"><h2>รายได้–รายจ่ายแต่ละคน</h2><small>รวมเงินเดือนและรายการหัก</small></div>
+        <div class="sec-head"><h2>รายได้–รายการหักในสลิป</h2><small>เฉพาะในสลิปเงินเดือน</small></div>
         <div class="card"><div class="legend-row">
-          <span><i style="background:var(--income)"></i>เงินเดือน (ก่อนหัก)</span><span><i style="background:#8456C4"></i>รายรับอื่น</span>
-          <span><i style="background:#E0620F"></i>หักในสลิป</span><span><i style="background:var(--expense)"></i>ใช้ส่วนตัว</span></div>
+          <span><i style="background:var(--income)"></i>เงินเดือน (ก่อนหัก)</span><span><i style="background:#E0620F"></i>หักในสลิป</span></div>
           <div id="memberIncome" class="hbars"></div></div>
       </section>
 
