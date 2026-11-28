@@ -850,3 +850,30 @@ body.sheet-open{overflow:hidden}
 /* แอปที่ติดตั้ง (iPhone): ยึดแถบเมนูจากขอบบนของจอ ไม่ลอยขึ้นกลางจอ */
 .nav.nav-top{bottom:auto;top:calc(100vh - var(--navh,86px))}
 @supports (height:100lvh){.nav.nav-top{top:calc(100lvh - var(--navh,86px))}}
+
+/* รายการหนี้ */
+.dmv-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px}
+.dmv-chip{background:var(--surface-2);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line)}
+.dmv-chip small{font-size:11.5px;color:var(--muted)}
+.dmv-chip b{font-size:16px}
+.dmv-chip.ok b{color:var(--income)} .dmv-chip.bad b{color:var(--expense)} .dmv-chip.warn b{color:#E9A23B}
+.dmv{display:flex;flex-direction:column}
+.dmv-day{font-size:12px;font-weight:700;color:var(--muted);padding:12px 2px 4px;text-transform:none}
+.dmv-day:first-child{padding-top:0}
+.dmv-row{display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.dmv-row:last-child{border-bottom:0}
+.dmv-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:18px;font-weight:800}
+.dmv-ic.ok{background:color-mix(in srgb,var(--income) 18%,transparent)}
+.dmv-ic.bad{background:color-mix(in srgb,var(--expense) 18%,transparent)}
+.dmv-ic.warn{background:color-mix(in srgb,#E9A23B 20%,transparent);color:#E9A23B}
+.dmv-main{min-width:0}
+.dmv-t{font-weight:700;font-size:14.5px}
+.dmv-m{font-size:12.5px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.dmv-m b{color:var(--text,inherit);font-weight:600}
+.dmv-note{font-size:12.5px;margin-top:4px;padding:6px 8px;border-radius:9px;background:var(--surface-2);color:var(--muted);display:inline-block}
+.dmv-note b{color:var(--text,inherit)}
+.dmv-r{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.dmv-r b{font-size:15.5px}
+.dmv-r b.ok{color:var(--income)} .dmv-r b.bad{color:var(--expense)} .dmv-r b.warn{color:#E9A23B}
+.dmv-r small{font-size:11.5px;color:var(--muted)}
+.dmv-del{margin-top:4px;width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--muted);font-size:12px;cursor:pointer;display:grid;place-items:center}

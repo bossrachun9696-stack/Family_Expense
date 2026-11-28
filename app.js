@@ -4593,7 +4593,9 @@ function debtBal(L, at = "9999-12-31") {
   if (String(L.start_date).slice(0, 10) > at) return 0;
   return round2(+L.start_balance + lmovesOf(L.id).filter(m => String(m.move_date).slice(0, 10) <= at).reduce((a, m) => a + dmSign(m.kind) * +m.amount, 0));
 }
-const debtPaid = (L, s0 = "0000", e0 = "9999") => round2(lmovesOf(L.id).filter(m => m.kind === "pay" && String(m.move_date).slice(0, 10) >= s0 && String(m.move_date).slice(0, 10) <= e0).reduce((a, m) => a + +m.amount, 0));
+// ยอดที่หักออกจากบัญชีเงินกู้ = จ่าย + ปรับยอดตาม statement ที่ลดลง (ดอกเบี้ยรวมอยู่ในยอด statement แล้ว)
+const dmPaidAmt = (m) => m.kind === "pay" ? +m.amount : m.kind === "adjust" && +m.amount < 0 ? -m.amount : 0;
+const debtPaid = (L, s0 = "0000", e0 = "9999") => round2(lmovesOf(L.id).filter(m => String(m.move_date).slice(0, 10) >= s0 && String(m.move_date).slice(0, 10) <= e0).reduce((a, m) => a + dmPaidAmt(m), 0));
 const debtOpen = (L) => !L.closed_at;
 const debtOwnerName = (L) => L.member_id ? (state.members.find(m => m.id === L.member_id)?.display_name || "สมาชิกที่ออกไปแล้ว") : "ของบ้าน";
 const canEditDebt = (L) => !L || L.created_by === state.user.id || !L.member_id || canEditMember(L.member_id);
@@ -4722,13 +4724,24 @@ function renderDebtTab(skipList) {
   // รายการของเดือนที่เลือก (ดูย้อนหลังได้ด้วยปุ่มเดือนด้านบน)
   { const runs = {}, rows = all.flatMap(L => lmovesOf(L.id).filter(m => { const d = String(m.move_date).slice(0, 10); return d >= m0 && d <= m1; }).map(m => ({ m, L })))
       .sort((a, b) => String(b.m.move_date).slice(0, 10).localeCompare(String(a.m.move_date).slice(0, 10)) || String(b.m.created_at || "").localeCompare(String(a.m.created_at || "")));
-    const sum = (k) => rows.filter(x => x.m.kind === k).reduce((a, x) => a + +x.m.amount, 0);
+    const paidM = rows.reduce((a, x) => a + dmPaidAmt(x.m), 0), sumK = (k) => rows.filter(x => x.m.kind === k).reduce((a, x) => a + +x.m.amount, 0);
+    const upAdj = rows.filter(x => x.m.kind === "adjust" && +x.m.amount > 0).reduce((a, x) => a + +x.m.amount, 0), charge = sumK("charge") + upAdj, intr = sumK("interest");
     $("dbMovesTitle").textContent = `รายการหนี้ ${monthLabel(selM)}`;
-    $("dbMovesSub").textContent = [sum("pay") && `จ่าย ${bahtR(sum("pay"))}`, sum("interest") && `ดอกเบี้ย ${bahtR(sum("interest"))}`, sum("charge") && `ก่อหนี้ ${bahtR(sum("charge"))}`].filter(Boolean).join(" · ");
+    $("dbMovesSub").textContent = rows.length ? `${rows.length} รายการ` : "";
     const legacy = (state.data.lmoves || []).filter(m => (m.tx_id && (state.data.txs || []).some(t => t.id === m.tx_id)) || m.account_move_id);
     $("dbLegacy").classList.toggle("hidden", !legacy.length || !all.some(L => canEditDebt(L)));
     $("dbLegacy").innerHTML = legacy.length ? `<div><b>มีรายจ่าย "${DEBT_CAT}" ที่เคยลงในรับ–จ่ายจากหน้านี้ ${legacy.length} รายการ</b><small>ตอนนี้หน้าหนี้สินแยกจากรับ–จ่ายแล้ว กดเพื่อเอาออกจากรับ–จ่าย (ยอดหนี้และประวัติในหน้านี้ไม่เปลี่ยน)</small></div><button type="button" class="btn btn-ghost btn-sm" id="dbLegacyBtn">เอาออก</button>` : "";
-    $("dbMoves").innerHTML = rows.length ? `<div class="moves" style="margin:0;border:0;padding:0">${rows.map(({ m, L }) => debtMoveRow(m, L, runs[L.id] ||= debtRunning(L), canEditDebt(L), true)).join("")}</div>`
+    const endBal = all.reduce((a, L) => a + Math.max(0, debtBal(L, m1)), 0);
+    const chips = `<div class="dmv-sum">
+        <div class="dmv-chip ok"><small>หักออกจากหนี้</small><b class="num">${bahtR(paidM)}</b></div>
+        ${charge ? `<div class="dmv-chip bad"><small>ก่อหนี้/เพิ่มยอด</small><b class="num">${bahtR(charge)}</b></div>` : ""}
+        ${intr ? `<div class="dmv-chip warn"><small>ดอกเบี้ย</small><b class="num">${bahtR(intr)}</b></div>` : ""}
+        <div class="dmv-chip"><small>คงเหลือสิ้นเดือน</small><b class="num">${bahtR(endBal)}</b></div></div>`;
+    let lastDay = "", body = "";
+    for (const { m, L } of rows) { const d = String(m.move_date).slice(0, 10);
+      if (d !== lastDay) { lastDay = d; body += `<div class="dmv-day">${esc(dayLabel(d))}</div>`; }
+      body += debtMoveRow(m, L, runs[L.id] ||= debtRunning(L), canEditDebt(L), true); }
+    $("dbMoves").innerHTML = rows.length ? chips + `<div class="dmv">${body}</div>`
       : `<div class="empty">ไม่มีรายการหนี้ในเดือนนี้ · เลือกเดือนด้านบนเพื่อดูย้อนหลัง</div>`; }
 }
 // ยอดหลังแต่ละรายการ (เรียงตามวัน แล้วตามเวลาบันทึก) · ปรับยอดตาม statement: ยอดตาม statement + ลด/เพิ่มจากรอบก่อน
@@ -4739,15 +4752,20 @@ function debtRunning(L) {
   return { map, lastStmt: stmt };
 }
 const DM_LAB = { pay: "จ่าย", charge: "ก่อหนี้เพิ่ม", interest: "ดอกเบี้ย/ค่าธรรมเนียม", adjust: "ปรับยอดตาม statement" };
+const DM_IC = { pay: "💸", charge: "🛒", interest: "％", adjust: "🧾" };
 function debtMoveRow(m, L, run, edit, withName) {
-  const r = run.map[m.id] || {}, adj = m.kind === "adjust", diff = adj ? round2(r.prevStmt - r.after) : 0;
-  const tags = [esc(dayLabel(String(m.move_date).slice(0, 10))), withName ? esc(L.name) : "", m.in_bills ? "งวดในรายจ่ายหลัก" : m.kind === "pay" && L.in_bills ? "โปะ" : "",
-    m.tx_id && (state.data.txs || []).some(t => t.id === m.tx_id) ? "เคยลงรายจ่าย" : "", m.account_move_id ? "เคยถอนจากเงินเก็บ" : "", m.slip_path ? `<a href="#" data-dm-slip="${esc(m.id)}">🧾 ดูสลิป</a>` : ""].filter(Boolean).join(" · ");
-  const sub = adj ? `<div class="sub num" style="margin-top:2px">ยอดตาม statement <b>${baht(r.after)}</b> · ${diff >= 0 ? `<b style="color:var(--income)">ลดจากรอบก่อน ${baht(diff)}</b>` : `<b style="color:var(--expense)">เพิ่มจากรอบก่อน ${baht(-diff)}</b>`}</div>` : "";
-  const amt = adj ? `<b class="num" style="color:${diff >= 0 ? "var(--income)" : "var(--expense)"}">${diff >= 0 ? "−" : "+"}${baht(Math.abs(diff))}</b><small class="muted" style="display:block;font-size:11px">จากรอบก่อน</small>`
-    : `<b class="num" style="color:${m.kind === "pay" ? "var(--income)" : "var(--expense)"}">${m.kind === "pay" ? "−" : "+"}${baht(Math.abs(m.amount))}</b>`;
-  return `<div class="mv"><div><b>${DM_LAB[m.kind]}</b> ${esc(m.note || "")}<small>${tags}</small>${sub}</div>
-      <div style="text-align:right">${amt}${edit ? `<br><button class="linkbtn" type="button" style="font-size:12px;padding:0;color:var(--muted)" data-dm-del="${esc(m.id)}">ลบ</button>` : ""}</div></div>`;
+  const r = run.map[m.id] || {}, adj = m.kind === "adjust", down = m.kind === "pay" || (adj && +m.amount < 0), diff = adj ? round2(r.prevStmt - r.after) : 0;
+  const tone = down ? "ok" : m.kind === "interest" ? "warn" : "bad";
+  const title = m.kind === "pay" ? (m.in_bills ? "จ่ายงวด" : L.in_bills ? "โปะ" : "จ่าย") : adj ? (down ? "ลดยอดตาม statement" : "เพิ่มยอดตาม statement") : DM_LAB[m.kind];
+  const meta = [withName ? `<b>${esc(L.name)}</b>` : esc(dayLabel(String(m.move_date).slice(0, 10))), m.note ? esc(m.note) : "",
+    m.tx_id && (state.data.txs || []).some(t => t.id === m.tx_id) ? "เคยลงรายจ่าย" : "",
+    m.slip_path ? `<a href="#" data-dm-slip="${esc(m.id)}">🧾 สลิป</a>` : ""].filter(Boolean).join(" · ");
+  const stmt = adj ? `<div class="dmv-note">ยอดตาม statement <b class="num">${baht(r.after)}</b>${Math.abs(diff) > 0.004 ? ` · ${diff > 0 ? "ลด" : "เพิ่ม"}จากรอบก่อน <b class="num">${baht(Math.abs(diff))}</b>` : ""}</div>` : "";
+  return `<div class="dmv-row">
+      <div class="dmv-ic ${tone}" aria-hidden="true">${DM_IC[m.kind]}</div>
+      <div class="dmv-main"><div class="dmv-t">${title}</div><div class="dmv-m">${meta}</div>${stmt}</div>
+      <div class="dmv-r"><b class="num ${tone}">${down ? "−" : "+"}${baht(Math.abs(m.amount))}</b><small class="num">คงเหลือ ${bahtR(Math.max(0, r.after ?? 0))}</small>
+        ${edit ? `<button class="dmv-del" type="button" data-dm-del="${esc(m.id)}" aria-label="ลบรายการ">✕</button>` : ""}</div></div>`;
 }
 // ช่องแก้ค่างวด/โปะแบบด่วนบนการ์ด: พิมพ์แล้วเห็นผลทันที กดบันทึกถึงจะเก็บ
 const qeField = (L) => L.in_bills ? "extra_pay" : "installment";
@@ -4773,7 +4791,7 @@ function debtCard(L, c) {
   const paid = debtPaid(L), pct = base > 0 ? Math.max(0, Math.min(100, paid / base * 100)) : 0, due = debtOpen(L) ? debtNextDue(L) : null, edit = canEditDebt(L);
   const lab = { pay: "จ่าย", charge: "ก่อหนี้เพิ่ม", interest: "ดอกเบี้ย/ค่าธรรมเนียม", adjust: "ปรับยอด" };
   const run = state.dbOpen === L.id ? debtRunning(L) : null;
-  const hist = state.dbOpen === L.id ? `<div class="moves">${mv.length ? mv.slice().sort(newest("move_date")).slice(0, 30).map(m => debtMoveRow(m, L, run, edit, false)).join("")
+  const hist = state.dbOpen === L.id ? `<div class="dmv" style="margin-top:10px;border-top:1px solid var(--line);padding-top:6px">${mv.length ? mv.slice().sort((a, b) => String(b.move_date).slice(0, 10).localeCompare(String(a.move_date).slice(0, 10)) || String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 30).map(m => debtMoveRow(m, L, run, edit, false)).join("")
     : `<div class="muted" style="padding:6px 0">ยังไม่มีรายการ · ยอดเริ่มต้น ${baht(L.start_balance)} (${esc(dayLabel(String(L.start_date).slice(0, 10)))})</div>`}</div>` : "";
   return `<div class="acct" style="border-left:4px solid ${c}"><div class="acct-h" role="button" tabindex="0" data-db-open="${esc(L.id)}" style="cursor:pointer">
       <div class="goal-e" aria-hidden="true">${k[1]}</div><div style="flex:1;min-width:0"><b>${esc(L.name)}${L.private ? ' <span class="lent-tag" style="background:var(--surface-2);color:var(--muted)">🔒 เห็นคนเดียว</span>' : ""}${!debtOpen(L) ? ' <span class="lent-tag" style="background:var(--surface-2);color:var(--muted)">ปิดแล้ว</span>' : ""}</b>
@@ -4912,7 +4930,7 @@ const DMSLIP = makeSlipPicker("dm");
 let dmL = null, dmKind = "pay", dmMode = "regular";
 function dmAdjHint() {
   const L = dmL, prev = debtRunning(L).lastStmt, v = $("dmAmount").value;
-  const base = `ใส่ยอดค้างตาม statement · รอบก่อน ${baht(prev)} · ตอนนี้ในแอป ${baht(debtBal(L))}`;
+  const base = `ใส่ยอดค้างตาม statement (ส่วนที่ลดลงนับเป็นยอดจ่าย ดอกเบี้ยรวมอยู่แล้ว) · รอบก่อน ${baht(prev)} · ตอนนี้ในแอป ${baht(debtBal(L))}`;
   if (v === "" || !(+v >= 0)) return base;
   const d = round2(prev - +v);
   return `${base} → ${d >= 0 ? `ลดจากรอบก่อน ${baht(d)}` : `เพิ่มจากรอบก่อน ${baht(-d)}`}`;
