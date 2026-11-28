@@ -839,3 +839,10 @@ body.sheet-open{overflow:hidden}
 .dsr-m .col{height:38px;width:60%;display:flex;align-items:flex-end;justify-content:center}
 .dsr-m .col i{display:block;width:100%;border-radius:3px 3px 0 0}
 .dsr-m small{font-size:10px;line-height:1.15;white-space:nowrap}
+
+/* แก้ค่างวด/โปะแบบด่วนบนการ์ดหนี้ */
+.qe{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.qe input{width:96px;height:32px;padding:0 8px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:inherit;font:inherit;font-weight:700;text-align:right}
+.qe input:focus{outline:2px solid var(--income);outline-offset:1px}
+.qe-act{display:inline-flex;gap:6px;margin-left:6px}
+.nav{will-change:transform}
